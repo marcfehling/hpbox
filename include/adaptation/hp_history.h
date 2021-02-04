@@ -1,0 +1,81 @@
+// ---------------------------------------------------------------------
+//
+// Copyright (C) 2020 by the deal.II authors
+//
+// This file is part of the deal.II library.
+//
+// The deal.II library is free software; you can use it, redistribute
+// it, and/or modify it under the terms of the GNU Lesser General
+// Public License as published by the Free Software Foundation; either
+// version 2.1 of the License, or (at your option) any later version.
+// The full text of the license can be found in the file LICENSE.md at
+// the top level directory of deal.II.
+//
+// ---------------------------------------------------------------------
+
+#ifndef adaptation_hp_history_h
+#define adaptation_hp_history_h
+
+
+#include <deal.II/base/smartpointer.h>
+
+#include <deal.II/distributed/error_predictor.h>
+#include <deal.II/distributed/tria.h>
+
+#include <deal.II/dofs/dof_handler.h>
+
+#include <deal.II/hp/fe_collection.h>
+#include <deal.II/hp/q_collection.h>
+
+#include <deal.II/lac/la_parallel_vector.h>
+#include <deal.II/lac/vector.h>
+
+#include <adaptation/base.h>
+#include <adaptation/parameter.h>
+
+
+namespace Adaptation
+{
+  template <int dim,
+            typename VectorType =
+              dealii::LinearAlgebra::distributed::Vector<double>,
+            int spacedim = dim>
+  class hpHistory : public Base
+  {
+  public:
+    hpHistory(const Parameters &prm,
+              const VectorType &locally_relevant_solution,
+              const dealii::hp::FECollection<dim, spacedim> &fe_collection,
+              dealii::DoFHandler<dim, spacedim> &            dof_handler,
+              dealii::parallel::distributed::Triangulation<dim, spacedim>
+                &triangulation);
+
+    virtual void
+    estimate_mark_refine() override;
+    virtual const dealii::Vector<float> &
+    get_error_estimates() const override;
+    virtual const dealii::Vector<float> &
+    get_hp_indicators() const override;
+
+  protected:
+    const Parameters &prm;
+
+    dealii::SmartPointer<const VectorType> locally_relevant_solution;
+    dealii::SmartPointer<dealii::DoFHandler<dim, spacedim>> dof_handler;
+    dealii::SmartPointer<
+      dealii::parallel::distributed::Triangulation<dim, spacedim>>
+      triangulation;
+
+    dealii::parallel::distributed::ErrorPredictor<dim> error_predictor;
+    bool                                               init_step;
+
+    dealii::hp::QCollection<dim - 1> face_quadrature_collection;
+
+    dealii::Vector<float> error_estimates;
+    dealii::Vector<float> error_predictions;
+    dealii::Vector<float> hp_indicators;
+  };
+} // namespace Adaptation
+
+
+#endif
