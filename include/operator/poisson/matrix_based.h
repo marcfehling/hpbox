@@ -19,6 +19,16 @@
 
 #include <deal.II/base/partitioner.h>
 
+#include <deal.II/dofs/dof_handler.h>
+
+#include <deal.II/hp/mapping_collection.h>
+#include <deal.II/hp/q_collection.h>
+
+#include <deal.II/lac/affine_constraints.h>
+#include <deal.II/lac/trilinos_sparse_matrix.h>
+
+#include <deal.II/multigrid/mg_solver.h>
+
 #include <operator/base.h>
 
 
@@ -27,19 +37,27 @@ namespace Operator
   namespace Poisson
   {
     template <int dim, typename VectorType>
-    class MatrixBased : public Operator::Base<dim, VectorType>
+    class MatrixBased
+      : public dealii::MGSolverOperatorBase<dim,
+                                            typename VectorType::value_type>
     {
     public:
       using value_type = typename VectorType::value_type;
 
       MatrixBased() = default;
 
+      MatrixBased(const dealii::hp::MappingCollection<dim> &   mapping,
+                  const dealii::DoFHandler<dim> &              dof_handler,
+                  const dealii::hp::QCollection<dim> &         quad,
+                  const dealii::AffineConstraints<value_type> &constraints,
+                  VectorType &                                 system_rhs);
+
       void
-      reinit(const dealii::hp::MappingCollection<dim> &mapping_collection,
-             const dealii::DoFHandler<dim> &           dof_handler,
-             const dealii::hp::QCollection<dim> &      quadrature_collection,
-             const dealii::AffineConstraints<value_type> & constraints,
-             VectorType &                      system_rhs) override;
+      reinit(const dealii::hp::MappingCollection<dim> &   mapping_collection,
+             const dealii::DoFHandler<dim> &              dof_handler,
+             const dealii::hp::QCollection<dim> &         quadrature_collection,
+             const dealii::AffineConstraints<value_type> &constraints,
+             VectorType &                                 system_rhs);
 
       void
       vmult(VectorType &dst, const VectorType &src) const override;
@@ -47,13 +65,17 @@ namespace Operator
       void
       initialize_dof_vector(VectorType &vec) const override;
 
-      dealii::types::global_dof_index m() const override;
+      dealii::types::global_dof_index
+      m() const override;
 
-      void compute_inverse_diagonal(VectorType &diagonal) const override;
+      void
+      compute_inverse_diagonal(VectorType &diagonal) const override;
 
-      const dealii::TrilinosWrappers::SparseMatrix &get_system_matrix() const override;
+      const dealii::TrilinosWrappers::SparseMatrix &
+      get_system_matrix() const override;
 
-      void Tvmult(VectorType &dst, const VectorType &src) const override;
+      void
+      Tvmult(VectorType &dst, const VectorType &src) const override;
 
     private:
       // TODO: Add RHS function to constructor
@@ -70,8 +92,8 @@ namespace Operator
 
       std::shared_ptr<const dealii::Utilities::MPI::Partitioner> partitioner;
     };
-  }
-}
+  } // namespace Poisson
+} // namespace Operator
 
 
 #endif

@@ -19,9 +19,19 @@
 
 #include <deal.II/base/partitioner.h>
 
-#include <deal.II/matrix_free/matrix_free.h>
+#include <deal.II/dofs/dof_handler.h>
+
+#include <deal.II/hp/mapping_collection.h>
+#include <deal.II/hp/q_collection.h>
+
+#include <deal.II/lac/affine_constraints.h>
+#include <deal.II/lac/trilinos_sparse_matrix.h>
+
 #include <deal.II/matrix_free/fe_evaluation.h>
+#include <deal.II/matrix_free/matrix_free.h>
 #include <deal.II/matrix_free/tools.h>
+
+#include <deal.II/multigrid/mg_solver.h>
 
 #include <operator/base.h>
 
@@ -30,9 +40,10 @@ namespace Operator
 {
   namespace Poisson
   {
-    // A matrix-free implementation of the Laplace operator.
     template <int dim, typename VectorType>
-    class MatrixFree : public Operator::Base<dim, VectorType>, public dealii::MGSolverOperatorBase<dim, typename VectorType::value_type>
+    class MatrixFree
+      : public dealii::MGSolverOperatorBase<dim,
+                                            typename VectorType::value_type>
     {
     public:
       using value_type = typename VectorType::value_type;
@@ -41,29 +52,36 @@ namespace Operator
 
       MatrixFree() = default;
 
-      MatrixFree(const dealii::hp::MappingCollection<dim> &mapping,
-                      const dealii::DoFHandler<dim> &           dof_handler,
-                      const dealii::hp::QCollection<dim> &      quad,
-                      const dealii::AffineConstraints<value_type> & constraints,
-                      VectorType &                      system_rhs) override;
+      MatrixFree(const dealii::hp::MappingCollection<dim> &   mapping,
+                 const dealii::DoFHandler<dim> &              dof_handler,
+                 const dealii::hp::QCollection<dim> &         quad,
+                 const dealii::AffineConstraints<value_type> &constraints,
+                 VectorType &                                 system_rhs);
 
-      void reinit(const dealii::hp::MappingCollection<dim> &mapping,
-                  const dealii::DoFHandler<dim> &           dof_handler,
-                  const dealii::hp::QCollection<dim> &      quad,
-                  const dealii::AffineConstraints<value_type> & constraints,
-                  VectorType &                      system_rhs);
+      void
+      reinit(const dealii::hp::MappingCollection<dim> &   mapping,
+             const dealii::DoFHandler<dim> &              dof_handler,
+             const dealii::hp::QCollection<dim> &         quad,
+             const dealii::AffineConstraints<value_type> &constraints,
+             VectorType &                                 system_rhs);
 
-      void vmult(VectorType &dst, const VectorType &src) const override;
+      void
+      vmult(VectorType &dst, const VectorType &src) const override;
 
-      void initialize_dof_vector(VectorType &vec) const override;
+      void
+      initialize_dof_vector(VectorType &vec) const override;
 
-      dealii::types::global_dof_index m() const override;
+      dealii::types::global_dof_index
+      m() const override;
 
-      void compute_inverse_diagonal(VectorType &diagonal) const override;
+      void
+      compute_inverse_diagonal(VectorType &diagonal) const override;
 
-      const dealii::TrilinosWrappers::SparseMatrix &get_system_matrix() const override;
+      const dealii::TrilinosWrappers::SparseMatrix &
+      get_system_matrix() const override;
 
-      void Tvmult(VectorType &dst, const VectorType &src) const override;
+      void
+      Tvmult(VectorType &dst, const VectorType &src) const override;
 
     private:
       // TODO: Add RHS function to constructor
@@ -74,13 +92,16 @@ namespace Operator
       //       Precalculate during construction
       // dealii::hp::FEValues<dim> hp_fe_values;
 
-      void do_cell_integral_local(FECellIntegrator &integrator) const;
+      void
+      do_cell_integral_local(FECellIntegrator &integrator) const;
 
-      void do_cell_integral_global(FECellIntegrator &integrator,
-                                   VectorType &      dst,
-                                   const VectorType &src) const;
+      void
+      do_cell_integral_global(FECellIntegrator &integrator,
+                              VectorType &      dst,
+                              const VectorType &src) const;
 
-      void do_cell_integral_range(
+      void
+      do_cell_integral_range(
         const dealii::MatrixFree<dim, value_type> &  matrix_free,
         VectorType &                                 dst,
         const VectorType &                           src,
@@ -92,8 +113,8 @@ namespace Operator
 
       mutable dealii::TrilinosWrappers::SparseMatrix system_matrix;
     };
-  }
-}
+  } // namespace Poisson
+} // namespace Operator
 
 
 #endif

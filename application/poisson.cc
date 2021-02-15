@@ -15,9 +15,6 @@
  */
 
 
-// @sect4{Include files}
-//
-// Include files
 // TODO: need cleanup
 #include <deal.II/base/function.h>
 #include <deal.II/base/quadrature_lib.h>
@@ -69,15 +66,6 @@ namespace LA
 #include <deal.II/matrix_free/matrix_free.h>
 #include <deal.II/matrix_free/tools.h>
 
-#include <deal.II/multigrid/mg_coarse.h>
-#include <deal.II/multigrid/mg_constrained_dofs.h>
-#include <deal.II/multigrid/mg_matrix.h>
-#include <deal.II/multigrid/mg_smoother.h>
-#include <deal.II/multigrid/mg_solver.h>
-#include <deal.II/multigrid/mg_tools.h>
-#include <deal.II/multigrid/mg_transfer_global_coarsening.h>
-#include <deal.II/multigrid/multigrid.h>
-
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/error_estimator.h>
 #include <deal.II/numerics/smoothness_estimator.h>
@@ -87,7 +75,9 @@ namespace LA
 #include <adaptation/parameter.h>
 #include <function/factory.h>
 // #include <operator/poisson/factory.h>
+#include <operator/base.h>
 #include <operator/poisson/matrix_based.h>
+#include <operator/poisson/matrix_free.h>
 #include <solver/cg/amg.h>
 #include <solver/cg/gmg.h>
 
@@ -99,47 +89,6 @@ namespace LA
 namespace Poisson
 {
   using namespace dealii;
-
-  // @sect4{Utility functions}
-
-  // Helper functions for this tutorial.
-  template <typename MeshType>
-  MPI_Comm
-  get_mpi_comm(const MeshType &mesh)
-  {
-    const auto *tria_parallel = dynamic_cast<
-      const parallel::TriangulationBase<MeshType::dimension,
-                                        MeshType::space_dimension> *>(
-      &(mesh.get_triangulation()));
-
-    return tria_parallel != nullptr ? tria_parallel->get_communicator() :
-                                      MPI_COMM_SELF;
-  }
-
-
-
-  template <int dim, int spacedim>
-  std::shared_ptr<const Utilities::MPI::Partitioner>
-  create_dealii_partitioner(const DoFHandler<dim, spacedim> &dof_handler,
-                            unsigned int                     mg_level)
-  {
-    IndexSet locally_relevant_dofs;
-
-    if (mg_level == numbers::invalid_unsigned_int)
-      DoFTools::extract_locally_relevant_dofs(dof_handler,
-                                              locally_relevant_dofs);
-    else
-      DoFTools::extract_locally_relevant_level_dofs(dof_handler,
-                                                    mg_level,
-                                                    locally_relevant_dofs);
-
-    return std::make_shared<const Utilities::MPI::Partitioner>(
-      mg_level == numbers::invalid_unsigned_int ?
-        dof_handler.locally_owned_dofs() :
-        dof_handler.locally_owned_mg_dofs(mg_level),
-      locally_relevant_dofs,
-      get_mpi_comm(dof_handler));
-  }
 
 
 
@@ -187,7 +136,7 @@ namespace Poisson
   SolverParameters::SolverParameters()
     : ParameterAcceptor("solver")
   {
-    type = "AMG";
+    type = "GMG";
     add_parameter("type", type);
   }
 
@@ -224,545 +173,17 @@ namespace Poisson
 
 
 
-  // @sect3{The <code>LaplaceOperator</code> class template}
-
-  template <int dim, typename number>
-  class LaplaceOperatorMatrixBased : public MGSolverOperatorBase<dim, number>
-  {
-  public:
-    using typename MGSolverOperatorBase<dim, number>::VectorType;
-
-    // Constructor
-    LaplaceOperatorMatrixBased() = default;
-
-    // Constructor
-    LaplaceOperatorMatrixBased(const hp::MappingCollection<dim> &mapping,
-                               const DoFHandler<dim> &           dof_handler,
-                               const hp::QCollection<dim> &      quad,
-                               const AffineConstraints<number> & constraints,
-                               VectorType &                      system_rhs);
-
-    void
-    reinit(const hp::MappingCollection<dim> &mapping_collection,
-           const DoFHandler<dim> &           dof_handler,
-           const hp::QCollection<dim> &      quadrature_collection,
-           const AffineConstraints<number> & constraints,
-           VectorType &                      system_rhs);
-
-    types::global_dof_index
-    m() const override;
-
-    void
-    initialize_dof_vector(VectorType &vec) const override;
-
-    void
-    vmult(VectorType &dst, const VectorType &src) const override;
-
-    void
-    compute_inverse_diagonal(VectorType &diagonal) const override;
-
-    const TrilinosWrappers::SparseMatrix &
-    get_system_matrix() const override;
-
-  private:
-    TrilinosWrappers::SparseMatrix system_matrix;
-
-    std::shared_ptr<const Utilities::MPI::Partitioner> partitioner;
-  };
-
-
-
-  template <int dim, typename number>
-  LaplaceOperatorMatrixBased<dim, number>::LaplaceOperatorMatrixBased(
-    const hp::MappingCollection<dim> &mapping,
-    const DoFHandler<dim> &           dof_handler,
-    const hp::QCollection<dim> &      quad,
-    const AffineConstraints<number> & constraints,
-    VectorType &                      system_rhs)
-  {
-    this->reinit(mapping, dof_handler, quad, constraints, system_rhs);
-  }
-
-
-
-  template <int dim, typename number>
-  void
-  LaplaceOperatorMatrixBased<dim, number>::reinit(
-    const hp::MappingCollection<dim> &mapping_collection,
-    const DoFHandler<dim> &           dof_handler,
-    const hp::QCollection<dim> &      quadrature_collection,
-    const AffineConstraints<number> & constraints,
-    VectorType &                      system_rhs)
-  {
-#ifndef DEAL_II_WITH_TRILINOS
-    Assert(false, StandardExceptions::ExcNotImplemented());
-    (void)mapping_collection;
-    (void)dof_handler;
-    (void)quadrature_collection;
-    (void)constraints;
-    (void)system_rhs;
-#else
-
-    // Create partitioner.
-    const auto create_partitioner = [](const DoFHandler<dim> &dof_handler) {
-      IndexSet locally_relevant_dofs;
-
-      DoFTools::extract_locally_relevant_dofs(dof_handler,
-                                              locally_relevant_dofs);
-
-      return std::make_shared<const Utilities::MPI::Partitioner>(
-        dof_handler.locally_owned_dofs(),
-        locally_relevant_dofs,
-        get_mpi_comm(dof_handler));
-    };
-
-    this->partitioner = create_partitioner(dof_handler);
-
-    // Allocate memory for system matrix and right-hand-side vector.
-    TrilinosWrappers::SparsityPattern dsp(dof_handler.locally_owned_dofs(),
-                                          get_mpi_comm(dof_handler));
-    DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false);
-    dsp.compress();
-
-    system_matrix.reinit(dsp);
-
-    initialize_dof_vector(system_rhs);
-
-    // Assemble system matrix and right-hand-side vector.
-    hp::FEValues<dim> hp_fe_values(mapping_collection,
-                                   dof_handler.get_fe_collection(),
-                                   quadrature_collection,
-                                   update_values | update_gradients |
-                                     update_quadrature_points |
-                                     update_JxW_values);
-
-    FullMatrix<double>                   cell_matrix;
-    Vector<double>                       cell_rhs;
-    std::vector<types::global_dof_index> local_dof_indices;
-    for (const auto &cell : dof_handler.active_cell_iterators())
-      {
-        if (cell->is_locally_owned() == false)
-          continue;
-
-        const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
-        cell_matrix.reinit(dofs_per_cell, dofs_per_cell);
-        cell_matrix = 0;
-        cell_rhs.reinit(dofs_per_cell);
-        cell_rhs = 0;
-        hp_fe_values.reinit(cell);
-        const FEValues<dim> &fe_values = hp_fe_values.get_present_fe_values();
-
-        for (unsigned int q_point = 0; q_point < fe_values.n_quadrature_points;
-             ++q_point)
-          for (unsigned int i = 0; i < dofs_per_cell; ++i)
-            {
-              for (unsigned int j = 0; j < dofs_per_cell; ++j)
-                cell_matrix(i, j) +=
-                  (fe_values.shape_grad(i, q_point) * // grad phi_i(x_q)
-                   fe_values.shape_grad(j, q_point) * // grad phi_j(x_q)
-                   fe_values.JxW(q_point));           // dx
-            }
-        local_dof_indices.resize(dofs_per_cell);
-        cell->get_dof_indices(local_dof_indices);
-
-        constraints.distribute_local_to_global(
-          cell_matrix, cell_rhs, local_dof_indices, system_matrix, system_rhs);
-      }
-
-    system_rhs.compress(VectorOperation::values::add);
-    system_matrix.compress(VectorOperation::values::add);
-#endif
-  }
-
-
-
-  template <int dim, typename number>
-  types::global_dof_index
-  LaplaceOperatorMatrixBased<dim, number>::m() const
-  {
-#ifdef DEAL_II_WITH_TRILINOS
-    return system_matrix.m();
-#else
-    Assert(false, ExcNotImplemented());
-    return 0;
-#endif
-  }
-
-
-
-  template <int dim, typename number>
-  void
-  LaplaceOperatorMatrixBased<dim, number>::initialize_dof_vector(
-    VectorType &vec) const
-  {
-    vec.reinit(partitioner);
-  }
-
-
-
-  template <int dim, typename number>
-  void
-  LaplaceOperatorMatrixBased<dim, number>::vmult(VectorType &      dst,
-                                                 const VectorType &src) const
-  {
-    system_matrix.vmult(dst, src);
-  }
-
-
-
-  template <int dim, typename number>
-  void
-  LaplaceOperatorMatrixBased<dim, number>::compute_inverse_diagonal(
-    VectorType &diagonal) const
-  {
-    this->initialize_dof_vector(diagonal);
-
-#ifdef DEAL_II_WITH_TRILINOS
-    for (auto entry : system_matrix)
-      if (entry.row() == entry.column())
-        diagonal[entry.row()] = 1.0 / entry.value();
-#else
-    Assert(false, ExcNotImplemented());
-#endif
-  }
-
-
-
-  template <int dim, typename number>
-  const TrilinosWrappers::SparseMatrix &
-  LaplaceOperatorMatrixBased<dim, number>::get_system_matrix() const
-  {
-    return this->system_matrix;
-  }
-
-
-
-  template <int dim, typename number>
-  class LaplaceOperatorMatrixFree : public MGSolverOperatorBase<dim, number>
-  {
-  public:
-    using typename MGSolverOperatorBase<dim, number>::VectorType;
-
-    // An alias to the FEEvaluation class. Please note that, in contrast to
-    // other tutorials, the template arguments `degree` is set to -1 and
-    // `number of quadrature in 1D` to 0. In this case, FEEvaluation selects
-    // dynamically the correct degree and number of quadrature points. The
-    // need for dynamical decisions within FEEvaluation and possibly the
-    // lack of knowledge of matrix sizes during sum factorization might lead
-    // to a performance drop (up to 50%) compared to a templated approach,
-    // however, allows us to write here simple code without the need to
-    // explicitly deal with FEEvaluation instances with different template
-    // arguments, e.g., via jump tables.
-    using FECellIntegrator = FEEvaluation<dim, -1, 0, 1, number>;
-
-    // Constructor
-    LaplaceOperatorMatrixFree() = default;
-
-    // Constructor
-    LaplaceOperatorMatrixFree(const hp::MappingCollection<dim> &mapping,
-                              const DoFHandler<dim> &           dof_handler,
-                              const hp::QCollection<dim> &      quad,
-                              const AffineConstraints<number> & constraints,
-                              VectorType &                      system_rhs);
-
-    // Initialize the internal MatrixFree instance and compute the system
-    // right-hand-side vector
-    void
-    reinit(const hp::MappingCollection<dim> &mapping,
-           const DoFHandler<dim> &           dof_handler,
-           const hp::QCollection<dim> &      quad,
-           const AffineConstraints<number> & constraints,
-           VectorType &                      system_rhs);
-
-    // Since we do not have a matrix, query the DoFHandler for the number of
-    // degrees of freedom.
-    types::global_dof_index
-    m() const override;
-
-    // Delegate the task to MatrixFree.
-    void
-    initialize_dof_vector(VectorType &vec) const override;
-
-    // Perform an operator evaluation by looping with the help of MatrixFree
-    // over all cells and evaluating the effect of the cell integrals (see also:
-    // do_cell_integral_local() and do_cell_integral_global()).
-    void
-    vmult(VectorType &dst, const VectorType &src) const override;
-
-    // Since we do not have a system matrix, we cannot loop over the the
-    // diagonal entries of the matrix. Instead, we compute the diagonal by
-    // performing a sequence of operator evaluations to unit basis vectors.
-    // For this purpose, an optimized function from the MatrixFreeTools
-    // namespace is used.
-    void
-    compute_inverse_diagonal(VectorType &diagonal) const override;
-
-    // In the default case, no system matrix is set up during initialization
-    // of this class. As a consequence, it has to be computed here. Just like
-    // in the case of compute_inverse_diagonal(), the matrix entries are
-    // obtained via sequence of operator evaluations. For this purpose, an
-    // optimized function from the MatrixFreeTools namespace is used.
-    const TrilinosWrappers::SparseMatrix &
-    get_system_matrix() const override;
-
-  private:
-    // Perform cell integral on a cell batch without gathering and scattering
-    // the values. This function is needed for the MatrixFreeTools functions
-    // since these functions operate directly on the buffers of FEEvaluation.
-    void
-    do_cell_integral_local(FECellIntegrator &integrator) const;
-
-    // Same as above but with access to the global vectors.
-    void
-    do_cell_integral_global(FECellIntegrator &integrator,
-                            VectorType &      dst,
-                            const VectorType &src) const;
-
-    // This function loops over all cell batches within a cell-batch range and
-    // calls the above function.
-    void
-    do_cell_integral_range(
-      const MatrixFree<dim, number> &              matrix_free,
-      VectorType &                                 dst,
-      const VectorType &                           src,
-      const std::pair<unsigned int, unsigned int> &range) const;
-
-    // MatrixFree object.
-    MatrixFree<dim, number> matrix_free;
-
-    // Constraints potentially needed for the computation of the system matrix.
-    AffineConstraints<number> constraints;
-
-    // System matrix. In the default case, this matrix is empty. However, once
-    // get_system_matrix() is called, this matrix is filled.
-    mutable TrilinosWrappers::SparseMatrix system_matrix;
-  };
-
-
-
-  template <int dim, typename number>
-  LaplaceOperatorMatrixFree<dim, number>::LaplaceOperatorMatrixFree(
-    const hp::MappingCollection<dim> &mapping,
-    const DoFHandler<dim> &           dof_handler,
-    const hp::QCollection<dim> &      quad,
-    const AffineConstraints<number> & constraints,
-    VectorType &                      system_rhs)
-  {
-    this->reinit(mapping, dof_handler, quad, constraints, system_rhs);
-  }
-
-
-
-  template <int dim, typename number>
-  void
-  LaplaceOperatorMatrixFree<dim, number>::reinit(
-    const hp::MappingCollection<dim> &mapping,
-    const DoFHandler<dim> &           dof_handler,
-    const hp::QCollection<dim> &      quad,
-    const AffineConstraints<number> & constraints,
-    VectorType &                      system_rhs)
-  {
-    // Clear internal data structures (if operator is reused).
-    this->system_matrix.clear();
-
-    // Copy the constrains, since they might be needed for computation of the
-    // system matrix later on.
-    this->constraints.copy_from(constraints);
-
-    // Set up MatrixFree. At the quadrature points, we only need to evaluate
-    // the gradient of the solution and test with the gradient of the shape
-    // functions so that we only need to set the flag `update_gradients`.
-    typename MatrixFree<dim, number>::AdditionalData data;
-    data.mapping_update_flags = update_gradients;
-
-    matrix_free.reinit(mapping, dof_handler, constraints, quad, data);
-
-    // Compute the right-hand side vector. For this purpose, we set up a second
-    // MatrixFree instance that uses a modified ConstraintMatrix not containing
-    // the constraints due to Dirichlet-boundary conditions. This modified
-    // operator is applied to a vector with only the Dirichlet values set. The
-    // result is the negative right-hand-side vector.
-    {
-      AffineConstraints<number> constraints_without_dbc;
-
-      IndexSet locally_relevant_dofs;
-      DoFTools::extract_locally_relevant_dofs(dof_handler,
-                                              locally_relevant_dofs);
-      constraints_without_dbc.reinit(locally_relevant_dofs);
-
-      DoFTools::make_hanging_node_constraints(dof_handler,
-                                              constraints_without_dbc);
-      constraints_without_dbc.close();
-
-      VectorType b, x;
-
-      this->initialize_dof_vector(system_rhs);
-      this->initialize_dof_vector(b);
-      this->initialize_dof_vector(x);
-
-      MatrixFree<dim, number> matrix_free;
-      matrix_free.reinit(
-        mapping, dof_handler, constraints_without_dbc, quad, data);
-
-      constraints.distribute(x);
-
-      matrix_free.cell_loop(&LaplaceOperatorMatrixFree::do_cell_integral_range,
-                            this,
-                            b,
-                            x);
-
-      constraints.set_zero(b);
-
-      system_rhs -= b;
-    }
-  }
-
-
-
-  template <int dim, typename number>
-  types::global_dof_index
-  LaplaceOperatorMatrixFree<dim, number>::m() const
-  {
-    return matrix_free.get_dof_handler().n_dofs();
-  }
-
-
-
-  template <int dim, typename number>
-  void
-  LaplaceOperatorMatrixFree<dim, number>::initialize_dof_vector(
-    VectorType &vec) const
-  {
-    matrix_free.initialize_dof_vector(vec);
-  }
-
-
-
-  template <int dim, typename number>
-  void
-  LaplaceOperatorMatrixFree<dim, number>::vmult(VectorType &      dst,
-                                                const VectorType &src) const
-  {
-    this->matrix_free.cell_loop(
-      &LaplaceOperatorMatrixFree::do_cell_integral_range, this, dst, src, true);
-  }
-
-
-
-  template <int dim, typename number>
-  void
-  LaplaceOperatorMatrixFree<dim, number>::compute_inverse_diagonal(
-    VectorType &diagonal) const
-  {
-    // compute diagonal
-    MatrixFreeTools::compute_diagonal(
-      matrix_free,
-      diagonal,
-      &LaplaceOperatorMatrixFree::do_cell_integral_local,
-      this);
-
-    // and invert it
-    for (auto &i : diagonal)
-      i = (std::abs(i) > 1.0e-10) ? (1.0 / i) : 1.0;
-  }
-
-
-
-  template <int dim, typename number>
-  const TrilinosWrappers::SparseMatrix &
-  LaplaceOperatorMatrixFree<dim, number>::get_system_matrix() const
-  {
-    // Check if matrix has already been set up.
-    if (system_matrix.m() == 0 && system_matrix.n() == 0)
-      {
-        // Set up sparsity pattern of system matrix.
-        const auto &dof_handler = this->matrix_free.get_dof_handler();
-
-        TrilinosWrappers::SparsityPattern dsp(dof_handler.locally_owned_dofs(),
-                                              get_mpi_comm(dof_handler));
-
-        DoFTools::make_sparsity_pattern(dof_handler, dsp, this->constraints);
-
-        dsp.compress();
-        system_matrix.reinit(dsp);
-
-        // Assemble system matrix.
-        MatrixFreeTools::compute_matrix(
-          matrix_free,
-          constraints,
-          system_matrix,
-          &LaplaceOperatorMatrixFree::do_cell_integral_local,
-          this);
-      }
-
-    return this->system_matrix;
-  }
-
-
-
-  template <int dim, typename number>
-  void
-  LaplaceOperatorMatrixFree<dim, number>::do_cell_integral_local(
-    FECellIntegrator &integrator) const
-  {
-    integrator.evaluate(EvaluationFlags::gradients);
-
-    for (unsigned int q = 0; q < integrator.n_q_points; ++q)
-      integrator.submit_gradient(integrator.get_gradient(q), q);
-
-    integrator.integrate(EvaluationFlags::gradients);
-  }
-
-
-
-  template <int dim, typename number>
-  void
-  LaplaceOperatorMatrixFree<dim, number>::do_cell_integral_global(
-    FECellIntegrator &integrator,
-    VectorType &      dst,
-    const VectorType &src) const
-  {
-    integrator.gather_evaluate(src, EvaluationFlags::gradients);
-
-    for (unsigned int q = 0; q < integrator.n_q_points; ++q)
-      integrator.submit_gradient(integrator.get_gradient(q), q);
-
-    integrator.integrate_scatter(EvaluationFlags::gradients, dst);
-  }
-
-
-
-  template <int dim, typename number>
-  void
-  LaplaceOperatorMatrixFree<dim, number>::do_cell_integral_range(
-    const MatrixFree<dim, number> &              matrix_free,
-    VectorType &                                 dst,
-    const VectorType &                           src,
-    const std::pair<unsigned int, unsigned int> &range) const
-  {
-    FECellIntegrator integrator(matrix_free, range);
-
-    for (unsigned cell = range.first; cell < range.second; ++cell)
-      {
-        integrator.reinit(cell);
-
-        do_cell_integral_global(integrator, dst, src);
-      }
-  }
-
-
-
   // @sect3{Solver and preconditioner}
 
   // @sect4{Conjugate-gradient solver preconditioned by a algebraic multigrid
   // approach}
 
-  template <typename VectorType, typename Operator>
+  template <typename VectorType, typename OperatorType>
   void
-  solve_with_amg(SolverControl &   solver_control,
-                 const Operator &  system_matrix,
-                 VectorType &      dst,
-                 const VectorType &src)
+  solve_with_amg(SolverControl &     solver_control,
+                 const OperatorType &system_matrix,
+                 VectorType &        dst,
+                 const VectorType &  src)
   {
     LA::MPI::PreconditionAMG::AdditionalData data;
     data.elliptic              = true;
@@ -780,10 +201,10 @@ namespace Poisson
   // @sect4{Conjugate-gradient solver preconditioned by hybrid
   // polynomial-global-coarsening multigrid approach}
 
-  template <typename VectorType, typename Operator, int dim>
+  template <typename VectorType, typename OperatorType, int dim>
   void
   solve_with_gmg(SolverControl &                  solver_control,
-                 const Operator &                 system_matrix,
+                 const OperatorType &             system_matrix,
                  VectorType &                     dst,
                  const VectorType &               src,
                  const hp::MappingCollection<dim> mapping_collection,
@@ -800,15 +221,20 @@ namespace Poisson
                                                        operators;
     MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> transfers;
 
-    MGLevelObject<std::shared_ptr<Triangulation<dim>>>
-      coarse_grid_triangulations;
-
+    std::vector<std::shared_ptr<Triangulation<dim>>> coarse_grid_triangulations;
     if (mg_data.perform_h_transfer)
-      MGTransferGlobalCoarseningTools::create_global_coarsening_sequence(
-        coarse_grid_triangulations, dof_handler.get_triangulation());
+      coarse_grid_triangulations =
+        MGTransferGlobalCoarseningTools::create_geometric_coarsening_sequence(
+          dof_handler.get_triangulation());
+    else
+      coarse_grid_triangulations.emplace_back(
+        const_cast<Triangulation<dim> *>(&(dof_handler.get_triangulation())),
+        [](auto &) {
+          // empty deleter, since fine_triangulation_in is an external field
+          // and its destructor is called somewhere else
+        });
 
-    const unsigned int n_h_levels = coarse_grid_triangulations.max_level() -
-                                    coarse_grid_triangulations.min_level();
+    const unsigned int n_h_levels = coarse_grid_triangulations.size() - 1;
 
     // Determine the number of levels.
     const auto get_max_active_fe_index = [&](const auto &dof_handler) {
@@ -824,7 +250,7 @@ namespace Poisson
     };
 
     const unsigned int n_p_levels =
-      MGTransferGlobalCoarseningTools::create_p_sequence(
+      MGTransferGlobalCoarseningTools::create_polynomial_coarsening_sequence(
         get_max_active_fe_index(dof_handler) + 1, mg_data.p_sequence)
         .size();
 
@@ -871,8 +297,9 @@ namespace Poisson
               {
                 if (cell->is_locally_owned())
                   cell->set_active_fe_index(
-                    MGTransferGlobalCoarseningTools::generate_level_degree(
-                      cell_other->active_fe_index() + 1, mg_data.p_sequence) -
+                    MGTransferGlobalCoarseningTools::
+                      create_next_polynomial_coarsening_degree(
+                        cell_other->active_fe_index() + 1, mg_data.p_sequence) -
                     1);
                 cell_other++;
               }
@@ -912,11 +339,12 @@ namespace Poisson
         {
           VectorType dummy;
 
-          operators[level] = std::make_unique<Operator>(mapping_collection,
-                                                        dof_handler,
-                                                        quadrature_collection,
-                                                        constraint,
-                                                        dummy);
+          operators[level] =
+            std::make_unique<OperatorType>(mapping_collection,
+                                           dof_handler,
+                                           quadrature_collection,
+                                           constraint,
+                                           dummy);
         }
       }
 
@@ -935,10 +363,10 @@ namespace Poisson
 
     // Collect transfer operators within a single operator as needed by
     // the Multigrid solver class.
-    MGTransferGlobalCoarsening<
-      MGSolverOperatorBase<dim, typename VectorType::value_type>,
-      VectorType>
-      transfer(operators, transfers);
+    MGTransferGlobalCoarsening<dim, VectorType> transfer(
+      transfers, [&](const auto l, auto &vec) {
+        operators[l]->initialize_dof_vector(vec);
+      });
 
     // Proceed to solve the problem with multigrid.
     mg_solve(solver_control,
@@ -970,8 +398,6 @@ namespace Poisson
     create_coarse_grid();
     void
     setup_system();
-    void
-    assemble_system();
 
     template <typename Operator>
     void
@@ -1154,75 +580,10 @@ namespace Poisson
 
 
   template <int dim>
-  void
-  PoissonProblem<dim>::assemble_system()
-  {
-    TimerOutput::Scope t(computing_timer, "assemble");
-
-    FullMatrix<double> cell_matrix;
-    Vector<double>     cell_rhs;
-
-    std::vector<types::global_dof_index> local_dof_indices;
-    std::vector<double>                  rhs_values;
-
-    for (const auto &cell : dof_handler.active_cell_iterators())
-      if (cell->is_locally_owned())
-        {
-          const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
-
-          cell_matrix.reinit(dofs_per_cell, dofs_per_cell);
-          cell_matrix = 0;
-
-          cell_rhs.reinit(dofs_per_cell);
-          cell_rhs = 0;
-
-          fe_values_collection->reinit(cell);
-
-          const FEValues<dim> &fe_values =
-            fe_values_collection->get_present_fe_values();
-
-          rhs_values.resize(fe_values.n_quadrature_points);
-          rhs_function->values_list(fe_values.get_quadrature_points(),
-                                    rhs_values);
-
-          for (unsigned int q_point = 0;
-               q_point < fe_values.n_quadrature_points;
-               ++q_point)
-            for (unsigned int i = 0; i < dofs_per_cell; ++i)
-              {
-                for (unsigned int j = 0; j < dofs_per_cell; ++j)
-                  cell_matrix(i, j) +=
-                    (fe_values.shape_grad(i, q_point) * // grad phi_i(x_q)
-                     fe_values.shape_grad(j, q_point) * // grad phi_j(x_q)
-                     fe_values.JxW(q_point));           // dx
-
-                cell_rhs(i) -=
-                  (fe_values.shape_value(i, q_point) * // phi_i(x_q)
-                   rhs_values[q_point] *               // f(x_q)
-                   fe_values.JxW(q_point));            // dx
-              }
-
-          local_dof_indices.resize(dofs_per_cell);
-          cell->get_dof_indices(local_dof_indices);
-
-          constraints.distribute_local_to_global(cell_matrix,
-                                                 cell_rhs,
-                                                 local_dof_indices,
-                                                 system_matrix,
-                                                 system_rhs);
-        }
-
-    system_matrix.compress(VectorOperation::add);
-    system_rhs.compress(VectorOperation::add);
-  }
-
-
-
-  template <int dim>
-  template <typename Operator>
+  template <typename OperatorType>
   void
   PoissonProblem<dim>::solve(
-    const Operator &                                  system_matrix,
+    const OperatorType &                              system_matrix,
     LinearAlgebra::distributed::Vector<double> &      locally_relevant_solution,
     const LinearAlgebra::distributed::Vector<double> &system_rhs)
   {
@@ -1348,21 +709,26 @@ namespace Poisson
           << " on " << Utilities::MPI::n_mpi_processes(mpi_communicator)
           << " MPI rank(s)..." << std::endl;
 
-#if false
-    // MGSolverOperatorBase does not have reinit function
-    std::shared_ptr<MGSolverOperatorBase<dim, double>> laplace_operator;
-
+    // create operator
+    // TODO: I am not happy with this
+    std::unique_ptr<Operator::Poisson::MatrixBased<
+      dim,
+      LinearAlgebra::distributed::Vector<double>>>
+      poisson_operator_matrixbased;
+    std::unique_ptr<
+      Operator::Poisson::MatrixFree<dim,
+                                    LinearAlgebra::distributed::Vector<double>>>
+      poisson_operator_matrixfree;
     if (prm.prm_operator.type == "MatrixBased")
-      laplace_operator =
-        std::make_shared<LaplaceOperatorMatrixBased<dim, double>>();
+      poisson_operator_matrixbased = std::make_unique<
+        Operator::Poisson::
+          MatrixBased<dim, LinearAlgebra::distributed::Vector<double>>>();
     else if (prm.prm_operator.type == "MatrixFree")
-      laplace_operator =
-        std::make_shared<LaplaceOperatorMatrixFree<dim, double>>();
+      poisson_operator_matrixfree = std::make_unique<
+        Operator::Poisson::
+          MatrixFree<dim, LinearAlgebra::distributed::Vector<double>>>();
     else
       Assert(false, ExcNotImplemented());
-#else
-    LaplaceOperatorMatrixFree<dim, double> laplace_operator;
-#endif
 
     for (unsigned int cycle = 0;
          cycle < (prm.adaptation_type != "hp history" ? prm.n_cycles :
@@ -1391,13 +757,33 @@ namespace Poisson
               << "   Number of degrees of freedom: " << dof_handler.n_dofs()
               << std::endl;
 
-        laplace_operator.reinit(mapping_collection,
-                                dof_handler,
-                                quadrature_collection,
-                                constraints,
-                                system_rhs);
+        // TODO: I am not happy with this
+        if (poisson_operator_matrixbased != nullptr)
+          {
+            poisson_operator_matrixbased->reinit(mapping_collection,
+                                                 dof_handler,
+                                                 quadrature_collection,
+                                                 constraints,
+                                                 system_rhs);
+            solve(*poisson_operator_matrixbased,
+                  locally_relevant_solution,
+                  system_rhs);
+          }
+        else if (poisson_operator_matrixfree != nullptr)
+          {
+            std::cout << "we are here" << std::endl;
+            poisson_operator_matrixfree->reinit(mapping_collection,
+                                                dof_handler,
+                                                quadrature_collection,
+                                                constraints,
+                                                system_rhs);
+            solve(*poisson_operator_matrixfree,
+                  locally_relevant_solution,
+                  system_rhs);
+          }
+        else
+          Assert(false, ExcInternalError());
 
-        solve(laplace_operator, locally_relevant_solution, system_rhs);
         compute_errors();
 
         if (Utilities::MPI::n_mpi_processes(mpi_communicator) <= 32)
@@ -1416,9 +802,6 @@ namespace Poisson
 
 
 
-// @sect4{main()}
-
-// The final function.
 int
 main(int argc, char *argv[])
 {

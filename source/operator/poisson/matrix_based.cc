@@ -16,12 +16,12 @@
 
 #include <deal.II/dofs/dof_tools.h>
 
+#include <deal.II/hp/fe_values.h>
+
 #include <deal.II/lac/full_matrix.h>
+#include <deal.II/lac/la_parallel_vector.h>
 #include <deal.II/lac/trilinos_sparsity_pattern.h>
 #include <deal.II/lac/vector.h>
-#include <deal.II/lac/la_parallel_vector.h>
-
-#include <deal.II/hp/fe_values.h>
 
 #include <operator/poisson/matrix_based.h>
 
@@ -32,23 +32,37 @@ namespace Operator
   namespace Poisson
   {
     template <int dim, typename VectorType>
-    void
-    MatrixBased<dim, VectorType>::reinit(const hp::MappingCollection<dim> &mapping_collection,
-                                         const DoFHandler<dim> &           dof_handler,
-                                         const hp::QCollection<dim> &      quadrature_collection,
-                                         const AffineConstraints<value_type> & constraints,
-                                         VectorType &                      system_rhs)
+    MatrixBased<dim, VectorType>::MatrixBased(
+      const hp::MappingCollection<dim> &   mapping,
+      const DoFHandler<dim> &              dof_handler,
+      const hp::QCollection<dim> &         quad,
+      const AffineConstraints<value_type> &constraints,
+      VectorType &                         system_rhs)
     {
-      const auto *tria_parallel = dynamic_cast<const parallel::TriangulationBase<dim> *>(
-        &(dof_handler.get_triangulation()));
+      this->reinit(mapping, dof_handler, quad, constraints, system_rhs);
+    }
 
-      const MPI_Comm mpi_communicator = tria_parallel->get_communicator();
+
+
+    template <int dim, typename VectorType>
+    void
+    MatrixBased<dim, VectorType>::reinit(
+      const hp::MappingCollection<dim> &   mapping_collection,
+      const DoFHandler<dim> &              dof_handler,
+      const hp::QCollection<dim> &         quadrature_collection,
+      const AffineConstraints<value_type> &constraints,
+      VectorType &                         system_rhs)
+    {
+      const MPI_Comm mpi_communicator = get_mpi_comm(dof_handler);
 
       IndexSet locally_relevant_dofs;
       DoFTools::extract_locally_relevant_dofs(dof_handler,
                                               locally_relevant_dofs);
 
-      partitioner = std::make_shared<const Utilities::MPI::Partitioner>(dof_handler.locally_owned_dofs(), locally_relevant_dofs, mpi_communicator);
+      this->partitioner = std::make_shared<const Utilities::MPI::Partitioner>(
+        dof_handler.locally_owned_dofs(),
+        locally_relevant_dofs,
+        mpi_communicator);
 
       TrilinosWrappers::SparsityPattern dsp(dof_handler.locally_owned_dofs(),
                                             mpi_communicator);
@@ -112,7 +126,8 @@ namespace Operator
 
     template <int dim, typename VectorType>
     void
-    MatrixBased<dim, VectorType>::vmult(VectorType &dst, const VectorType &src) const
+    MatrixBased<dim, VectorType>::vmult(VectorType &      dst,
+                                        const VectorType &src) const
     {
       system_matrix.vmult(dst, src);
     }
@@ -129,6 +144,29 @@ namespace Operator
 
 
     template <int dim, typename VectorType>
+    types::global_dof_index
+    MatrixBased<dim, VectorType>::m() const
+    {
+      return system_matrix.m();
+    }
+
+
+
+    template <int dim, typename VectorType>
+    void
+    MatrixBased<dim, VectorType>::compute_inverse_diagonal(
+      VectorType &diagonal) const
+    {
+      this->initialize_dof_vector(diagonal);
+
+      for (auto entry : system_matrix)
+        if (entry.row() == entry.column())
+          diagonal[entry.row()] = 1.0 / entry.value();
+    }
+
+
+
+    template <int dim, typename VectorType>
     const TrilinosWrappers::SparseMatrix &
     MatrixBased<dim, VectorType>::get_system_matrix() const
     {
@@ -137,9 +175,19 @@ namespace Operator
 
 
 
+    template <int dim, typename VectorType>
+    void
+    MatrixBased<dim, VectorType>::Tvmult(VectorType &      dst,
+                                         const VectorType &src) const
+    {
+      vmult(dst, src);
+    }
+
+
+
     // explicit instantiations
     using VectorType = LinearAlgebra::distributed::Vector<double>;
     template class MatrixBased<2, VectorType>;
     template class MatrixBased<3, VectorType>;
-  }
-}
+  } // namespace Poisson
+} // namespace Operator
