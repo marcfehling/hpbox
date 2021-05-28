@@ -19,7 +19,8 @@
 
 #include <deal.II/base/smartpointer.h>
 
-#include <deal.II/distributed/error_predictor.h>
+#include <deal.II/distributed/cell_data_transfer.h>
+#include <deal.II/distributed/cell_weights.h>
 #include <deal.II/distributed/tria.h>
 
 #include <deal.II/dofs/dof_handler.h>
@@ -66,8 +67,12 @@ namespace Adaptation
       dealii::parallel::distributed::Triangulation<dim, spacedim>>
       triangulation;
 
-    dealii::parallel::distributed::ErrorPredictor<dim> error_predictor;
-    bool                                               init_step;
+    dealii::parallel::CellWeights<dim, spacedim> cell_weights;
+
+    dealii::parallel::distributed::
+      CellDataTransfer<dim, spacedim, dealii::Vector<float>>
+         data_transfer;
+    bool init_step;
 
     dealii::hp::QCollection<dim - 1> face_quadrature_collection;
 

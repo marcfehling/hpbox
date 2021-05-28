@@ -19,6 +19,7 @@
 
 #include <deal.II/base/smartpointer.h>
 
+#include <deal.II/distributed/cell_weights.h>
 #include <deal.II/distributed/tria.h>
 
 #include <deal.II/dofs/dof_handler.h>
@@ -67,7 +68,9 @@ namespace Adaptation
       dealii::parallel::distributed::Triangulation<dim, spacedim>>
       triangulation;
 
-    dealii::FESeries::Legendre<dim> legendre;
+    dealii::parallel::CellWeights<dim, spacedim> cell_weights;
+
+    dealii::FESeries::Legendre<dim, spacedim> legendre;
 
     dealii::hp::QCollection<dim - 1> face_quadrature_collection;
 

@@ -21,6 +21,7 @@
 
 #include <deal.II/hp/refinement.h>
 
+#include <deal.II/numerics/adaptation_strategies.h>
 #include <deal.II/numerics/error_estimator.h>
 
 #include <adaptation/hp_history.h>
@@ -41,18 +42,43 @@ namespace Adaptation
     , locally_relevant_solution(&locally_relevant_solution)
     , dof_handler(&dof_handler)
     , triangulation(&triangulation)
-    , error_predictor(dof_handler)
+    , cell_weights(dof_handler,
+                   parallel::CellWeights<dim>::ndofs_weighting(
+                     {prm.weighting_factor, prm.weighting_exponent}))
+    , data_transfer(
+        triangulation,
+        /*transfer_variable_size_data=*/false,
+        &AdaptationStrategies::Refinement::l2_norm<dim, spacedim, float>,
+        &AdaptationStrategies::Coarsening::l2_norm<dim, spacedim, float>)
     , init_step(true)
   {
-    Assert(prm.min_level <= prm.max_level,
+    Assert(prm.min_h_level <= prm.max_h_level,
            ExcMessage(
              "Triangulation level limits have been incorrectly set up."));
-    Assert(prm.min_degree <= prm.max_degree,
+    Assert(prm.min_p_degree <= prm.max_p_degree,
            ExcMessage("FECollection degrees have been incorrectly set up."));
 
-    for (unsigned int degree = prm.min_degree; degree <= prm.max_degree;
+    for (unsigned int degree = prm.min_p_degree; degree <= prm.max_p_degree;
          ++degree)
       face_quadrature_collection.push_back(QGauss<dim - 1>(degree + 1));
+
+    // limit p-level difference *before* predicting errors
+    triangulation.signals.post_p4est_refinement.connect([&]() {
+      const parallel::distributed::TemporarilyMatchRefineFlags<dim, spacedim>
+        refine_modifier(triangulation);
+
+      hp::Refinement::limit_p_level_difference(dof_handler,
+                                               /*max_difference=*/1,
+                                               /*contains_fe_index=*/0);
+
+      error_predictions.reinit(triangulation.n_active_cells());
+      hp::Refinement::predict_error(dof_handler,
+                                    error_estimates,
+                                    error_predictions,
+                                    /*gamma_p=*/std::sqrt(0.4),
+                                    /*gamma_h=*/2.,
+                                    /*gamma_n=*/1.);
+    });
   }
 
 
@@ -96,7 +122,7 @@ namespace Adaptation
           prm.total_refine_fraction,
           prm.total_coarsen_fraction);
 
-        // hp indicators
+        // hp-indicators
         hp_indicators.grow_or_shrink(triangulation->n_active_cells());
 
         for (unsigned int i = 0; i < triangulation->n_active_cells(); ++i)
@@ -105,7 +131,7 @@ namespace Adaptation
         const float global_minimum =
           Utilities::MPI::min(*std::min_element(hp_indicators.begin(),
                                                 hp_indicators.end()),
-                              triangulation->get_communicator()) - 1.;
+                              triangulation->get_communicator());
         if (global_minimum <= 0)
           {
             // (- 1.) ensures that the smallest indicator will be > 0
@@ -122,31 +148,27 @@ namespace Adaptation
         hp::Refinement::choose_p_over_h(*dof_handler);
 
         // limit levels
-        Assert(triangulation->n_levels() >= prm.min_level + 1 &&
-                 triangulation->n_levels() <= prm.max_level + 1,
+        Assert(triangulation->n_levels() >= prm.min_h_level + 1 &&
+                 triangulation->n_levels() <= prm.max_h_level + 1,
                ExcInternalError());
 
-        if (triangulation->n_levels() > prm.max_level)
+        if (triangulation->n_levels() > prm.max_h_level)
           for (const auto &cell :
-               triangulation->active_cell_iterators_on_level(prm.max_level))
+               triangulation->active_cell_iterators_on_level(prm.max_h_level))
             cell->clear_refine_flag();
 
         for (const auto &cell :
-             triangulation->active_cell_iterators_on_level(prm.min_level))
+             triangulation->active_cell_iterators_on_level(prm.min_h_level))
           cell->clear_coarsen_flag();
       }
 
     // perform refinement
-    error_predictor.prepare_for_coarsening_and_refinement(
-      error_estimates,
-      /*gamma_p=*/std::sqrt(0.4),
-      /*gamma_h=*/2.,
-      /*gamma_n=*/1.);
+    data_transfer.prepare_for_coarsening_and_refinement(error_estimates);
 
     triangulation->execute_coarsening_and_refinement();
 
     error_predictions.grow_or_shrink(triangulation->n_active_cells());
-    error_predictor.unpack(error_predictions);
+    data_transfer.unpack(error_predictions);
   }
 
 

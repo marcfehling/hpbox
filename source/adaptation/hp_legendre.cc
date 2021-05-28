@@ -42,17 +42,29 @@ namespace Adaptation
     , locally_relevant_solution(&locally_relevant_solution)
     , dof_handler(&dof_handler)
     , triangulation(&triangulation)
+    , cell_weights(dof_handler,
+                   parallel::CellWeights<dim>::ndofs_weighting(
+                     {prm.weighting_factor, prm.weighting_exponent}))
     , legendre(SmoothnessEstimator::Legendre::default_fe_series(fe_collection))
   {
-    Assert(prm.min_level <= prm.max_level,
+    Assert(prm.min_h_level <= prm.max_h_level,
            ExcMessage(
              "Triangulation level limits have been incorrectly set up."));
-    Assert(prm.min_degree <= prm.max_degree,
+    Assert(prm.min_p_degree <= prm.max_p_degree,
            ExcMessage("FECollection degrees have been incorrectly set up."));
 
-    for (unsigned int degree = prm.min_degree; degree <= prm.max_degree;
+    for (unsigned int degree = prm.min_p_degree; degree <= prm.max_p_degree;
          ++degree)
       face_quadrature_collection.push_back(QGauss<dim - 1>(degree + 1));
+
+    // limit p-level difference
+    triangulation.signals.post_p4est_refinement.connect([&]() {
+      const parallel::distributed::TemporarilyMatchRefineFlags<dim, spacedim>
+        refine_modifier(triangulation);
+      hp::Refinement::limit_p_level_difference(dof_handler,
+                                               /*max_difference=*/1,
+                                               /*contains_fe_index=*/0);
+    });
   }
 
 
@@ -85,7 +97,7 @@ namespace Adaptation
       prm.total_refine_fraction,
       prm.total_coarsen_fraction);
 
-    // hp indicators
+    // hp-indicators
     hp_indicators.grow_or_shrink(triangulation->n_active_cells());
 
     SmoothnessEstimator::Legendre::coefficient_decay(
@@ -105,17 +117,17 @@ namespace Adaptation
     hp::Refinement::choose_p_over_h(*dof_handler);
 
     // limit levels
-    Assert(triangulation->n_levels() >= prm.min_level + 1 &&
-             triangulation->n_levels() <= prm.max_level + 1,
+    Assert(triangulation->n_levels() >= prm.min_h_level + 1 &&
+             triangulation->n_levels() <= prm.max_h_level + 1,
            ExcInternalError());
 
-    if (triangulation->n_levels() > prm.max_level)
+    if (triangulation->n_levels() > prm.max_h_level)
       for (const auto &cell :
-           triangulation->active_cell_iterators_on_level(prm.max_level))
+           triangulation->active_cell_iterators_on_level(prm.max_h_level))
         cell->clear_refine_flag();
 
     for (const auto &cell :
-         triangulation->active_cell_iterators_on_level(prm.min_level))
+         triangulation->active_cell_iterators_on_level(prm.min_h_level))
       cell->clear_coarsen_flag();
 
     // perform refinement
