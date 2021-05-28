@@ -62,7 +62,7 @@ namespace Adaptation
       const parallel::distributed::TemporarilyMatchRefineFlags<dim, spacedim>
         refine_modifier(triangulation);
       hp::Refinement::limit_p_level_difference(dof_handler,
-                                               /*max_difference=*/1,
+                                               prm.max_p_level_difference,
                                                /*contains_fe_index=*/0);
     });
   }

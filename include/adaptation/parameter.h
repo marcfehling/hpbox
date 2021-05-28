@@ -39,6 +39,10 @@ namespace Adaptation
       max_p_degree = 7;
       add_parameter("max degree", max_p_degree);
 
+      max_p_level_difference = 1;
+      add_parameter("max difference of polynomial degrees",
+                    max_p_level_difference);
+
       total_refine_fraction = 0.3;
       add_parameter("total refine fraction", total_refine_fraction);
 
@@ -60,6 +64,7 @@ namespace Adaptation
 
     unsigned int min_h_level, max_h_level;
     unsigned int min_p_degree, max_p_degree;
+    unsigned int max_p_level_difference;
 
     double total_refine_fraction, total_coarsen_fraction;
     double p_refine_fraction, p_coarsen_fraction;

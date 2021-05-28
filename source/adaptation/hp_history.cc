@@ -68,7 +68,7 @@ namespace Adaptation
         refine_modifier(triangulation);
 
       hp::Refinement::limit_p_level_difference(dof_handler,
-                                               /*max_difference=*/1,
+                                               prm.max_p_level_difference,
                                                /*contains_fe_index=*/0);
 
       error_predictions.reinit(triangulation.n_active_cells());
