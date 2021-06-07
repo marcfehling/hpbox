@@ -25,6 +25,7 @@
 #include <deal.II/numerics/smoothness_estimator.h>
 
 #include <adaptation/hp_fourier.h>
+#include <global.h>
 
 using namespace dealii;
 
@@ -53,26 +54,33 @@ namespace Adaptation
     Assert(prm.min_p_degree <= prm.max_p_degree,
            ExcMessage("FECollection degrees have been incorrectly set up."));
 
-    for (unsigned int degree = prm.min_p_degree; degree <= prm.max_p_degree;
-         ++degree)
+    for (unsigned int degree = 1; degree <= prm.max_p_degree; ++degree)
       face_quadrature_collection.push_back(QGauss<dim - 1>(degree + 1));
 
     // limit p-level difference
-    triangulation.signals.post_p4est_refinement.connect([&]() {
+    const unsigned int min_fe_index = prm.min_p_degree - 1;
+    triangulation.signals.post_p4est_refinement.connect([&, min_fe_index]() {
       const parallel::distributed::TemporarilyMatchRefineFlags<dim, spacedim>
         refine_modifier(triangulation);
       hp::Refinement::limit_p_level_difference(dof_handler,
                                                prm.max_p_level_difference,
-                                               /*contains_fe_index=*/0);
+                                               /*contains=*/min_fe_index);
     });
+
+    {
+      TimerOutput::Scope t(getTimer(), "calculate transformation");
+      fourier.precalculate_all_transformation_matrices();
+    }
   }
 
 
 
   template <int dim, typename VectorType, int spacedim>
   void
-  hpFourier<dim, VectorType, spacedim>::estimate_mark_refine()
+  hpFourier<dim, VectorType, spacedim>::estimate_mark()
   {
+    TimerOutput::Scope t(getTimer(), "estimate mark");
+
     // error estimates
     error_estimates.grow_or_shrink(triangulation->n_active_cells());
 
@@ -129,9 +137,34 @@ namespace Adaptation
     for (const auto &cell :
          triangulation->active_cell_iterators_on_level(prm.min_h_level))
       cell->clear_coarsen_flag();
+  }
 
-    // perform refinement
+
+
+  template <int dim, typename VectorType, int spacedim>
+  void
+  hpFourier<dim, VectorType, spacedim>::refine()
+  {
+    TimerOutput::Scope t(getTimer(), "refine");
     triangulation->execute_coarsening_and_refinement();
+  }
+
+
+
+  template <int dim, typename VectorType, int spacedim>
+  unsigned int
+  hpFourier<dim, VectorType, spacedim>::get_n_cycles() const
+  {
+    return prm.n_cycles;
+  }
+
+
+
+  template <int dim, typename VectorType, int spacedim>
+  unsigned int
+  hpFourier<dim, VectorType, spacedim>::get_n_initial_refinements() const
+  {
+    return prm.min_h_level;
   }
 
 

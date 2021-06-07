@@ -17,8 +17,8 @@
 #define solver_cg_amg_h
 
 
-#include <deal.II/lac/solver_control.h>
 #include <deal.II/lac/solver_cg.h>
+#include <deal.II/lac/solver_control.h>
 #include <deal.II/lac/trilinos_precondition.h>
 
 
@@ -29,23 +29,28 @@ namespace Solver
     class AMG
     {
     public:
-      template <typename VectorType, typename Operator>
+      template <typename VectorType, typename OperatorType>
       static void
-      solve(const dealii::TrilinosWrappers::PreconditionAMG::AdditionalData &data,
-            dealii::SolverControl &   solver_control,
-            const Operator &  system_matrix,
-            VectorType &      dst,
-            const VectorType &src)
+      solve(dealii::SolverControl &solver_control,
+            const OperatorType &   system_matrix,
+            VectorType &           dst,
+            const VectorType &     src)
       {
-        dealii::TrilinosWrappers::PreconditionAMG preconditioner;
+        using namespace dealii;
+
+        TrilinosWrappers::PreconditionAMG::AdditionalData data;
+        data.elliptic              = true;
+        data.higher_order_elements = true;
+
+        TrilinosWrappers::PreconditionAMG preconditioner;
         preconditioner.initialize(system_matrix.get_system_matrix(), data);
 
-        dealii::SolverCG<VectorType> cg(solver_control);
+        SolverCG<VectorType> cg(solver_control);
         cg.solve(system_matrix, dst, src, preconditioner);
       }
     };
-  }
-}
+  } // namespace CG
+} // namespace Solver
 
 
 #endif

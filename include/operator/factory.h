@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2020 by the deal.II authors
+// Copyright (C) 2021 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -13,17 +13,14 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef adaptation_factory_h
-#define adaptation_factory_h
+#ifndef operator_factory_h
+#define operator_factory_h
 
 
 #include <deal.II/base/exceptions.h>
 
-#include <adaptation/h.h>
-#include <adaptation/hp_fourier.h>
-#include <adaptation/hp_history.h>
-#include <adaptation/hp_legendre.h>
-#include <adaptation/p.h>
+#include <operator/poisson/matrix_based.h>
+#include <operator/poisson/matrix_free.h>
 
 
 namespace Factory
@@ -33,24 +30,16 @@ namespace Factory
     typename VectorType = dealii::LinearAlgebra::distributed::Vector<double>,
     int spacedim        = dim,
     typename... Args>
-  std::unique_ptr<Adaptation::Base>
-  create_adaptation(std::string type, Args &&...args)
+  std::unique_ptr<dealii::MGSolverOperatorBase<dim, VectorType>>
+  create_operator(std::string type, Args &&...args)
   {
-    if (type == "h")
-      return std::make_unique<Adaptation::h<dim, VectorType, spacedim>>(
-        std::forward<Args>(args)...);
-    else if (type == "p")
-      return std::make_unique<Adaptation::p<dim, VectorType, spacedim>>(
-        std::forward<Args>(args)...);
-    else if (type == "hp Fourier")
-      return std::make_unique<Adaptation::hpFourier<dim, VectorType, spacedim>>(
-        std::forward<Args>(args)...);
-    else if (type == "hp History")
-      return std::make_unique<Adaptation::hpHistory<dim, VectorType, spacedim>>(
-        std::forward<Args>(args)...);
-    else if (type == "hp Legendre")
+    if (type == "poisson")
       return std::make_unique<
-        Adaptation::hpLegendre<dim, VectorType, spacedim>>(
+        Operator::Poisson::MatrixBased<dim, VectorType, spacedim>>(
+        std::forward<Args>(args)...);
+    else if (type == "poisson")
+      return std::make_unique<
+        Operator::Poisson::MatrixFree<dim, VectorType, spacedim>>(
         std::forward<Args>(args)...);
     else
       Assert(false, dealii::ExcNotImplemented());

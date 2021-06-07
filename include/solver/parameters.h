@@ -26,37 +26,7 @@ namespace Solver
   {
     Parameters()
       : dealii::ParameterAcceptor("solver")
-    {
-      min_level = 5;
-      add_parameter("min level", min_level);
-
-      max_level = 10;
-      add_parameter("max level", max_level);
-
-      min_degree = 2;
-      add_parameter("min degree", min_degree);
-
-      max_degree = 7;
-      add_parameter("max degree", max_degree);
-
-      total_refine_fraction = 0.3;
-      add_parameter("total refine fraction", total_refine_fraction);
-
-      total_coarsen_fraction = 0.03;
-      add_parameter("total coarsen fraction", total_refine_fraction);
-
-      p_refine_fraction = 0.9;
-      add_parameter("p-refine fraction", p_refine_fraction);
-
-      p_coarsen_fraction = 0.9;
-      add_parameter("p-coarsen fraction", p_coarsen_fraction);
-    }
-
-    unsigned int min_level, max_level;
-    unsigned int min_degree, max_degree;
-
-    double total_refine_fraction, total_coarsen_fraction;
-    double p_refine_fraction, p_coarsen_fraction;
+    {}
   };
 } // namespace Solver
 

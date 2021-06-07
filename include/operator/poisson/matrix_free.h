@@ -13,25 +13,13 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef operator_poisson_matrix_free_h
-#define operator_poisson_matrix_free_h
+#ifndef operator_poisson_matrixfree_h
+#define operator_poisson_matrixfree_h
 
 
-#include <deal.II/base/partitioner.h>
-
-#include <deal.II/dofs/dof_handler.h>
-
-#include <deal.II/hp/mapping_collection.h>
-#include <deal.II/hp/q_collection.h>
-
-#include <deal.II/lac/affine_constraints.h>
 #include <deal.II/lac/trilinos_sparse_matrix.h>
 
-#include <deal.II/matrix_free/fe_evaluation.h>
-#include <deal.II/matrix_free/matrix_free.h>
 #include <deal.II/matrix_free/tools.h>
-
-#include <deal.II/multigrid/mg_solver.h>
 
 #include <operator/base.h>
 
@@ -40,30 +28,22 @@ namespace Operator
 {
   namespace Poisson
   {
-    template <int dim, typename VectorType>
-    class MatrixFree
-      : public dealii::MGSolverOperatorBase<dim,
-                                            typename VectorType::value_type>
+    template <int dim, typename VectorType, int spacedim = dim>
+    class MatrixFree : public Operator::Base<dim, VectorType, spacedim>
     {
     public:
       using value_type = typename VectorType::value_type;
 
       using FECellIntegrator = dealii::FEEvaluation<dim, -1, 0, 1, value_type>;
 
-      MatrixFree() = default;
-
-      MatrixFree(const dealii::hp::MappingCollection<dim> &   mapping,
-                 const dealii::DoFHandler<dim> &              dof_handler,
-                 const dealii::hp::QCollection<dim> &         quad,
-                 const dealii::AffineConstraints<value_type> &constraints,
-                 VectorType &                                 system_rhs);
+      MatrixFree(
+        const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
+        const dealii::hp::QCollection<dim> &quadrature_collection);
 
       void
-      reinit(const dealii::hp::MappingCollection<dim> &   mapping,
-             const dealii::DoFHandler<dim> &              dof_handler,
-             const dealii::hp::QCollection<dim> &         quad,
+      reinit(const dealii::DoFHandler<dim, spacedim> &    dof_handler,
              const dealii::AffineConstraints<value_type> &constraints,
-             VectorType &                                 system_rhs);
+             VectorType &                                 system_rhs) override;
 
       void
       vmult(VectorType &dst, const VectorType &src) const override;
@@ -84,13 +64,18 @@ namespace Operator
       Tvmult(VectorType &dst, const VectorType &src) const override;
 
     private:
+      // const Parameters &prm;
+
+      dealii::SmartPointer<const dealii::hp::MappingCollection<dim, spacedim>>
+        mapping_collection;
+      dealii::SmartPointer<const dealii::hp::QCollection<dim>>
+        quadrature_collection;
+      dealii::SmartPointer<const dealii::AffineConstraints<value_type>>
+        constraints;
+
       // TODO: Add RHS function to constructor
       //       Grab and set as RHS in reinit
       // dealii::Function<dim> rhs_function;
-
-      // TODO: Add hp::FEValues to constructor
-      //       Precalculate during construction
-      // dealii::hp::FEValues<dim> hp_fe_values;
 
       void
       do_cell_integral_local(FECellIntegrator &integrator) const;
@@ -108,8 +93,6 @@ namespace Operator
         const std::pair<unsigned int, unsigned int> &range) const;
 
       dealii::MatrixFree<dim, value_type> matrix_free;
-
-      dealii::AffineConstraints<value_type> constraints;
 
       mutable dealii::TrilinosWrappers::SparseMatrix system_matrix;
     };

@@ -27,16 +27,19 @@ namespace Adaptation
     Parameters()
       : dealii::ParameterAcceptor("adaptation")
     {
+      n_cycles = 8;
+      add_parameter("n cycles", n_cycles);
+
       min_h_level = 5;
       add_parameter("min level", min_h_level);
 
-      max_h_level = 10;
+      max_h_level = 12;
       add_parameter("max level", max_h_level);
 
       min_p_degree = 2;
       add_parameter("min degree", min_p_degree);
 
-      max_p_degree = 7;
+      max_p_degree = 6;
       add_parameter("max degree", max_p_degree);
 
       max_p_level_difference = 1;
@@ -61,6 +64,8 @@ namespace Adaptation
       weighting_exponent = 1.;
       add_parameter("weighting exponent", weighting_exponent);
     }
+
+    unsigned int n_cycles;
 
     unsigned int min_h_level, max_h_level;
     unsigned int min_p_degree, max_p_degree;

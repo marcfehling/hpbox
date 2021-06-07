@@ -27,7 +27,6 @@
 #include <deal.II/hp/q_collection.h>
 
 #include <deal.II/lac/la_parallel_vector.h>
-#include <deal.II/lac/vector.h>
 
 #include <adaptation/base.h>
 #include <adaptation/parameter.h>
@@ -50,7 +49,15 @@ namespace Adaptation
         &triangulation);
 
     virtual void
-    estimate_mark_refine() override;
+    estimate_mark() override;
+    virtual void
+    refine() override;
+
+    virtual unsigned int
+    get_n_cycles() const override;
+    virtual unsigned int
+    get_n_initial_refinements() const override;
+
     virtual const dealii::Vector<float> &
     get_error_estimates() const override;
     virtual const dealii::Vector<float> &
@@ -59,16 +66,16 @@ namespace Adaptation
   private:
     const Parameters &prm;
 
-    dealii::SmartPointer<const VectorType> locally_relevant_solution;
-    dealii::SmartPointer<dealii::DoFHandler<dim, spacedim>> dof_handler;
-    dealii::SmartPointer<
+    const dealii::SmartPointer<const VectorType> locally_relevant_solution;
+    const dealii::SmartPointer<dealii::DoFHandler<dim, spacedim>> dof_handler;
+    const dealii::SmartPointer<
       dealii::parallel::distributed::Triangulation<dim, spacedim>>
       triangulation;
 
     dealii::hp::QCollection<dim - 1> face_quadrature_collection;
 
     dealii::Vector<float> error_estimates;
-    dealii::Vector<float> hp_indicators;
+    dealii::Vector<float> dummy;
   };
 } // namespace Adaptation
 

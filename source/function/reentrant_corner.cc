@@ -14,7 +14,6 @@
 // ---------------------------------------------------------------------
 
 
-#include <deal.II/base/exceptions.h>
 #include <deal.II/base/geometric_utilities.h>
 
 #include <function/reentrant_corner.h>
@@ -24,56 +23,59 @@
 using namespace dealii;
 
 
-template <int dim>
-ReentrantCorner<dim>::ReentrantCorner(const double alpha)
-  : Function<dim>()
-  , alpha(alpha)
+namespace Function
 {
-  Assert(dim > 1, ExcNotImplemented());
-  Assert(alpha > 0, ExcLowerRange(alpha, 0));
-}
+  template <int dim>
+  ReentrantCorner<dim>::ReentrantCorner(const double alpha)
+    : dealii::Function<dim>()
+    , alpha(alpha)
+  {
+    Assert(dim > 1, ExcNotImplemented());
+    Assert(alpha > 0, ExcLowerRange(alpha, 0));
+  }
 
 
 
-template <int dim>
-double
-ReentrantCorner<dim>::value(const dealii::Point<dim> &p,
-                            const unsigned int /*component*/) const
-{
-  const std::array<double, dim> p_sphere =
-    GeometricUtilities::Coordinates::to_spherical(p);
+  template <int dim>
+  double
+  ReentrantCorner<dim>::value(const Point<dim> &p,
+                              const unsigned int /*component*/) const
+  {
+    const std::array<double, dim> p_sphere =
+      GeometricUtilities::Coordinates::to_spherical(p);
 
-  return std::pow(p_sphere[0], alpha) * std::sin(alpha * p_sphere[1]);
-}
-
-
-
-template <int dim>
-Tensor<1, dim>
-ReentrantCorner<dim>::gradient(const dealii::Point<dim> &p,
-                               const unsigned int /*component*/) const
-{
-  const std::array<double, dim> p_sphere =
-    GeometricUtilities::Coordinates::to_spherical(p);
-
-  std::array<double, dim> ret_sphere;
-  // only for polar coordinates
-  const double fac = alpha * std::pow(p_sphere[0], alpha - 1);
-  ret_sphere[0]    = fac * std::sin(alpha * p_sphere[1]);
-  ret_sphere[1]    = fac * std::cos(alpha * p_sphere[1]);
-
-  // transform back to cartesian coordinates
-  // by considering polar unit vectors
-  Tensor<1, dim> ret;
-  ret[0] = ret_sphere[0] * std::cos(p_sphere[1]) -
-           ret_sphere[1] * std::sin(p_sphere[1]);
-  ret[1] = ret_sphere[0] * std::sin(p_sphere[1]) +
-           ret_sphere[1] * std::cos(p_sphere[1]);
-  return ret;
-}
+    return std::pow(p_sphere[0], alpha) * std::sin(alpha * p_sphere[1]);
+  }
 
 
 
-// explicit instantiations
-template class ReentrantCorner<2>;
-template class ReentrantCorner<3>;
+  template <int dim>
+  Tensor<1, dim>
+  ReentrantCorner<dim>::gradient(const Point<dim> &p,
+                                 const unsigned int /*component*/) const
+  {
+    const std::array<double, dim> p_sphere =
+      GeometricUtilities::Coordinates::to_spherical(p);
+
+    std::array<double, dim> ret_sphere;
+    // only for polar coordinates
+    const double fac = alpha * std::pow(p_sphere[0], alpha - 1);
+    ret_sphere[0]    = fac * std::sin(alpha * p_sphere[1]);
+    ret_sphere[1]    = fac * std::cos(alpha * p_sphere[1]);
+
+    // transform back to cartesian coordinates
+    // by considering polar unit vectors
+    Tensor<1, dim> ret;
+    ret[0] = ret_sphere[0] * std::cos(p_sphere[1]) -
+             ret_sphere[1] * std::sin(p_sphere[1]);
+    ret[1] = ret_sphere[0] * std::sin(p_sphere[1]) +
+             ret_sphere[1] * std::cos(p_sphere[1]);
+    return ret;
+  }
+
+
+
+  // explicit instantiations
+  template class ReentrantCorner<2>;
+  template class ReentrantCorner<3>;
+} // namespace Function

@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2020 by the deal.II authors
+// Copyright (C) 2021 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -13,8 +13,8 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef adaptation_hp_legendre_h
-#define adaptation_hp_legendre_h
+#ifndef adaptation_p_h
+#define adaptation_p_h
 
 
 #include <deal.II/base/smartpointer.h>
@@ -23,8 +23,6 @@
 #include <deal.II/distributed/tria.h>
 
 #include <deal.II/dofs/dof_handler.h>
-
-#include <deal.II/fe/fe_series.h>
 
 #include <deal.II/hp/fe_collection.h>
 #include <deal.II/hp/q_collection.h>
@@ -41,15 +39,15 @@ namespace Adaptation
             typename VectorType =
               dealii::LinearAlgebra::distributed::Vector<double>,
             int spacedim = dim>
-  class hpLegendre : public Base
+  class p : public Base
   {
   public:
-    hpLegendre(const Parameters &prm,
-               const VectorType &locally_relevant_solution,
-               const dealii::hp::FECollection<dim, spacedim> &fe_collection,
-               dealii::DoFHandler<dim, spacedim> &            dof_handler,
-               dealii::parallel::distributed::Triangulation<dim, spacedim>
-                 &triangulation);
+    p(const Parameters &                             prm,
+      const VectorType &                             locally_relevant_solution,
+      const dealii::hp::FECollection<dim, spacedim> &fe_collection,
+      dealii::DoFHandler<dim, spacedim> &            dof_handler,
+      dealii::parallel::distributed::Triangulation<dim, spacedim>
+        &triangulation);
 
     virtual void
     estimate_mark() override;
@@ -66,7 +64,7 @@ namespace Adaptation
     virtual const dealii::Vector<float> &
     get_hp_indicators() const override;
 
-  protected:
+  private:
     const Parameters &prm;
 
     const dealii::SmartPointer<const VectorType> locally_relevant_solution;
@@ -77,12 +75,10 @@ namespace Adaptation
 
     dealii::parallel::CellWeights<dim, spacedim> cell_weights;
 
-    dealii::FESeries::Legendre<dim, spacedim> legendre;
-
     dealii::hp::QCollection<dim - 1> face_quadrature_collection;
 
     dealii::Vector<float> error_estimates;
-    dealii::Vector<float> hp_indicators;
+    dealii::Vector<float> dummy;
   };
 } // namespace Adaptation
 

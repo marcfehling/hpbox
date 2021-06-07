@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2020 by the deal.II authors
+// Copyright (C) 2021 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -13,34 +13,19 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef adaptation_base_h
-#define adaptation_base_h
+#ifndef problem_base_h
+#define problem_base_h
 
 
-#include <deal.II/lac/vector.h>
-
-
-namespace Adaptation
+namespace Problem
 {
   class Base
   {
   public:
     virtual void
-    estimate_mark() = 0;
-    virtual void
-    refine() = 0;
-
-    virtual unsigned int
-    get_n_cycles() const = 0;
-    virtual unsigned int
-    get_n_initial_refinements() const = 0;
-
-    virtual const dealii::Vector<float> &
-    get_error_estimates() const = 0;
-    virtual const dealii::Vector<float> &
-    get_hp_indicators() const = 0;
+    run() = 0;
   };
-} // namespace Adaptation
+} // namespace Problem
 
 
 #endif

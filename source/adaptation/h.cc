@@ -22,6 +22,7 @@
 #include <deal.II/numerics/error_estimator.h>
 
 #include <adaptation/h.h>
+#include <global.h>
 
 using namespace dealii;
 
@@ -46,8 +47,7 @@ namespace Adaptation
     Assert(prm.min_p_degree <= prm.max_p_degree,
            ExcMessage("FECollection degrees have been incorrectly set up."));
 
-    for (unsigned int degree = prm.min_p_degree; degree <= prm.max_p_degree;
-         ++degree)
+    for (unsigned int degree = 1; degree <= prm.max_p_degree; ++degree)
       face_quadrature_collection.push_back(QGauss<dim - 1>(degree + 1));
   }
 
@@ -55,8 +55,10 @@ namespace Adaptation
 
   template <int dim, typename VectorType, int spacedim>
   void
-  h<dim, VectorType, spacedim>::estimate_mark_refine()
+  h<dim, VectorType, spacedim>::estimate_mark()
   {
+    TimerOutput::Scope t(getTimer(), "estimate mark");
+
     // error estimates
     error_estimates.grow_or_shrink(triangulation->n_active_cells());
 
@@ -94,9 +96,34 @@ namespace Adaptation
     for (const auto &cell :
          triangulation->active_cell_iterators_on_level(prm.min_h_level))
       cell->clear_coarsen_flag();
+  }
 
-    // perform refinement
+
+
+  template <int dim, typename VectorType, int spacedim>
+  void
+  h<dim, VectorType, spacedim>::refine()
+  {
+    TimerOutput::Scope t(getTimer(), "refine");
     triangulation->execute_coarsening_and_refinement();
+  }
+
+
+
+  template <int dim, typename VectorType, int spacedim>
+  unsigned int
+  h<dim, VectorType, spacedim>::get_n_cycles() const
+  {
+    return prm.n_cycles;
+  }
+
+
+
+  template <int dim, typename VectorType, int spacedim>
+  unsigned int
+  h<dim, VectorType, spacedim>::get_n_initial_refinements() const
+  {
+    return prm.min_h_level;
   }
 
 
@@ -114,9 +141,7 @@ namespace Adaptation
   const Vector<float> &
   h<dim, VectorType, spacedim>::get_hp_indicators() const
   {
-    Assert(false,
-           ExcMessage("This feature is not available for pure h-adaptation."));
-    return hp_indicators;
+    return dummy;
   }
 
 

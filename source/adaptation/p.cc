@@ -22,9 +22,8 @@
 #include <deal.II/hp/refinement.h>
 
 #include <deal.II/numerics/error_estimator.h>
-#include <deal.II/numerics/smoothness_estimator.h>
 
-#include <adaptation/hp_legendre.h>
+#include <adaptation/p.h>
 #include <global.h>
 
 using namespace dealii;
@@ -33,11 +32,11 @@ using namespace dealii;
 namespace Adaptation
 {
   template <int dim, typename VectorType, int spacedim>
-  hpLegendre<dim, VectorType, spacedim>::hpLegendre(
-    const Parameters &                     prm,
-    const VectorType &                     locally_relevant_solution,
-    const hp::FECollection<dim, spacedim> &fe_collection,
-    DoFHandler<dim, spacedim> &            dof_handler,
+  p<dim, VectorType, spacedim>::p(
+    const Parameters &prm,
+    const VectorType &locally_relevant_solution,
+    const hp::FECollection<dim, spacedim> & /*fe_collection*/,
+    DoFHandler<dim, spacedim> &                          dof_handler,
     parallel::distributed::Triangulation<dim, spacedim> &triangulation)
     : prm(prm)
     , locally_relevant_solution(&locally_relevant_solution)
@@ -46,7 +45,6 @@ namespace Adaptation
     , cell_weights(dof_handler,
                    parallel::CellWeights<dim>::ndofs_weighting(
                      {prm.weighting_factor, prm.weighting_exponent}))
-    , legendre(SmoothnessEstimator::Legendre::default_fe_series(fe_collection))
   {
     Assert(prm.min_h_level <= prm.max_h_level,
            ExcMessage(
@@ -66,18 +64,13 @@ namespace Adaptation
                                                prm.max_p_level_difference,
                                                /*contains=*/min_fe_index);
     });
-
-    {
-      TimerOutput::Scope t(getTimer(), "calculate transformation");
-      legendre.precalculate_all_transformation_matrices();
-    }
   }
 
 
 
   template <int dim, typename VectorType, int spacedim>
   void
-  hpLegendre<dim, VectorType, spacedim>::estimate_mark()
+  p<dim, VectorType, spacedim>::estimate_mark()
   {
     TimerOutput::Scope t(getTimer(), "estimate mark");
 
@@ -105,45 +98,22 @@ namespace Adaptation
       prm.total_refine_fraction,
       prm.total_coarsen_fraction);
 
-    // hp-indicators
-    hp_indicators.grow_or_shrink(triangulation->n_active_cells());
+    hp::Refinement::full_p_adaptivity(*dof_handler);
 
-    SmoothnessEstimator::Legendre::coefficient_decay(
-      legendre,
-      *dof_handler,
-      *locally_relevant_solution,
-      hp_indicators,
-      /*regression_strategy=*/VectorTools::Linfty_norm,
-      /*smallest_abs_coefficient=*/1e-10,
-      /*only_flagged_cells=*/true);
-
-    // decide hp
-    hp::Refinement::p_adaptivity_fixed_number(*dof_handler,
-                                              hp_indicators,
-                                              prm.p_refine_fraction,
-                                              prm.p_coarsen_fraction);
-    hp::Refinement::choose_p_over_h(*dof_handler);
-
-    // limit levels
-    Assert(triangulation->n_levels() >= prm.min_h_level + 1 &&
-             triangulation->n_levels() <= prm.max_h_level + 1,
-           ExcInternalError());
-
-    if (triangulation->n_levels() > prm.max_h_level)
-      for (const auto &cell :
-           triangulation->active_cell_iterators_on_level(prm.max_h_level))
-        cell->clear_refine_flag();
-
-    for (const auto &cell :
-         triangulation->active_cell_iterators_on_level(prm.min_h_level))
-      cell->clear_coarsen_flag();
+    // manually remove all h-flags
+    for (const auto &cell : triangulation->active_cell_iterators())
+      if (cell->is_locally_owned())
+        {
+          cell->clear_refine_flag();
+          cell->clear_coarsen_flag();
+        }
   }
 
 
 
   template <int dim, typename VectorType, int spacedim>
   void
-  hpLegendre<dim, VectorType, spacedim>::refine()
+  p<dim, VectorType, spacedim>::refine()
   {
     TimerOutput::Scope t(getTimer(), "refine");
     triangulation->execute_coarsening_and_refinement();
@@ -153,7 +123,7 @@ namespace Adaptation
 
   template <int dim, typename VectorType, int spacedim>
   unsigned int
-  hpLegendre<dim, VectorType, spacedim>::get_n_cycles() const
+  p<dim, VectorType, spacedim>::get_n_cycles() const
   {
     return prm.n_cycles;
   }
@@ -162,7 +132,7 @@ namespace Adaptation
 
   template <int dim, typename VectorType, int spacedim>
   unsigned int
-  hpLegendre<dim, VectorType, spacedim>::get_n_initial_refinements() const
+  p<dim, VectorType, spacedim>::get_n_initial_refinements() const
   {
     return prm.min_h_level;
   }
@@ -171,7 +141,7 @@ namespace Adaptation
 
   template <int dim, typename VectorType, int spacedim>
   const Vector<float> &
-  hpLegendre<dim, VectorType, spacedim>::get_error_estimates() const
+  p<dim, VectorType, spacedim>::get_error_estimates() const
   {
     return error_estimates;
   }
@@ -180,14 +150,14 @@ namespace Adaptation
 
   template <int dim, typename VectorType, int spacedim>
   const Vector<float> &
-  hpLegendre<dim, VectorType, spacedim>::get_hp_indicators() const
+  p<dim, VectorType, spacedim>::get_hp_indicators() const
   {
-    return hp_indicators;
+    return dummy;
   }
 
 
 
   // explicit instantiations
-  template class hpLegendre<2>;
-  template class hpLegendre<3>;
+  template class p<2>;
+  template class p<3>;
 } // namespace Adaptation

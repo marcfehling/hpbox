@@ -13,21 +13,15 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef operator_poisson_matrix_based_h
-#define operator_poisson_matrix_based_h
+#ifndef operator_poisson_matrixbased_h
+#define operator_poisson_matrixbased_h
 
 
 #include <deal.II/base/partitioner.h>
 
-#include <deal.II/dofs/dof_handler.h>
+#include <deal.II/hp/fe_values.h>
 
-#include <deal.II/hp/mapping_collection.h>
-#include <deal.II/hp/q_collection.h>
-
-#include <deal.II/lac/affine_constraints.h>
 #include <deal.II/lac/trilinos_sparse_matrix.h>
-
-#include <deal.II/multigrid/mg_solver.h>
 
 #include <operator/base.h>
 
@@ -36,28 +30,21 @@ namespace Operator
 {
   namespace Poisson
   {
-    template <int dim, typename VectorType>
-    class MatrixBased
-      : public dealii::MGSolverOperatorBase<dim,
-                                            typename VectorType::value_type>
+    template <int dim, typename VectorType, int spacedim = dim>
+    class MatrixBased : public Operator::Base<dim, VectorType, spacedim>
     {
     public:
       using value_type = typename VectorType::value_type;
 
-      MatrixBased() = default;
-
-      MatrixBased(const dealii::hp::MappingCollection<dim> &   mapping,
-                  const dealii::DoFHandler<dim> &              dof_handler,
-                  const dealii::hp::QCollection<dim> &         quad,
-                  const dealii::AffineConstraints<value_type> &constraints,
-                  VectorType &                                 system_rhs);
+      MatrixBased(
+        const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
+        const dealii::hp::QCollection<dim> & quadrature_collection,
+        dealii::hp::FEValues<dim, spacedim> &fe_values_collection);
 
       void
-      reinit(const dealii::hp::MappingCollection<dim> &   mapping_collection,
-             const dealii::DoFHandler<dim> &              dof_handler,
-             const dealii::hp::QCollection<dim> &         quadrature_collection,
+      reinit(const dealii::DoFHandler<dim, spacedim> &    dof_handler,
              const dealii::AffineConstraints<value_type> &constraints,
-             VectorType &                                 system_rhs);
+             VectorType &                                 system_rhs) override;
 
       void
       vmult(VectorType &dst, const VectorType &src) const override;
@@ -78,15 +65,19 @@ namespace Operator
       Tvmult(VectorType &dst, const VectorType &src) const override;
 
     private:
+      // const Parameters &prm;
+
+      dealii::SmartPointer<const dealii::hp::MappingCollection<dim, spacedim>>
+        mapping_collection;
+      dealii::SmartPointer<const dealii::hp::QCollection<dim>>
+        quadrature_collection;
+
       // TODO: Add RHS function to constructor
       //       Grab and set as RHS in reinit
       // dealii::Function<dim> rhs_function;
 
-      // TODO: Add hp::FEValues to constructor
-      //       Precalculate during construction
-      // dealii::hp::FEValues<dim> hp_fe_values;
-
-      // TODO: Maybe
+      dealii::SmartPointer<dealii::hp::FEValues<dim, spacedim>>
+        fe_values_collection;
 
       dealii::TrilinosWrappers::SparseMatrix system_matrix;
 

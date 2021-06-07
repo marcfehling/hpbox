@@ -25,6 +25,7 @@
 #include <deal.II/numerics/error_estimator.h>
 
 #include <adaptation/hp_history.h>
+#include <global.h>
 
 using namespace dealii;
 
@@ -52,24 +53,26 @@ namespace Adaptation
         &AdaptationStrategies::Coarsening::l2_norm<dim, spacedim, float>)
     , init_step(true)
   {
+    Assert(prm.min_h_level > 0,
+           ExcMessage("This strategy requires an initial h-refinement."));
     Assert(prm.min_h_level <= prm.max_h_level,
            ExcMessage(
              "Triangulation level limits have been incorrectly set up."));
     Assert(prm.min_p_degree <= prm.max_p_degree,
            ExcMessage("FECollection degrees have been incorrectly set up."));
 
-    for (unsigned int degree = prm.min_p_degree; degree <= prm.max_p_degree;
-         ++degree)
+    for (unsigned int degree = 1; degree <= prm.max_p_degree; ++degree)
       face_quadrature_collection.push_back(QGauss<dim - 1>(degree + 1));
 
     // limit p-level difference *before* predicting errors
-    triangulation.signals.post_p4est_refinement.connect([&]() {
+    const unsigned int min_fe_index = prm.min_p_degree - 1;
+    triangulation.signals.post_p4est_refinement.connect([&, min_fe_index]() {
       const parallel::distributed::TemporarilyMatchRefineFlags<dim, spacedim>
         refine_modifier(triangulation);
 
       hp::Refinement::limit_p_level_difference(dof_handler,
                                                prm.max_p_level_difference,
-                                               /*contains_fe_index=*/0);
+                                               /*contains=*/min_fe_index);
 
       error_predictions.reinit(triangulation.n_active_cells());
       hp::Refinement::predict_error(dof_handler,
@@ -85,8 +88,10 @@ namespace Adaptation
 
   template <int dim, typename VectorType, int spacedim>
   void
-  hpHistory<dim, VectorType, spacedim>::estimate_mark_refine()
+  hpHistory<dim, VectorType, spacedim>::estimate_mark()
   {
+    TimerOutput::Scope t(getTimer(), "estimate mark");
+
     // error estimates
     error_estimates.grow_or_shrink(triangulation->n_active_cells());
 
@@ -112,6 +117,7 @@ namespace Adaptation
             cell->set_refine_flag();
 
         init_step = false;
+        hp_indicators.grow_or_shrink(triangulation->n_active_cells());
       }
     else
       {
@@ -161,14 +167,43 @@ namespace Adaptation
              triangulation->active_cell_iterators_on_level(prm.min_h_level))
           cell->clear_coarsen_flag();
       }
+  }
 
-    // perform refinement
-    data_transfer.prepare_for_coarsening_and_refinement(error_estimates);
+
+
+  template <int dim, typename VectorType, int spacedim>
+  void
+  hpHistory<dim, VectorType, spacedim>::refine()
+  {
+    TimerOutput::Scope t(getTimer(), "refine");
+
+    // Errors will be predicted during the post_p4est_refinement signal,
+    // and their transfer will be issued afterwards.
+
+    data_transfer.prepare_for_coarsening_and_refinement(error_predictions);
 
     triangulation->execute_coarsening_and_refinement();
 
     error_predictions.grow_or_shrink(triangulation->n_active_cells());
     data_transfer.unpack(error_predictions);
+  }
+
+
+
+  template <int dim, typename VectorType, int spacedim>
+  unsigned int
+  hpHistory<dim, VectorType, spacedim>::get_n_cycles() const
+  {
+    return prm.n_cycles + 1;
+  }
+
+
+
+  template <int dim, typename VectorType, int spacedim>
+  unsigned int
+  hpHistory<dim, VectorType, spacedim>::get_n_initial_refinements() const
+  {
+    return prm.min_h_level - 1;
   }
 
 

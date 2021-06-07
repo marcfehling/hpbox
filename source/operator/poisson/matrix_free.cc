@@ -16,8 +16,6 @@
 
 #include <deal.II/dofs/dof_tools.h>
 
-#include <deal.II/hp/fe_values.h>
-
 #include <deal.II/lac/full_matrix.h>
 #include <deal.II/lac/la_parallel_vector.h>
 #include <deal.II/lac/trilinos_sparsity_pattern.h>
@@ -27,40 +25,41 @@
 
 using namespace dealii;
 
+
 namespace Operator
 {
   namespace Poisson
   {
-    template <int dim, typename VectorType>
-    MatrixFree<dim, VectorType>::MatrixFree(
-      const hp::MappingCollection<dim> &   mapping,
-      const DoFHandler<dim> &              dof_handler,
-      const hp::QCollection<dim> &         quad,
-      const AffineConstraints<value_type> &constraints,
-      VectorType &                         system_rhs)
-    {
-      this->reinit(mapping, dof_handler, quad, constraints, system_rhs);
-    }
+    template <int dim, typename VectorType, int spacedim>
+    MatrixFree<dim, VectorType, spacedim>::MatrixFree(
+      const hp::MappingCollection<dim, spacedim> &mapping_collection,
+      const hp::QCollection<dim> &                quadrature_collection)
+      : mapping_collection(&mapping_collection)
+      , quadrature_collection(&quadrature_collection)
+    {}
 
 
 
-    template <int dim, typename VectorType>
+    template <int dim, typename VectorType, int spacedim>
     void
-    MatrixFree<dim, VectorType>::reinit(
-      const hp::MappingCollection<dim> &   mapping,
-      const DoFHandler<dim> &              dof_handler,
-      const hp::QCollection<dim> &         quad,
-      const AffineConstraints<value_type> &constraints,
-      VectorType &                         system_rhs)
+    MatrixFree<dim, VectorType, spacedim>::reinit(
+      const dealii::DoFHandler<dim, spacedim> &    dof_handler,
+      const dealii::AffineConstraints<value_type> &constraints,
+      VectorType &                                 system_rhs)
     {
       this->system_matrix.clear();
 
-      this->constraints.copy_from(constraints);
+      this->constraints = &constraints;
 
       typename dealii::MatrixFree<dim, value_type>::AdditionalData data;
       data.mapping_update_flags = update_gradients;
 
-      matrix_free.reinit(mapping, dof_handler, constraints, quad, data);
+      matrix_free.reinit(*mapping_collection,
+                         dof_handler,
+                         constraints,
+                         *quadrature_collection,
+                         data);
+      this->initialize_dof_vector(system_rhs);
 
       {
         AffineConstraints<value_type> constraints_without_dbc;
@@ -76,13 +75,15 @@ namespace Operator
 
         VectorType b, x;
 
-        this->initialize_dof_vector(system_rhs);
-        this->initialize_dof_vector(b);
-        this->initialize_dof_vector(x);
-
         dealii::MatrixFree<dim, value_type> matrix_free;
-        matrix_free.reinit(
-          mapping, dof_handler, constraints_without_dbc, quad, data);
+        matrix_free.reinit(*mapping_collection,
+                           dof_handler,
+                           constraints_without_dbc,
+                           *quadrature_collection,
+                           data);
+
+        matrix_free.initialize_dof_vector(b);
+        matrix_free.initialize_dof_vector(x);
 
         constraints.distribute(x);
 
@@ -96,10 +97,10 @@ namespace Operator
 
 
 
-    template <int dim, typename VectorType>
+    template <int dim, typename VectorType, int spacedim>
     void
-    MatrixFree<dim, VectorType>::vmult(VectorType &      dst,
-                                       const VectorType &src) const
+    MatrixFree<dim, VectorType, spacedim>::vmult(VectorType &      dst,
+                                                 const VectorType &src) const
     {
       this->matrix_free.cell_loop(
         &MatrixFree::do_cell_integral_range, this, dst, src, true);
@@ -107,27 +108,28 @@ namespace Operator
 
 
 
-    template <int dim, typename VectorType>
+    template <int dim, typename VectorType, int spacedim>
     void
-    MatrixFree<dim, VectorType>::initialize_dof_vector(VectorType &vec) const
+    MatrixFree<dim, VectorType, spacedim>::initialize_dof_vector(
+      VectorType &vec) const
     {
       matrix_free.initialize_dof_vector(vec);
     }
 
 
 
-    template <int dim, typename VectorType>
+    template <int dim, typename VectorType, int spacedim>
     types::global_dof_index
-    MatrixFree<dim, VectorType>::m() const
+    MatrixFree<dim, VectorType, spacedim>::m() const
     {
       return matrix_free.get_dof_handler().n_dofs();
     }
 
 
 
-    template <int dim, typename VectorType>
+    template <int dim, typename VectorType, int spacedim>
     void
-    MatrixFree<dim, VectorType>::compute_inverse_diagonal(
+    MatrixFree<dim, VectorType, spacedim>::compute_inverse_diagonal(
       VectorType &diagonal) const
     {
       MatrixFreeTools::compute_diagonal(matrix_free,
@@ -142,23 +144,25 @@ namespace Operator
 
 
 
-    template <int dim, typename VectorType>
+    template <int dim, typename VectorType, int spacedim>
     const TrilinosWrappers::SparseMatrix &
-    MatrixFree<dim, VectorType>::get_system_matrix() const
+    MatrixFree<dim, VectorType, spacedim>::get_system_matrix() const
     {
       // Check if matrix has already been set up.
       if (system_matrix.m() == 0 && system_matrix.n() == 0)
         {
           const auto &dof_handler = this->matrix_free.get_dof_handler();
+
           TrilinosWrappers::SparsityPattern dsp(
-            dof_handler.locally_owned_dofs(), get_mpi_comm(dof_handler));
-          DoFTools::make_sparsity_pattern(dof_handler, dsp, this->constraints);
+            dof_handler.locally_owned_dofs(), dof_handler.get_communicator());
+
+          DoFTools::make_sparsity_pattern(dof_handler, dsp, *constraints);
 
           dsp.compress();
           system_matrix.reinit(dsp);
 
           MatrixFreeTools::compute_matrix(matrix_free,
-                                          constraints,
+                                          *constraints,
                                           system_matrix,
                                           &MatrixFree::do_cell_integral_local,
                                           this);
@@ -169,19 +173,19 @@ namespace Operator
 
 
 
-    template <int dim, typename VectorType>
+    template <int dim, typename VectorType, int spacedim>
     void
-    MatrixFree<dim, VectorType>::Tvmult(VectorType &      dst,
-                                        const VectorType &src) const
+    MatrixFree<dim, VectorType, spacedim>::Tvmult(VectorType &      dst,
+                                                  const VectorType &src) const
     {
-      vmult(dst, src);
+      this->vmult(dst, src);
     }
 
 
 
-    template <int dim, typename VectorType>
+    template <int dim, typename VectorType, int spacedim>
     void
-    MatrixFree<dim, VectorType>::do_cell_integral_local(
+    MatrixFree<dim, VectorType, spacedim>::do_cell_integral_local(
       FECellIntegrator &integrator) const
     {
       integrator.evaluate(EvaluationFlags::gradients);
@@ -194,9 +198,9 @@ namespace Operator
 
 
 
-    template <int dim, typename VectorType>
+    template <int dim, typename VectorType, int spacedim>
     void
-    MatrixFree<dim, VectorType>::do_cell_integral_global(
+    MatrixFree<dim, VectorType, spacedim>::do_cell_integral_global(
       FECellIntegrator &integrator,
       VectorType &      dst,
       const VectorType &src) const
@@ -211,9 +215,9 @@ namespace Operator
 
 
 
-    template <int dim, typename VectorType>
+    template <int dim, typename VectorType, int spacedim>
     void
-    MatrixFree<dim, VectorType>::do_cell_integral_range(
+    MatrixFree<dim, VectorType, spacedim>::do_cell_integral_range(
       const dealii::MatrixFree<dim, value_type> &  matrix_free,
       VectorType &                                 dst,
       const VectorType &                           src,

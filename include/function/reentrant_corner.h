@@ -18,27 +18,28 @@
 
 
 #include <deal.II/base/function.h>
-#include <deal.II/base/point.h>
-#include <deal.II/base/tensor.h>
 
 
-template <int dim>
-class ReentrantCorner : public dealii::Function<dim>
+namespace Function
 {
-public:
-  ReentrantCorner(const double alpha = 2. / 3.);
+  template <int dim>
+  class ReentrantCorner : public dealii::Function<dim>
+  {
+  public:
+    ReentrantCorner(const double alpha = 2. / 3.);
 
-  virtual double
-  value(const dealii::Point<dim> &p,
-        const unsigned int        component = 0) const override;
+    virtual double
+    value(const dealii::Point<dim> &p,
+          const unsigned int        component = 0) const override;
 
-  virtual dealii::Tensor<1, dim>
-  gradient(const dealii::Point<dim> &p,
-           const unsigned int        component = 0) const override;
+    virtual dealii::Tensor<1, dim>
+    gradient(const dealii::Point<dim> &p,
+             const unsigned int        component = 0) const override;
 
-private:
-  const double alpha;
-};
+  private:
+    const double alpha;
+  };
+} // namespace Function
 
 
 #endif

@@ -18,7 +18,6 @@
 
 
 #include <deal.II/base/exceptions.h>
-#include <deal.II/base/function.h>
 
 #include <function/reentrant_corner.h>
 
@@ -27,12 +26,14 @@ namespace Factory
 {
   template <int dim, typename... Args>
   std::unique_ptr<dealii::Function<dim>>
-  create_function(std::string type, Args &...args)
+  create_function(std::string type, Args &&...args)
   {
     if (type == "zero")
-      return std::make_unique<dealii::Functions::ZeroFunction<dim>>(args...);
+      return std::make_unique<dealii::Functions::ZeroFunction<dim>>(
+        std::forward<Args>(args)...);
     else if (type == "reentrant corner")
-      return std::make_unique<ReentrantCorner<dim>>(args...);
+      return std::make_unique<Function::ReentrantCorner<dim>>(
+        std::forward<Args>(args)...);
     else
       Assert(false, dealii::ExcNotImplemented());
   }
