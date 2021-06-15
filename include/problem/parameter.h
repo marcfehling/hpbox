@@ -43,6 +43,13 @@ namespace Problem
 
       solver_type = "GMG";
       add_parameter("solver type", solver_type);
+
+      filestem.resize(problem_type.size());
+      std::transform(problem_type.cbegin(),
+                     problem_type.cend(),
+                     filestem.begin(),
+                     ::tolower);
+      add_parameter("file stem", filestem);
     }
 
     unsigned int dimension;
@@ -51,6 +58,8 @@ namespace Problem
     std::string operator_type;
     std::string solver_type;
     std::string problem_type;
+
+    std::string filestem;
 
     Adaptation::Parameters prm_adaptation;
   };

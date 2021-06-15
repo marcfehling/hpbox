@@ -28,6 +28,10 @@
 #include <solver/cg/amg.h>
 #include <solver/cg/gmg.h>
 
+#include <ctime>
+#include <iomanip>
+#include <sstream>
+
 using namespace dealii;
 
 
@@ -40,7 +44,14 @@ namespace Problem
     , triangulation(mpi_communicator)
     , dof_handler(triangulation)
   {
-    TimerOutput::Scope t(getTimer(), "init");
+    TimerOutput::Scope t(getTimer(), "initialize_problem");
+
+    // prepare name for logfile
+    time_t             now = time(nullptr);
+    tm *               ltm = localtime(&now);
+    std::ostringstream oss;
+    oss << prm.filestem << "-" << std::put_time(ltm, "%Y%m%d-%H%M%S") << ".log";
+    filename_log = oss.str();
 
     // prepare collections
     mapping_collection.push_back(MappingQ1<dim>());
@@ -73,7 +84,7 @@ namespace Problem
     if (prm.operator_type == "MatrixBased")
       {
         {
-          TimerOutput::Scope t(getTimer(), "calculate fe values");
+          TimerOutput::Scope t(getTimer(), "calculate_fevalues");
 
           fe_values_collection =
             std::make_unique<hp::FEValues<dim>>(mapping_collection,
@@ -128,7 +139,7 @@ namespace Problem
   void
   Poisson<dim, spacedim>::initialize_grid()
   {
-    TimerOutput::Scope t(getTimer(), "initialize grid");
+    TimerOutput::Scope t(getTimer(), "initialize_grid");
 
     std::vector<unsigned int> repetitions(dim);
     Point<dim>                bottom_left, top_right;
@@ -209,7 +220,7 @@ namespace Problem
 
   template <int dim, int spacedim>
   void
-  Poisson<dim, spacedim>::print_diagnostics()
+  Poisson<dim, spacedim>::log_diagnostics()
   {
     const unsigned int first_n_processes =
       std::min<unsigned int>(8,
@@ -218,11 +229,13 @@ namespace Problem
       first_n_processes < Utilities::MPI::n_mpi_processes(mpi_communicator);
 
     dealii::ConditionalOStream &pcout = getPCOut();
+    dealii::TableHandler &      table = getTable();
     {
       pcout << "   Number of active cells:       "
-            << triangulation.n_global_active_cells() << std::endl
-            << "     by partition:              ";
+            << triangulation.n_global_active_cells() << std::endl;
+      table.add_value("active_cells", triangulation.n_global_active_cells());
 
+      pcout << "     by partition:              ";
       std::vector<unsigned int> n_active_cells_per_subdomain =
         Utilities::MPI::gather(mpi_communicator,
                                triangulation.n_locally_owned_active_cells());
@@ -235,9 +248,10 @@ namespace Problem
 
     {
       pcout << "   Number of degrees of freedom: " << dof_handler.n_dofs()
-            << std::endl
-            << "     by partition:              ";
+            << std::endl;
+      table.add_value("dofs", dof_handler.n_dofs());
 
+      pcout << "     by partition:              ";
       std::vector<types::global_dof_index> n_dofs_per_subdomain =
         Utilities::MPI::gather(mpi_communicator,
                                dof_handler.n_locally_owned_dofs());
@@ -251,13 +265,16 @@ namespace Problem
     {
       std::vector<types::global_dof_index> n_constraints_per_subdomain =
         Utilities::MPI::gather(mpi_communicator, constraints.n_constraints());
+      const unsigned int n_constraints =
+        std::accumulate(n_constraints_per_subdomain.begin(),
+                        n_constraints_per_subdomain.end(),
+                        0);
 
-      pcout << "   Number of constraints:        "
-            << std::accumulate(n_constraints_per_subdomain.begin(),
-                               n_constraints_per_subdomain.end(),
-                               0)
-            << std::endl
-            << "     by partition:              ";
+      pcout << "   Number of constraints:        " << n_constraints
+            << std::endl;
+      table.add_value("constraints", n_constraints);
+
+      pcout << "     by partition:              ";
       for (unsigned int i = 0; i < first_n_processes; ++i)
         pcout << ' ' << n_constraints_per_subdomain[i];
       if (output_cropped)
@@ -351,8 +368,9 @@ namespace Problem
         Assert(false, ExcNotImplemented());
       }
 
-    getPCOut() << "   Solved in " << solver_control.last_step()
-               << " iterations." << std::endl;
+    getPCOut() << "   Number of iterations:         "
+               << solver_control.last_step() << std::endl;
+    getTable().add_value("iteratations", solver_control.last_step());
 
     constraints.distribute(completely_distributed_solution);
 
@@ -367,7 +385,7 @@ namespace Problem
   void
   Poisson<dim, spacedim>::compute_errors()
   {
-    TimerOutput::Scope t(getTimer(), "compute errors");
+    TimerOutput::Scope t(getTimer(), "compute_errors");
 
     Vector<float> difference_per_cell(triangulation.n_active_cells());
     VectorTools::integrate_difference(dof_handler,
@@ -392,11 +410,14 @@ namespace Problem
                                         difference_per_cell,
                                         VectorTools::H1_norm);
 
-    getPCOut() << "L2 error: " << L2_error << std::endl
-               << "H1 error: " << H1_error << std::endl;
+    getPCOut() << "   L2 error:                     " << L2_error << std::endl
+               << "   H1 error:                     " << H1_error << std::endl;
 
-    // TODO
-    // Store errors in Convergence table
+    TableHandler &table = getTable();
+    table.add_value("L2", L2_error);
+    table.add_value("H1", H1_error);
+    table.set_scientific("L2", true);
+    table.set_scientific("H1", true);
   }
 
 
@@ -405,7 +426,7 @@ namespace Problem
   void
   Poisson<dim, spacedim>::output_results(const unsigned int cycle)
   {
-    TimerOutput::Scope t(getTimer(), "output results");
+    TimerOutput::Scope t(getTimer(), "output_results");
 
     Vector<float> fe_degrees(triangulation.n_active_cells());
     for (const auto &cell : dof_handler.active_cell_iterators())
@@ -433,7 +454,24 @@ namespace Problem
     data_out.build_patches(mapping_collection);
 
     data_out.write_vtu_with_pvtu_record(
-      "./", "solution", cycle, mpi_communicator, 2, 1);
+      "./", prm.filestem, cycle, mpi_communicator, 2, 1);
+  }
+
+
+
+  template <int dim, int spacedim>
+  void
+  Poisson<dim, spacedim>::log_timings()
+  {
+    getTimer().print_summary();
+    getPCOut() << std::endl;
+
+    for (const auto &summary :
+         getTimer().get_summary_data(TimerOutput::total_wall_time))
+      {
+        getTable().add_value(summary.first, summary.second);
+        getTable().set_scientific(summary.first, true);
+      }
   }
 
 
@@ -442,53 +480,64 @@ namespace Problem
   void
   Poisson<dim, spacedim>::run()
   {
+    getTable().set_auto_fill_mode(true);
+
     for (unsigned int cycle = 0; cycle < adaptation_strategy->get_n_cycles();
          ++cycle)
       {
         getPCOut() << "Cycle " << cycle << ':' << std::endl;
+        getTable().add_value("cycle", cycle);
 
-        if (cycle == 0)
-          initialize_grid();
-        else
-          adaptation_strategy->refine();
+        {
+          TimerOutput::Scope t(getTimer(), "full_cycle");
 
-        setup_system();
+          if (cycle == 0)
+            initialize_grid();
+          else
+            adaptation_strategy->refine();
 
-        print_diagnostics();
+          setup_system();
 
-        // TODO: I am not happy with this
-        if (prm.operator_type == "MatrixBased")
-          {
-            poisson_operator_matrixbased->reinit(dof_handler,
-                                                 constraints,
-                                                 system_rhs);
-            solve(*poisson_operator_matrixbased,
-                  locally_relevant_solution,
-                  system_rhs);
-          }
-        else if (prm.operator_type == "MatrixFree")
-          {
-            poisson_operator_matrixfree->reinit(dof_handler,
-                                                constraints,
-                                                system_rhs);
-            solve(*poisson_operator_matrixfree,
-                  locally_relevant_solution,
-                  system_rhs);
-          }
-        else
-          Assert(false, ExcInternalError());
+          log_diagnostics();
 
-        compute_errors();
-        adaptation_strategy->estimate_mark();
+          // TODO: I am not happy with this
+          if (prm.operator_type == "MatrixBased")
+            {
+              poisson_operator_matrixbased->reinit(dof_handler,
+                                                   constraints,
+                                                   system_rhs);
+              solve(*poisson_operator_matrixbased,
+                    locally_relevant_solution,
+                    system_rhs);
+            }
+          else if (prm.operator_type == "MatrixFree")
+            {
+              poisson_operator_matrixfree->reinit(dof_handler,
+                                                  constraints,
+                                                  system_rhs);
+              solve(*poisson_operator_matrixfree,
+                    locally_relevant_solution,
+                    system_rhs);
+            }
+          else
+            Assert(false, ExcInternalError());
 
-        // TODO: Why limit?
-        if (Utilities::MPI::n_mpi_processes(mpi_communicator) <= 32)
+          compute_errors();
+          adaptation_strategy->estimate_mark();
+
           output_results(cycle);
+        }
 
-        getTimer().print_summary();
+        log_timings();
+
+        if (Utilities::MPI::this_mpi_process(mpi_communicator) == 0)
+          {
+            std::ofstream logstream(filename_log);
+            getTable().write_text(logstream);
+          }
+
         getTimer().reset();
-
-        getPCOut() << std::endl;
+        getTable().start_new_row();
       }
   }
 

@@ -47,7 +47,7 @@ namespace Problem
     void
     setup_system();
     void
-    print_diagnostics();
+    log_diagnostics();
 
     template <typename OperatorType>
     void
@@ -60,10 +60,13 @@ namespace Problem
     compute_errors();
     void
     output_results(const unsigned int cycle);
+    void
+    log_timings();
 
     MPI_Comm mpi_communicator;
 
     const Parameters &prm;
+    std::string       filename_log;
 
     dealii::parallel::distributed::Triangulation<dim> triangulation;
     dealii::DoFHandler<dim, spacedim>                 dof_handler;

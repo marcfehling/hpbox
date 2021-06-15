@@ -68,7 +68,7 @@ namespace Adaptation
     });
 
     {
-      TimerOutput::Scope t(getTimer(), "calculate transformation");
+      TimerOutput::Scope t(getTimer(), "calculate_transformation");
       fourier.precalculate_all_transformation_matrices();
     }
   }
@@ -79,7 +79,7 @@ namespace Adaptation
   void
   hpFourier<dim, VectorType, spacedim>::estimate_mark()
   {
-    TimerOutput::Scope t(getTimer(), "estimate mark");
+    TimerOutput::Scope t(getTimer(), "estimate_mark");
 
     // error estimates
     error_estimates.grow_or_shrink(triangulation->n_active_cells());

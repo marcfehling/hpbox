@@ -90,7 +90,7 @@ namespace Adaptation
   void
   hpHistory<dim, VectorType, spacedim>::estimate_mark()
   {
-    TimerOutput::Scope t(getTimer(), "estimate mark");
+    TimerOutput::Scope t(getTimer(), "estimate_mark");
 
     // error estimates
     error_estimates.grow_or_shrink(triangulation->n_active_cells());
