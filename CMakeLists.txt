@@ -59,7 +59,7 @@ ENDIF()
 #
 
 # Set CXX requirements
-SET( CXX_STANDARD 14 )
+SET( CXX_STANDARD 17 )
 SET( CXX_STANDARD_REQUIRED ON )
 
 # Initialize project
