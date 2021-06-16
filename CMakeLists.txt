@@ -40,14 +40,16 @@ ENDIF()
 #
 # Are all dependencies fulfilled?
 #
-IF( NOT DEAL_II_WITH_P4EST OR NOT DEAL_II_WITH_TRILINOS )
+IF( NOT DEAL_II_WITH_P4EST OR NOT DEAL_II_WITH_TRILINOS OR NOT DEAL_II_WITH_LAPACK )
   MESSAGE( FATAL_ERROR "
 Error! This program requires a deal.II library that was configured with the following options:
     DEAL_II_WITH_P4EST = ON
     DEAL_II_WITH_TRILINOS = ON
+    DEAL_II_WITH_LAPACK = ON
 However, the deal.II library found at ${DEAL_II_PATH} was configured with these options
     DEAL_II_WITH_P4EST = ${DEAL_II_WITH_P4EST}
     DEAL_II_WITH_TRILINOS = ${DEAL_II_WITH_TRILINOS}
+    DEAL_II_WITH_LAPACK = ${DEAL_II_WITH_LAPACK}
 which conflict with the requirements."
     )
 ENDIF()
