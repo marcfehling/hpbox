@@ -22,6 +22,8 @@ namespace Problem
   class Base
   {
   public:
+    virtual ~Base() = default;
+
     virtual void
     run() = 0;
   };

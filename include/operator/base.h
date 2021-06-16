@@ -31,6 +31,8 @@ namespace Operator
   public:
     using value_type = typename VectorType::value_type;
 
+    virtual ~Base() = default;
+
     virtual void
     reinit(const dealii::DoFHandler<dim, spacedim> &    dof_handler,
            const dealii::AffineConstraints<value_type> &constraints,

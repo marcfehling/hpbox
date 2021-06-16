@@ -25,6 +25,8 @@ namespace Adaptation
   class Base
   {
   public:
+    virtual ~Base() = default;
+
     virtual void
     estimate_mark() = 0;
     virtual void
