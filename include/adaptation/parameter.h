@@ -50,7 +50,7 @@ namespace Adaptation
       add_parameter("total refine fraction", total_refine_fraction);
 
       total_coarsen_fraction = 0.03;
-      add_parameter("total coarsen fraction", total_refine_fraction);
+      add_parameter("total coarsen fraction", total_coarsen_fraction);
 
       p_refine_fraction = 0.9;
       add_parameter("p-refine fraction", p_refine_fraction);
