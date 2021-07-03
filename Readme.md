@@ -18,6 +18,15 @@ program.
 	}
 
 
+Dependencies
+------------
+
+For algebraic multigrid (AMG) methods, your deal.II library has to be
+configured with either PETSc or Trilinos. The geometric multigrid (GMG)
+implementation currently requires Trilinos and is not compatible with
+PETSc.
+
+
 Compiling and Running
 ---------------------
 

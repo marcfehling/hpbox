@@ -17,36 +17,66 @@
 #define solver_cg_amg_h
 
 
-#include <deal.II/lac/solver_cg.h>
 #include <deal.II/lac/solver_control.h>
-#include <deal.II/lac/trilinos_precondition.h>
+
+#include <base/linear_algebra.h>
 
 
 namespace Solver
 {
   namespace CG
   {
-    class AMG
+    struct AMG
     {
-    public:
-      template <typename VectorType, typename OperatorType>
+      template <typename LinearAlgebra, typename OperatorType>
       static void
-      solve(dealii::SolverControl &solver_control,
-            const OperatorType &   system_matrix,
-            VectorType &           dst,
-            const VectorType &     src)
+      solve(dealii::SolverControl &               solver_control,
+            const OperatorType &                  system_matrix,
+            typename LinearAlgebra::Vector &      dst,
+            const typename LinearAlgebra::Vector &src)
       {
-        using namespace dealii;
+        typename LinearAlgebra::PreconditionAMG::AdditionalData data;
+        if constexpr (std::is_same<LinearAlgebra, PETSc>::value)
+          {
+            data.symmetric_operator = true;
+          }
+        else if constexpr (std::is_same<LinearAlgebra, Trilinos>::value ||
+                           std::is_same<LinearAlgebra, dealiiTrilinos>::value)
+          {
+            data.elliptic              = true;
+            data.higher_order_elements = true;
+          }
+        else
+          {
+            Assert(false, dealii::ExcNotImplemented());
+          }
 
-        TrilinosWrappers::PreconditionAMG::AdditionalData data;
-        data.elliptic              = true;
-        data.higher_order_elements = true;
-
-        TrilinosWrappers::PreconditionAMG preconditioner;
+        typename LinearAlgebra::PreconditionAMG preconditioner;
         preconditioner.initialize(system_matrix.get_system_matrix(), data);
 
-        SolverCG<VectorType> cg(solver_control);
-        cg.solve(system_matrix, dst, src, preconditioner);
+        if constexpr (std::is_same<LinearAlgebra, PETSc>::value)
+          {
+            typename LinearAlgebra::SolverCG cg(
+              solver_control,
+              system_matrix.get_system_matrix().get_mpi_communicator());
+            cg.solve(system_matrix.get_system_matrix(),
+                     dst,
+                     src,
+                     preconditioner);
+          }
+        else if constexpr (std::is_same<LinearAlgebra, Trilinos>::value)
+          {
+            typename LinearAlgebra::SolverCG cg(solver_control);
+            cg.solve(system_matrix.get_system_matrix(),
+                     dst,
+                     src,
+                     preconditioner);
+          }
+        else
+          {
+            typename LinearAlgebra::SolverCG cg(solver_control);
+            cg.solve(system_matrix, dst, src, preconditioner);
+          }
       }
     };
   } // namespace CG

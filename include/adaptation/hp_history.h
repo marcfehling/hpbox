@@ -36,15 +36,12 @@
 
 namespace Adaptation
 {
-  template <int dim,
-            typename VectorType =
-              dealii::LinearAlgebra::distributed::Vector<double>,
-            int spacedim = dim>
+  template <int dim, typename LinearAlgebra, int spacedim = dim>
   class hpHistory : public Base
   {
   public:
-    hpHistory(const Parameters &prm,
-              const VectorType &locally_relevant_solution,
+    hpHistory(const Parameters &                    prm,
+              const typename LinearAlgebra::Vector &locally_relevant_solution,
               const dealii::hp::FECollection<dim, spacedim> &fe_collection,
               dealii::DoFHandler<dim, spacedim> &            dof_handler,
               dealii::parallel::distributed::Triangulation<dim, spacedim>
@@ -68,7 +65,8 @@ namespace Adaptation
   protected:
     const Parameters &prm;
 
-    const dealii::SmartPointer<const VectorType> locally_relevant_solution;
+    const dealii::SmartPointer<const typename LinearAlgebra::Vector>
+      locally_relevant_solution;
     const dealii::SmartPointer<dealii::DoFHandler<dim, spacedim>> dof_handler;
     const dealii::SmartPointer<
       dealii::parallel::distributed::Triangulation<dim, spacedim>>

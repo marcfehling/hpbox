@@ -35,6 +35,9 @@ namespace Problem
       adaptation_type = "hp Legendre";
       add_parameter("adaptation type", adaptation_type);
 
+      linear_algebra = "dealii & Trilinos";
+      add_parameter("linear algebra", linear_algebra);
+
       operator_type = "MatrixFree";
       add_parameter("operator type", operator_type);
 
@@ -55,6 +58,7 @@ namespace Problem
     unsigned int dimension;
 
     std::string adaptation_type;
+    std::string linear_algebra;
     std::string operator_type;
     std::string solver_type;
     std::string problem_type;

@@ -13,8 +13,8 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef global_h
-#define global_h
+#ifndef base_global_h
+#define base_global_h
 
 
 #include <deal.II/base/conditional_ostream.h>

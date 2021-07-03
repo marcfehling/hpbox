@@ -25,17 +25,19 @@
 #include <deal.II/numerics/error_estimator.h>
 
 #include <adaptation/hp_history.h>
-#include <global.h>
+#include <base/explicitely_instantiate.h>
+#include <base/global.h>
+#include <base/linear_algebra.h>
 
 using namespace dealii;
 
 
 namespace Adaptation
 {
-  template <int dim, typename VectorType, int spacedim>
-  hpHistory<dim, VectorType, spacedim>::hpHistory(
-    const Parameters &prm,
-    const VectorType &locally_relevant_solution,
+  template <int dim, typename LinearAlgebra, int spacedim>
+  hpHistory<dim, LinearAlgebra, spacedim>::hpHistory(
+    const Parameters &                    prm,
+    const typename LinearAlgebra::Vector &locally_relevant_solution,
     const hp::FECollection<dim, spacedim> & /*fe_collection*/,
     DoFHandler<dim, spacedim> &                          dof_handler,
     parallel::distributed::Triangulation<dim, spacedim> &triangulation)
@@ -86,16 +88,16 @@ namespace Adaptation
 
 
 
-  template <int dim, typename VectorType, int spacedim>
+  template <int dim, typename LinearAlgebra, int spacedim>
   void
-  hpHistory<dim, VectorType, spacedim>::estimate_mark()
+  hpHistory<dim, LinearAlgebra, spacedim>::estimate_mark()
   {
     TimerOutput::Scope t(getTimer(), "estimate_mark");
 
     // error estimates
     error_estimates.grow_or_shrink(triangulation->n_active_cells());
 
-    KellyErrorEstimator<dim>::estimate(
+    KellyErrorEstimator<dim, spacedim>::estimate(
       *dof_handler,
       face_quadrature_collection,
       std::map<types::boundary_id, const Function<dim> *>(),
@@ -171,9 +173,9 @@ namespace Adaptation
 
 
 
-  template <int dim, typename VectorType, int spacedim>
+  template <int dim, typename LinearAlgebra, int spacedim>
   void
-  hpHistory<dim, VectorType, spacedim>::refine()
+  hpHistory<dim, LinearAlgebra, spacedim>::refine()
   {
     TimerOutput::Scope t(getTimer(), "refine");
 
@@ -190,43 +192,41 @@ namespace Adaptation
 
 
 
-  template <int dim, typename VectorType, int spacedim>
+  template <int dim, typename LinearAlgebra, int spacedim>
   unsigned int
-  hpHistory<dim, VectorType, spacedim>::get_n_cycles() const
+  hpHistory<dim, LinearAlgebra, spacedim>::get_n_cycles() const
   {
     return prm.n_cycles + 1;
   }
 
 
 
-  template <int dim, typename VectorType, int spacedim>
+  template <int dim, typename LinearAlgebra, int spacedim>
   unsigned int
-  hpHistory<dim, VectorType, spacedim>::get_n_initial_refinements() const
+  hpHistory<dim, LinearAlgebra, spacedim>::get_n_initial_refinements() const
   {
     return prm.min_h_level - 1;
   }
 
 
 
-  template <int dim, typename VectorType, int spacedim>
+  template <int dim, typename LinearAlgebra, int spacedim>
   const Vector<float> &
-  hpHistory<dim, VectorType, spacedim>::get_error_estimates() const
+  hpHistory<dim, LinearAlgebra, spacedim>::get_error_estimates() const
   {
     return error_estimates;
   }
 
 
 
-  template <int dim, typename VectorType, int spacedim>
+  template <int dim, typename LinearAlgebra, int spacedim>
   const Vector<float> &
-  hpHistory<dim, VectorType, spacedim>::get_hp_indicators() const
+  hpHistory<dim, LinearAlgebra, spacedim>::get_hp_indicators() const
   {
     return hp_indicators;
   }
 
 
 
-  // explicit instantiations
-  template class hpHistory<2>;
-  template class hpHistory<3>;
+  EXPLICITLY_INSTANTIATE(hpHistory)
 } // namespace Adaptation

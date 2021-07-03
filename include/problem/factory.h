@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2020 by the deal.II authors
+// Copyright (C) 2021 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -13,30 +13,30 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef function_factory_h
-#define function_factory_h
+#ifndef problem_factory_h
+#define problem_factory_h
 
 
 #include <deal.II/base/exceptions.h>
 
-#include <function/reentrant_corner.h>
+#include <problem/poisson.h>
 
 
 namespace Factory
 {
-  template <int dim, typename... Args>
-  std::unique_ptr<dealii::Function<dim>>
-  create_function(const std::string &type, Args &&...args)
+  template <int dim,
+            typename LinearAlgebra,
+            int spacedim = dim,
+            typename... Args>
+  std::unique_ptr<Problem::Base>
+  create_problem(const std::string &type, Args &&...args)
   {
-    if (type == "zero")
-      return std::make_unique<dealii::Functions::ZeroFunction<dim>>(
-        std::forward<Args>(args)...);
-    else if (type == "reentrant corner")
-      return std::make_unique<Function::ReentrantCorner<dim>>(
+    if (type == "poisson")
+      return std::make_unique<Problem::Poisson<dim, LinearAlgebra, spacedim>>(
         std::forward<Args>(args)...);
 
     Assert(false, dealii::ExcNotImplemented());
-    return std::unique_ptr<dealii::Function<dim>>();
+    return std::unique_ptr<Problem::Base>();
   }
 } // namespace Factory
 

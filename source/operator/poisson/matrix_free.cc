@@ -18,9 +18,9 @@
 
 #include <deal.II/lac/full_matrix.h>
 #include <deal.II/lac/la_parallel_vector.h>
-#include <deal.II/lac/trilinos_sparsity_pattern.h>
 #include <deal.II/lac/vector.h>
 
+#include <base/linear_algebra.h>
 #include <operator/poisson/matrix_free.h>
 
 using namespace dealii;
@@ -30,8 +30,8 @@ namespace Operator
 {
   namespace Poisson
   {
-    template <int dim, typename VectorType, int spacedim>
-    MatrixFree<dim, VectorType, spacedim>::MatrixFree(
+    template <int dim, typename LinearAlgebra, int spacedim>
+    MatrixFree<dim, LinearAlgebra, spacedim>::MatrixFree(
       const hp::MappingCollection<dim, spacedim> &mapping_collection,
       const hp::QCollection<dim> &                quadrature_collection)
       : mapping_collection(&mapping_collection)
@@ -40,9 +40,9 @@ namespace Operator
 
 
 
-    template <int dim, typename VectorType, int spacedim>
+    template <int dim, typename LinearAlgebra, int spacedim>
     void
-    MatrixFree<dim, VectorType, spacedim>::reinit(
+    MatrixFree<dim, LinearAlgebra, spacedim>::reinit(
       const dealii::DoFHandler<dim, spacedim> &    dof_handler,
       const dealii::AffineConstraints<value_type> &constraints,
       VectorType &                                 system_rhs)
@@ -97,10 +97,10 @@ namespace Operator
 
 
 
-    template <int dim, typename VectorType, int spacedim>
+    template <int dim, typename LinearAlgebra, int spacedim>
     void
-    MatrixFree<dim, VectorType, spacedim>::vmult(VectorType &      dst,
-                                                 const VectorType &src) const
+    MatrixFree<dim, LinearAlgebra, spacedim>::vmult(VectorType &      dst,
+                                                    const VectorType &src) const
     {
       this->matrix_free.cell_loop(
         &MatrixFree::do_cell_integral_range, this, dst, src, true);
@@ -108,9 +108,9 @@ namespace Operator
 
 
 
-    template <int dim, typename VectorType, int spacedim>
+    template <int dim, typename LinearAlgebra, int spacedim>
     void
-    MatrixFree<dim, VectorType, spacedim>::initialize_dof_vector(
+    MatrixFree<dim, LinearAlgebra, spacedim>::initialize_dof_vector(
       VectorType &vec) const
     {
       matrix_free.initialize_dof_vector(vec);
@@ -118,18 +118,18 @@ namespace Operator
 
 
 
-    template <int dim, typename VectorType, int spacedim>
+    template <int dim, typename LinearAlgebra, int spacedim>
     types::global_dof_index
-    MatrixFree<dim, VectorType, spacedim>::m() const
+    MatrixFree<dim, LinearAlgebra, spacedim>::m() const
     {
       return matrix_free.get_dof_handler().n_dofs();
     }
 
 
 
-    template <int dim, typename VectorType, int spacedim>
+    template <int dim, typename LinearAlgebra, int spacedim>
     void
-    MatrixFree<dim, VectorType, spacedim>::compute_inverse_diagonal(
+    MatrixFree<dim, LinearAlgebra, spacedim>::compute_inverse_diagonal(
       VectorType &diagonal) const
     {
       MatrixFreeTools::compute_diagonal(matrix_free,
@@ -144,16 +144,17 @@ namespace Operator
 
 
 
-    template <int dim, typename VectorType, int spacedim>
-    const TrilinosWrappers::SparseMatrix &
-    MatrixFree<dim, VectorType, spacedim>::get_system_matrix() const
+    template <int dim, typename LinearAlgebra, int spacedim>
+    const typename LinearAlgebra::SparseMatrix &
+    MatrixFree<dim, LinearAlgebra, spacedim>::get_system_matrix() const
     {
       // Check if matrix has already been set up.
       if (system_matrix.m() == 0 && system_matrix.n() == 0)
         {
           const auto &dof_handler = this->matrix_free.get_dof_handler();
 
-          TrilinosWrappers::SparsityPattern dsp(
+          // note: this is the constructor for TrilinosWrappers::SparsityPattern
+          typename LinearAlgebra::SparsityPattern dsp(
             dof_handler.locally_owned_dofs(), dof_handler.get_communicator());
 
           DoFTools::make_sparsity_pattern(dof_handler, dsp, *constraints);
@@ -173,19 +174,20 @@ namespace Operator
 
 
 
-    template <int dim, typename VectorType, int spacedim>
+    template <int dim, typename LinearAlgebra, int spacedim>
     void
-    MatrixFree<dim, VectorType, spacedim>::Tvmult(VectorType &      dst,
-                                                  const VectorType &src) const
+    MatrixFree<dim, LinearAlgebra, spacedim>::Tvmult(
+      VectorType &      dst,
+      const VectorType &src) const
     {
       this->vmult(dst, src);
     }
 
 
 
-    template <int dim, typename VectorType, int spacedim>
+    template <int dim, typename LinearAlgebra, int spacedim>
     void
-    MatrixFree<dim, VectorType, spacedim>::do_cell_integral_local(
+    MatrixFree<dim, LinearAlgebra, spacedim>::do_cell_integral_local(
       FECellIntegrator &integrator) const
     {
       integrator.evaluate(EvaluationFlags::gradients);
@@ -198,9 +200,9 @@ namespace Operator
 
 
 
-    template <int dim, typename VectorType, int spacedim>
+    template <int dim, typename LinearAlgebra, int spacedim>
     void
-    MatrixFree<dim, VectorType, spacedim>::do_cell_integral_global(
+    MatrixFree<dim, LinearAlgebra, spacedim>::do_cell_integral_global(
       FECellIntegrator &integrator,
       VectorType &      dst,
       const VectorType &src) const
@@ -215,9 +217,9 @@ namespace Operator
 
 
 
-    template <int dim, typename VectorType, int spacedim>
+    template <int dim, typename LinearAlgebra, int spacedim>
     void
-    MatrixFree<dim, VectorType, spacedim>::do_cell_integral_range(
+    MatrixFree<dim, LinearAlgebra, spacedim>::do_cell_integral_range(
       const dealii::MatrixFree<dim, value_type> &  matrix_free,
       VectorType &                                 dst,
       const VectorType &                           src,
@@ -235,9 +237,10 @@ namespace Operator
 
 
 
-    // explicit instantiations
-    using VectorType = LinearAlgebra::distributed::Vector<double>;
-    template class MatrixFree<2, VectorType>;
-    template class MatrixFree<3, VectorType>;
+#ifdef DEAL_II_WITH_TRILINOS
+    // explicit instantiations only for dealiiTrilinos
+    template class MatrixFree<2, dealiiTrilinos, 2>;
+    template class MatrixFree<3, dealiiTrilinos, 3>;
+#endif
   } // namespace Poisson
 } // namespace Operator

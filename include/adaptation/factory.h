@@ -28,32 +28,34 @@
 
 namespace Factory
 {
-  template <
-    int dim,
-    typename VectorType = dealii::LinearAlgebra::distributed::Vector<double>,
-    int spacedim        = dim,
-    typename... Args>
+  template <int dim,
+            typename LinearAlgebra,
+            int spacedim = dim,
+            typename... Args>
   std::unique_ptr<Adaptation::Base>
-  create_adaptation(std::string type, Args &&...args)
+  create_adaptation(const std::string &type, Args &&...args)
   {
     if (type == "h")
-      return std::make_unique<Adaptation::h<dim, VectorType, spacedim>>(
+      return std::make_unique<Adaptation::h<dim, LinearAlgebra, spacedim>>(
         std::forward<Args>(args)...);
     else if (type == "p")
-      return std::make_unique<Adaptation::p<dim, VectorType, spacedim>>(
+      return std::make_unique<Adaptation::p<dim, LinearAlgebra, spacedim>>(
         std::forward<Args>(args)...);
     else if (type == "hp Fourier")
-      return std::make_unique<Adaptation::hpFourier<dim, VectorType, spacedim>>(
+      return std::make_unique<
+        Adaptation::hpFourier<dim, LinearAlgebra, spacedim>>(
         std::forward<Args>(args)...);
     else if (type == "hp History")
-      return std::make_unique<Adaptation::hpHistory<dim, VectorType, spacedim>>(
+      return std::make_unique<
+        Adaptation::hpHistory<dim, LinearAlgebra, spacedim>>(
         std::forward<Args>(args)...);
     else if (type == "hp Legendre")
       return std::make_unique<
-        Adaptation::hpLegendre<dim, VectorType, spacedim>>(
+        Adaptation::hpLegendre<dim, LinearAlgebra, spacedim>>(
         std::forward<Args>(args)...);
-    else
-      Assert(false, dealii::ExcNotImplemented());
+
+    Assert(false, dealii::ExcNotImplemented());
+    return std::unique_ptr<Adaptation::Base>();
   }
 } // namespace Factory
 

@@ -21,8 +21,6 @@
 
 #include <deal.II/hp/fe_values.h>
 
-#include <deal.II/lac/la_parallel_vector.h>
-
 #include <adaptation/base.h>
 #include <operator/poisson/matrix_based.h>
 #include <operator/poisson/matrix_free.h>
@@ -32,7 +30,7 @@
 
 namespace Problem
 {
-  template <int dim, int spacedim = dim>
+  template <int dim, typename LinearAlgebra, int spacedim = dim>
   class Poisson : public Base
   {
   public:
@@ -51,10 +49,9 @@ namespace Problem
 
     template <typename OperatorType>
     void
-    solve(const OperatorType &system_matrix,
-          dealii::LinearAlgebra::distributed::Vector<double>
-            &locally_relevant_solution,
-          const dealii::LinearAlgebra::distributed::Vector<double> &system_rhs);
+    solve(const OperatorType &                  system_matrix,
+          typename LinearAlgebra::Vector &      locally_relevant_solution,
+          const typename LinearAlgebra::Vector &system_rhs);
 
     void
     compute_errors();
@@ -88,20 +85,16 @@ namespace Problem
     dealii::AffineConstraints<double> constraints;
 
     // TODO: Base class?
-    std::unique_ptr<Operator::Poisson::MatrixBased<
-      dim,
-      dealii::LinearAlgebra::distributed::Vector<double>,
-      spacedim>>
+    std::unique_ptr<
+      Operator::Poisson::MatrixBased<dim, LinearAlgebra, spacedim>>
       poisson_operator_matrixbased;
-    std::unique_ptr<Operator::Poisson::MatrixFree<
-      dim,
-      dealii::LinearAlgebra::distributed::Vector<double>,
-      spacedim>>
+
+    // only exists for distributed vector
+    std::unique_ptr<Operator::Poisson::MatrixFree<dim, LinearAlgebra, spacedim>>
       poisson_operator_matrixfree;
 
-    dealii::LinearAlgebra::distributed::Vector<double>
-      locally_relevant_solution;
-    dealii::LinearAlgebra::distributed::Vector<double> system_rhs;
+    typename LinearAlgebra::Vector locally_relevant_solution;
+    typename LinearAlgebra::Vector system_rhs;
   };
 } // namespace Problem
 
