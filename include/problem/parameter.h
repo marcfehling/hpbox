@@ -29,41 +29,46 @@ namespace Problem
     Parameters()
       : dealii::ParameterAcceptor("problem")
     {
+      // subsection problem
       dimension = 2;
       add_parameter("dimension", dimension);
-
-      adaptation_type = "hp Legendre";
-      add_parameter("adaptation type", adaptation_type);
 
       linear_algebra = "dealii & Trilinos";
       add_parameter("linear algebra", linear_algebra);
 
+      adaptation_type = "hp Legendre";
+      add_parameter("adaptation type", adaptation_type);
+
       operator_type = "MatrixFree";
       add_parameter("operator type", operator_type);
-
-      problem_type = "Poisson";
-      add_parameter("problem type", problem_type);
 
       solver_type = "GMG";
       add_parameter("solver type", solver_type);
 
-      filestem.resize(problem_type.size());
-      std::transform(problem_type.cbegin(),
-                     problem_type.cend(),
-                     filestem.begin(),
-                     ::tolower);
-      add_parameter("file stem", filestem);
+      // subsection inputoutput
+      file_stem = "my_problem";
+      add_parameter("file stem", file_stem);
+
+      output_frequency = 1;
+      add_parameter("output each n steps", output_frequency);
+
+      resume_filename = "";
+      add_parameter("resume from filename", resume_filename);
+
+      checkpoint_frequency = 0;
+      add_parameter("checkpoint each n steps", checkpoint_frequency);
     }
 
     unsigned int dimension;
+    std::string  linear_algebra;
+    std::string  adaptation_type;
+    std::string  operator_type;
+    std::string  solver_type;
 
-    std::string adaptation_type;
-    std::string linear_algebra;
-    std::string operator_type;
-    std::string solver_type;
-    std::string problem_type;
-
-    std::string filestem;
+    std::string  file_stem;
+    unsigned int output_frequency;
+    std::string  resume_filename;
+    unsigned int checkpoint_frequency;
 
     Adaptation::Parameters prm_adaptation;
   };

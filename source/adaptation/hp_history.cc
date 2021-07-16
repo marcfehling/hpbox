@@ -76,7 +76,7 @@ namespace Adaptation
                                                prm.max_p_level_difference,
                                                /*contains=*/min_fe_index);
 
-      error_predictions.reinit(triangulation.n_active_cells());
+      error_predictions.grow_or_shrink(triangulation.n_active_cells());
       hp::Refinement::predict_error(dof_handler,
                                     error_estimates,
                                     error_predictions,
@@ -118,7 +118,6 @@ namespace Adaptation
           if (cell->is_locally_owned())
             cell->set_refine_flag();
 
-        init_step = false;
         hp_indicators.grow_or_shrink(triangulation->n_active_cells());
       }
     else
@@ -188,6 +187,32 @@ namespace Adaptation
 
     error_predictions.grow_or_shrink(triangulation->n_active_cells());
     data_transfer.unpack(error_predictions);
+
+    init_step = false;
+  }
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
+  void
+  hpHistory<dim, LinearAlgebra, spacedim>::prepare_for_serialization()
+  {
+    Assert(init_step == false,
+           ExcMessage(
+             "Initialization step must be completed before serialization!"));
+    data_transfer.prepare_for_serialization(error_predictions);
+  }
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
+  void
+  hpHistory<dim, LinearAlgebra, spacedim>::unpack_after_serialization()
+  {
+    error_predictions.grow_or_shrink(triangulation->n_active_cells());
+    data_transfer.deserialize(error_predictions);
+
+    init_step = false;
   }
 
 

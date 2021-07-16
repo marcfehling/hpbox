@@ -154,6 +154,20 @@ namespace Adaptation
 
 
   template <int dim, typename LinearAlgebra, int spacedim>
+  void
+  hpFourier<dim, LinearAlgebra, spacedim>::prepare_for_serialization()
+  {}
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
+  void
+  hpFourier<dim, LinearAlgebra, spacedim>::unpack_after_serialization()
+  {}
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
   unsigned int
   hpFourier<dim, LinearAlgebra, spacedim>::get_n_cycles() const
   {

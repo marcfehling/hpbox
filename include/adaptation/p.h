@@ -51,6 +51,11 @@ namespace Adaptation
     virtual void
     refine() override;
 
+    virtual void
+    prepare_for_serialization() override;
+    virtual void
+    unpack_after_serialization() override;
+
     virtual unsigned int
     get_n_cycles() const override;
     virtual unsigned int

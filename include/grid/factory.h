@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2020 by the deal.II authors
+// Copyright (C) 2021 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -13,22 +13,27 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef solver_parameter_h
-#define solver_parameter_h
+#ifndef grid_factory_h
+#define grid_factory_h
 
 
-#include <deal.II/base/parameter_acceptor.h>
+#include <deal.II/base/exceptions.h>
+
+#include <grid/reentrant_corner.h>
 
 
-namespace Solver
+namespace Factory
 {
-  struct Parameters : public dealii::ParameterAcceptor
+  template <typename... Args>
+  void
+  create_grid(std::string type, Args &&...args)
   {
-    Parameters()
-      : dealii::ParameterAcceptor("solver")
-    {}
-  };
-} // namespace Solver
+    if (type == "reentrant corner")
+      Grid::reentrant_corner(std::forward<Args>(args)...);
+    else
+      Assert(false, dealii::ExcNotImplemented());
+  }
+} // namespace Factory
 
 
 #endif
