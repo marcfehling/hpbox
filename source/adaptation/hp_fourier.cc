@@ -25,17 +25,19 @@
 #include <deal.II/numerics/smoothness_estimator.h>
 
 #include <adaptation/hp_fourier.h>
-#include <global.h>
+#include <base/explicitely_instantiate.h>
+#include <base/global.h>
+#include <base/linear_algebra.h>
 
 using namespace dealii;
 
 
 namespace Adaptation
 {
-  template <int dim, typename VectorType, int spacedim>
-  hpFourier<dim, VectorType, spacedim>::hpFourier(
+  template <int dim, typename LinearAlgebra, int spacedim>
+  hpFourier<dim, LinearAlgebra, spacedim>::hpFourier(
     const Parameters &                     prm,
-    const VectorType &                     locally_relevant_solution,
+    const typename LinearAlgebra::Vector & locally_relevant_solution,
     const hp::FECollection<dim, spacedim> &fe_collection,
     DoFHandler<dim, spacedim> &            dof_handler,
     parallel::distributed::Triangulation<dim, spacedim> &triangulation)
@@ -75,16 +77,16 @@ namespace Adaptation
 
 
 
-  template <int dim, typename VectorType, int spacedim>
+  template <int dim, typename LinearAlgebra, int spacedim>
   void
-  hpFourier<dim, VectorType, spacedim>::estimate_mark()
+  hpFourier<dim, LinearAlgebra, spacedim>::estimate_mark()
   {
     TimerOutput::Scope t(getTimer(), "estimate_mark");
 
     // error estimates
     error_estimates.grow_or_shrink(triangulation->n_active_cells());
 
-    KellyErrorEstimator<dim>::estimate(
+    KellyErrorEstimator<dim, spacedim>::estimate(
       *dof_handler,
       face_quadrature_collection,
       std::map<types::boundary_id, const Function<dim> *>(),
@@ -141,9 +143,9 @@ namespace Adaptation
 
 
 
-  template <int dim, typename VectorType, int spacedim>
+  template <int dim, typename LinearAlgebra, int spacedim>
   void
-  hpFourier<dim, VectorType, spacedim>::refine()
+  hpFourier<dim, LinearAlgebra, spacedim>::refine()
   {
     TimerOutput::Scope t(getTimer(), "refine");
     triangulation->execute_coarsening_and_refinement();
@@ -151,43 +153,41 @@ namespace Adaptation
 
 
 
-  template <int dim, typename VectorType, int spacedim>
+  template <int dim, typename LinearAlgebra, int spacedim>
   unsigned int
-  hpFourier<dim, VectorType, spacedim>::get_n_cycles() const
+  hpFourier<dim, LinearAlgebra, spacedim>::get_n_cycles() const
   {
     return prm.n_cycles;
   }
 
 
 
-  template <int dim, typename VectorType, int spacedim>
+  template <int dim, typename LinearAlgebra, int spacedim>
   unsigned int
-  hpFourier<dim, VectorType, spacedim>::get_n_initial_refinements() const
+  hpFourier<dim, LinearAlgebra, spacedim>::get_n_initial_refinements() const
   {
     return prm.min_h_level;
   }
 
 
 
-  template <int dim, typename VectorType, int spacedim>
+  template <int dim, typename LinearAlgebra, int spacedim>
   const Vector<float> &
-  hpFourier<dim, VectorType, spacedim>::get_error_estimates() const
+  hpFourier<dim, LinearAlgebra, spacedim>::get_error_estimates() const
   {
     return error_estimates;
   }
 
 
 
-  template <int dim, typename VectorType, int spacedim>
+  template <int dim, typename LinearAlgebra, int spacedim>
   const Vector<float> &
-  hpFourier<dim, VectorType, spacedim>::get_hp_indicators() const
+  hpFourier<dim, LinearAlgebra, spacedim>::get_hp_indicators() const
   {
     return hp_indicators;
   }
 
 
 
-  // explicit instantiations
-  template class hpFourier<2>;
-  template class hpFourier<3>;
+  EXPLICITLY_INSTANTIATE(hpFourier)
 } // namespace Adaptation

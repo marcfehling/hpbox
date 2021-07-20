@@ -22,13 +22,14 @@
 
 namespace Operator
 {
-  template <int dim,
-            typename VectorType =
-              dealii::LinearAlgebra::distributed::Vector<double>,
-            int spacedim = dim>
-  class Base : public dealii::MGSolverOperatorBase<dim, VectorType>
+  template <int dim, typename LinearAlgebra, int spacedim = dim>
+  class Base
+    : public dealii::MGSolverOperatorBase<dim,
+                                          typename LinearAlgebra::Vector,
+                                          typename LinearAlgebra::SparseMatrix>
   {
   public:
+    using VectorType = typename LinearAlgebra::Vector;
     using value_type = typename VectorType::value_type;
 
     virtual ~Base() = default;

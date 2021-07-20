@@ -14,9 +14,11 @@
 // ---------------------------------------------------------------------
 
 
-#include <global.h>
+#include <base/global.h>
 #include <problem/parameter.h>
 #include <problem/poisson.h>
+
+#include "factory.h"
 
 
 int
@@ -28,31 +30,22 @@ main(int argc, char *argv[])
                                                                   argv,
                                                                   1);
 
-      getPCOut() << "Running with Trilinos on "
+      Problem::Parameters prm_problem;
+
+      const std::string filename        = (argc > 1) ? argv[1] : "";
+      const std::string output_filename = (argc > 1) ? "" : "poisson.prm";
+      dealii::ParameterAcceptor::initialize(filename, output_filename);
+
+      getPCOut() << "Running with " << prm_problem.linear_algebra << " on "
                  << dealii::Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD)
                  << " MPI rank(s)..." << std::endl;
 
-      Problem::Parameters prm_problem;
-
-      const std::string filename        = (argc > 1) ? argv[1] : "",
-                        output_filename = (argc > 1) ? "" : "poisson.prm";
-      dealii::ParameterAcceptor::initialize(filename, output_filename);
-
-      const int dim = prm_problem.dimension;
-      if (dim == 2)
-        {
-          Problem::Poisson<2> poisson_problem(prm_problem);
-          poisson_problem.run();
-        }
-      else if (dim == 3)
-        {
-          Problem::Poisson<3> poisson_problem(prm_problem);
-          poisson_problem.run();
-        }
-      else
-        {
-          Assert(false, dealii::ExcNotImplemented());
-        }
+      std::unique_ptr<Problem::Base> problem =
+        Factory::create_application("poisson",
+                                    prm_problem.dimension,
+                                    prm_problem.linear_algebra,
+                                    prm_problem);
+      problem->run();
     }
   catch (std::exception &exc)
     {

@@ -16,7 +16,7 @@
 
 #include <deal.II/base/mpi.h>
 
-#include <global.h>
+#include <base/global.h>
 
 #include <iostream>
 

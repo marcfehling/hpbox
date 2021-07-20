@@ -17,10 +17,11 @@
 #include <deal.II/dofs/dof_tools.h>
 
 #include <deal.II/lac/full_matrix.h>
-#include <deal.II/lac/la_parallel_vector.h>
-#include <deal.II/lac/trilinos_sparsity_pattern.h>
+#include <deal.II/lac/sparsity_tools.h>
 #include <deal.II/lac/vector.h>
 
+#include <base/explicitely_instantiate.h>
+#include <base/linear_algebra.h>
 #include <operator/poisson/matrix_based.h>
 
 using namespace dealii;
@@ -30,8 +31,8 @@ namespace Operator
 {
   namespace Poisson
   {
-    template <int dim, typename VectorType, int spacedim>
-    MatrixBased<dim, VectorType, spacedim>::MatrixBased(
+    template <int dim, typename LinearAlgebra, int spacedim>
+    MatrixBased<dim, LinearAlgebra, spacedim>::MatrixBased(
       const hp::MappingCollection<dim, spacedim> &mapping_collection,
       const hp::QCollection<dim> &                quadrature_collection,
       hp::FEValues<dim, spacedim> &               fe_values_collection)
@@ -42,9 +43,9 @@ namespace Operator
 
 
 
-    template <int dim, typename VectorType, int spacedim>
+    template <int dim, typename LinearAlgebra, int spacedim>
     void
-    MatrixBased<dim, VectorType, spacedim>::reinit(
+    MatrixBased<dim, LinearAlgebra, spacedim>::reinit(
       const dealii::DoFHandler<dim, spacedim> &    dof_handler,
       const dealii::AffineConstraints<value_type> &constraints,
       VectorType &                                 system_rhs)
@@ -60,14 +61,42 @@ namespace Operator
         locally_relevant_dofs,
         mpi_communicator);
 
-      TrilinosWrappers::SparsityPattern dsp(dof_handler.locally_owned_dofs(),
-                                            mpi_communicator);
-      DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false);
-      dsp.compress();
+      // constructors differ, so we need this workaround... -- not happy with
+      // this
+      if constexpr (std::is_same<LinearAlgebra, PETSc>::value)
+        {
+          typename LinearAlgebra::SparsityPattern dsp(locally_relevant_dofs);
 
-      system_matrix.reinit(dsp);
+          DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false);
+          SparsityTools::distribute_sparsity_pattern(
+            dsp,
+            dof_handler.locally_owned_dofs(),
+            mpi_communicator,
+            locally_relevant_dofs);
 
-      initialize_dof_vector(system_rhs);
+          system_matrix.reinit(dof_handler.locally_owned_dofs(),
+                               dof_handler.locally_owned_dofs(),
+                               dsp,
+                               mpi_communicator);
+        }
+      else if constexpr (std::is_same<LinearAlgebra, Trilinos>::value ||
+                         std::is_same<LinearAlgebra, dealiiTrilinos>::value)
+        {
+          typename LinearAlgebra::SparsityPattern dsp(
+            dof_handler.locally_owned_dofs(), mpi_communicator);
+
+          DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false);
+          dsp.compress();
+
+          system_matrix.reinit(dsp);
+        }
+      else
+        {
+          Assert(false, ExcNotImplemented());
+        }
+
+      system_rhs.reinit(partitioner->locally_owned_range(),
+                        partitioner->get_mpi_communicator());
 
       FullMatrix<double>                   cell_matrix;
       Vector<double>                       cell_rhs;
@@ -114,38 +143,50 @@ namespace Operator
 
 
 
-    template <int dim, typename VectorType, int spacedim>
+    template <int dim, typename LinearAlgebra, int spacedim>
     void
-    MatrixBased<dim, VectorType, spacedim>::vmult(VectorType &      dst,
-                                                  const VectorType &src) const
+    MatrixBased<dim, LinearAlgebra, spacedim>::vmult(
+      VectorType &      dst,
+      const VectorType &src) const
     {
       system_matrix.vmult(dst, src);
     }
 
 
 
-    template <int dim, typename VectorType, int spacedim>
+    template <int dim, typename LinearAlgebra, int spacedim>
     void
-    MatrixBased<dim, VectorType, spacedim>::initialize_dof_vector(
+    MatrixBased<dim, LinearAlgebra, spacedim>::initialize_dof_vector(
       VectorType &vec) const
     {
-      vec.reinit(partitioner);
+      if constexpr (std::is_same<typename LinearAlgebra::Vector,
+                                 dealii::LinearAlgebra::distributed::Vector<
+                                   double>>::value)
+        {
+          vec.reinit(partitioner);
+        }
+      else
+        {
+          vec.reinit(partitioner->locally_owned_range(),
+                     partitioner->ghost_indices(),
+                     partitioner->get_mpi_communicator());
+        }
     }
 
 
 
-    template <int dim, typename VectorType, int spacedim>
+    template <int dim, typename LinearAlgebra, int spacedim>
     types::global_dof_index
-    MatrixBased<dim, VectorType, spacedim>::m() const
+    MatrixBased<dim, LinearAlgebra, spacedim>::m() const
     {
       return system_matrix.m();
     }
 
 
 
-    template <int dim, typename VectorType, int spacedim>
+    template <int dim, typename LinearAlgebra, int spacedim>
     void
-    MatrixBased<dim, VectorType, spacedim>::compute_inverse_diagonal(
+    MatrixBased<dim, LinearAlgebra, spacedim>::compute_inverse_diagonal(
       VectorType &diagonal) const
     {
       this->initialize_dof_vector(diagonal);
@@ -157,28 +198,26 @@ namespace Operator
 
 
 
-    template <int dim, typename VectorType, int spacedim>
-    const TrilinosWrappers::SparseMatrix &
-    MatrixBased<dim, VectorType, spacedim>::get_system_matrix() const
+    template <int dim, typename LinearAlgebra, int spacedim>
+    const typename LinearAlgebra::SparseMatrix &
+    MatrixBased<dim, LinearAlgebra, spacedim>::get_system_matrix() const
     {
       return system_matrix;
     }
 
 
 
-    template <int dim, typename VectorType, int spacedim>
+    template <int dim, typename LinearAlgebra, int spacedim>
     void
-    MatrixBased<dim, VectorType, spacedim>::Tvmult(VectorType &      dst,
-                                                   const VectorType &src) const
+    MatrixBased<dim, LinearAlgebra, spacedim>::Tvmult(
+      VectorType &      dst,
+      const VectorType &src) const
     {
       vmult(dst, src);
     }
 
 
 
-    // explicit instantiations
-    using VectorType = LinearAlgebra::distributed::Vector<double>;
-    template class MatrixBased<2, VectorType>;
-    template class MatrixBased<3, VectorType>;
+    EXPLICITLY_INSTANTIATE(MatrixBased)
   } // namespace Poisson
 } // namespace Operator

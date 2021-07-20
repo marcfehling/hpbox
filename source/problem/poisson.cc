@@ -22,8 +22,10 @@
 #include <deal.II/numerics/vector_tools.h>
 
 #include <adaptation/factory.h>
+#include <base/explicitely_instantiate.h>
+#include <base/global.h>
+#include <base/linear_algebra.h>
 #include <function/factory.h>
-#include <global.h>
 #include <problem/poisson.h>
 #include <solver/cg/amg.h>
 #include <solver/cg/gmg.h>
@@ -37,8 +39,8 @@ using namespace dealii;
 
 namespace Problem
 {
-  template <int dim, int spacedim>
-  Poisson<dim, spacedim>::Poisson(const Parameters &prm)
+  template <int dim, typename LinearAlgebra, int spacedim>
+  Poisson<dim, LinearAlgebra, spacedim>::Poisson(const Parameters &prm)
     : mpi_communicator(MPI_COMM_WORLD)
     , prm(prm)
     , triangulation(mpi_communicator)
@@ -54,12 +56,12 @@ namespace Problem
     filename_log = oss.str();
 
     // prepare collections
-    mapping_collection.push_back(MappingQ1<dim>());
+    mapping_collection.push_back(MappingQ1<dim, spacedim>());
 
     for (unsigned int degree = 1; degree <= prm.prm_adaptation.max_p_degree;
          ++degree)
       {
-        fe_collection.push_back(FE_Q<dim>(degree));
+        fe_collection.push_back(FE_Q<dim, spacedim>(degree));
         quadrature_collection.push_back(QGauss<dim>(degree + 1));
       }
 
@@ -86,32 +88,29 @@ namespace Problem
         {
           TimerOutput::Scope t(getTimer(), "calculate_fevalues");
 
-          fe_values_collection =
-            std::make_unique<hp::FEValues<dim>>(mapping_collection,
-                                                fe_collection,
-                                                quadrature_collection,
-                                                update_values |
-                                                  update_gradients |
-                                                  update_quadrature_points |
-                                                  update_JxW_values);
+          fe_values_collection = std::make_unique<hp::FEValues<dim, spacedim>>(
+            mapping_collection,
+            fe_collection,
+            quadrature_collection,
+            update_values | update_gradients | update_quadrature_points |
+              update_JxW_values);
           fe_values_collection->precalculate_fe_values();
         }
 
-        poisson_operator_matrixbased =
-          std::make_unique<Operator::Poisson::MatrixBased<
-            dim,
-            LinearAlgebra::distributed::Vector<double>,
-            spacedim>>(mapping_collection,
-                       quadrature_collection,
-                       *fe_values_collection);
+        poisson_operator_matrixbased = std::make_unique<
+          Operator::Poisson::MatrixBased<dim, LinearAlgebra, spacedim>>(
+          mapping_collection, quadrature_collection, *fe_values_collection);
       }
     else if (prm.operator_type == "MatrixFree")
       {
-        poisson_operator_matrixfree =
-          std::make_unique<Operator::Poisson::MatrixFree<
-            dim,
-            LinearAlgebra::distributed::Vector<double>,
-            spacedim>>(mapping_collection, quadrature_collection);
+        if constexpr (std::is_same<LinearAlgebra, dealiiTrilinos>::value)
+          poisson_operator_matrixfree = std::make_unique<
+            Operator::Poisson::MatrixFree<dim, LinearAlgebra, spacedim>>(
+            mapping_collection, quadrature_collection);
+        else
+          Assert(false,
+                 ExcMessage(
+                   "MatrixFree only availble with dealii & Trilinos!"));
       }
     else
       {
@@ -125,19 +124,20 @@ namespace Problem
 
     // choose adaptation strategy
     adaptation_strategy =
-      Factory::create_adaptation<dim>(prm.adaptation_type,
-                                      prm.prm_adaptation,
-                                      locally_relevant_solution,
-                                      fe_collection,
-                                      dof_handler,
-                                      triangulation);
+      Factory::create_adaptation<dim, LinearAlgebra, spacedim>(
+        prm.adaptation_type,
+        prm.prm_adaptation,
+        locally_relevant_solution,
+        fe_collection,
+        dof_handler,
+        triangulation);
   }
 
 
 
-  template <int dim, int spacedim>
+  template <int dim, typename LinearAlgebra, int spacedim>
   void
-  Poisson<dim, spacedim>::initialize_grid()
+  Poisson<dim, LinearAlgebra, spacedim>::initialize_grid()
   {
     TimerOutput::Scope t(getTimer(), "initialize_grid");
 
@@ -174,9 +174,9 @@ namespace Problem
 
 
 
-  template <int dim, int spacedim>
+  template <int dim, typename LinearAlgebra, int spacedim>
   void
-  Poisson<dim, spacedim>::setup_system()
+  Poisson<dim, LinearAlgebra, spacedim>::setup_system()
   {
     TimerOutput::Scope t(getTimer(), "setup");
 
@@ -218,9 +218,9 @@ namespace Problem
 
 
 
-  template <int dim, int spacedim>
+  template <int dim, typename LinearAlgebra, int spacedim>
   void
-  Poisson<dim, spacedim>::log_diagnostics()
+  Poisson<dim, LinearAlgebra, spacedim>::log_diagnostics()
   {
     dealii::ConditionalOStream &pcout = getPCOut();
     dealii::TableHandler &      table = getTable();
@@ -303,24 +303,35 @@ namespace Problem
 
 
 
-  template <int dim, int spacedim>
+  template <int dim, typename LinearAlgebra, int spacedim>
   template <typename OperatorType>
   void
-  Poisson<dim, spacedim>::solve(
-    const OperatorType &                              system_matrix,
-    LinearAlgebra::distributed::Vector<double> &      locally_relevant_solution,
-    const LinearAlgebra::distributed::Vector<double> &system_rhs)
+  Poisson<dim, LinearAlgebra, spacedim>::solve(
+    const OperatorType &                  system_matrix,
+    typename LinearAlgebra::Vector &      locally_relevant_solution,
+    const typename LinearAlgebra::Vector &system_rhs)
   {
     TimerOutput::Scope t(getTimer(), "solve");
 
-    LinearAlgebra::distributed::Vector<double> completely_distributed_solution;
-    LinearAlgebra::distributed::Vector<double>
-      completely_distributed_system_rhs;
+    typename LinearAlgebra::Vector completely_distributed_solution;
+    typename LinearAlgebra::Vector completely_distributed_system_rhs;
 
-    system_matrix.initialize_dof_vector(completely_distributed_solution);
-    system_matrix.initialize_dof_vector(completely_distributed_system_rhs);
+    if constexpr (std::is_same<
+                    typename LinearAlgebra::Vector,
+                    dealii::LinearAlgebra::distributed::Vector<double>>::value)
+      {
+        system_matrix.initialize_dof_vector(completely_distributed_solution);
+        system_matrix.initialize_dof_vector(completely_distributed_system_rhs);
 
-    completely_distributed_system_rhs.copy_locally_owned_data_from(system_rhs);
+        completely_distributed_system_rhs.copy_locally_owned_data_from(
+          system_rhs);
+      }
+    else
+      {
+        completely_distributed_solution.reinit(locally_owned_dofs,
+                                               mpi_communicator);
+        completely_distributed_system_rhs = system_rhs;
+      }
 
     SolverControl solver_control(completely_distributed_system_rhs.size(),
                                  1e-12 *
@@ -328,43 +339,49 @@ namespace Problem
 
     if (prm.solver_type == "AMG")
       {
-        Solver::CG::AMG::solve(solver_control,
-                               system_matrix,
-                               completely_distributed_solution,
-                               completely_distributed_system_rhs);
+        Solver::CG::AMG::solve<LinearAlgebra>(
+          solver_control,
+          system_matrix,
+          completely_distributed_solution,
+          completely_distributed_system_rhs);
       }
     else if (prm.solver_type == "GMG")
       {
-        if constexpr (std::is_same<OperatorType,
-                                   Operator::Poisson::MatrixFree<
-                                     dim,
-                                     LinearAlgebra::distributed::Vector<double>,
-                                     spacedim>>::value)
-          Solver::CG::GMG::solve(solver_control,
-                                 system_matrix,
-                                 completely_distributed_solution,
-                                 completely_distributed_system_rhs,
-                                 /*boundary_values=*/mapping_collection,
-                                 dof_handler,
-                                 /*operator_constructor=*/mapping_collection,
-                                 quadrature_collection);
+        if constexpr (std::is_same<
+                        OperatorType,
+                        Operator::Poisson::
+                          MatrixFree<dim, dealiiTrilinos, spacedim>>::value)
+          {
+            Solver::CG::GMG::solve(solver_control,
+                                   system_matrix,
+                                   completely_distributed_solution,
+                                   completely_distributed_system_rhs,
+                                   /*boundary_values=*/mapping_collection,
+                                   dof_handler,
+                                   /*operator_constructor=*/mapping_collection,
+                                   quadrature_collection);
+          }
         else if constexpr (std::is_same<
                              OperatorType,
-                             Operator::Poisson::MatrixBased<
-                               dim,
-                               LinearAlgebra::distributed::Vector<double>,
-                               spacedim>>::value)
-          Solver::CG::GMG::solve(solver_control,
-                                 system_matrix,
-                                 completely_distributed_solution,
-                                 completely_distributed_system_rhs,
-                                 /*boundary_values=*/mapping_collection,
-                                 dof_handler,
-                                 /*operator_constructor=*/mapping_collection,
-                                 quadrature_collection,
-                                 *fe_values_collection);
+                             Operator::Poisson::MatrixBased<dim,
+                                                            dealiiTrilinos,
+                                                            spacedim>>::value)
+          {
+            Solver::CG::GMG::solve(solver_control,
+                                   system_matrix,
+                                   completely_distributed_solution,
+                                   completely_distributed_system_rhs,
+                                   /*boundary_values=*/mapping_collection,
+                                   dof_handler,
+                                   /*operator_constructor=*/mapping_collection,
+                                   quadrature_collection,
+                                   *fe_values_collection);
+          }
         else
-          Assert(false, ExcNotImplemented());
+          {
+            Assert(false,
+                   ExcMessage("GMG is only available with dealii & Trilinos!"));
+          }
       }
     else
       {
@@ -377,16 +394,25 @@ namespace Problem
 
     constraints.distribute(completely_distributed_solution);
 
-    locally_relevant_solution.copy_locally_owned_data_from(
-      completely_distributed_solution);
-    locally_relevant_solution.update_ghost_values();
+    if constexpr (std::is_same<
+                    typename LinearAlgebra::Vector,
+                    dealii::LinearAlgebra::distributed::Vector<double>>::value)
+      {
+        locally_relevant_solution.copy_locally_owned_data_from(
+          completely_distributed_solution);
+        locally_relevant_solution.update_ghost_values();
+      }
+    else
+      {
+        locally_relevant_solution = completely_distributed_solution;
+      }
   }
 
 
 
-  template <int dim, int spacedim>
+  template <int dim, typename LinearAlgebra, int spacedim>
   void
-  Poisson<dim, spacedim>::compute_errors()
+  Poisson<dim, LinearAlgebra, spacedim>::compute_errors()
   {
     TimerOutput::Scope t(getTimer(), "compute_errors");
 
@@ -425,9 +451,10 @@ namespace Problem
 
 
 
-  template <int dim, int spacedim>
+  template <int dim, typename LinearAlgebra, int spacedim>
   void
-  Poisson<dim, spacedim>::output_results(const unsigned int cycle)
+  Poisson<dim, LinearAlgebra, spacedim>::output_results(
+    const unsigned int cycle)
   {
     TimerOutput::Scope t(getTimer(), "output_results");
 
@@ -462,9 +489,9 @@ namespace Problem
 
 
 
-  template <int dim, int spacedim>
+  template <int dim, typename LinearAlgebra, int spacedim>
   void
-  Poisson<dim, spacedim>::log_timings()
+  Poisson<dim, LinearAlgebra, spacedim>::log_timings()
   {
     getTimer().print_summary();
     getPCOut() << std::endl;
@@ -479,9 +506,9 @@ namespace Problem
 
 
 
-  template <int dim, int spacedim>
+  template <int dim, typename LinearAlgebra, int spacedim>
   void
-  Poisson<dim, spacedim>::run()
+  Poisson<dim, LinearAlgebra, spacedim>::run()
   {
     getTable().set_auto_fill_mode(true);
 
@@ -546,7 +573,5 @@ namespace Problem
 
 
 
-  // explicit instantiations
-  template class Poisson<2>;
-  template class Poisson<3>;
+  EXPLICITLY_INSTANTIATE(Poisson)
 } // namespace Problem

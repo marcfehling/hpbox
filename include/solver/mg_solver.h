@@ -33,8 +33,11 @@
 #include <deal.II/lac/diagonal_matrix.h>
 #include <deal.II/lac/precondition.h>
 #include <deal.II/lac/solver_control.h>
-#include <deal.II/lac/trilinos_precondition.h>
-#include <deal.II/lac/trilinos_sparse_matrix.h>
+
+#ifdef DEAL_II_WITH_TRILINOS
+#  include <deal.II/lac/trilinos_precondition.h>
+//#  include <deal.II/lac/trilinos_sparse_matrix.h>
+#endif
 
 #include <deal.II/multigrid/mg_coarse.h>
 #include <deal.II/multigrid/mg_constrained_dofs.h>
@@ -113,8 +116,7 @@ struct MGSolverParameters
 //  static const int dim = dim_;
 //  using value_type     = number;
 //  using VectorType     = LinearAlgebra::distributed::Vector<number>;
-template <int dim,
-          typename VectorType = LinearAlgebra::distributed::Vector<double>>
+template <int dim, typename VectorType, typename MatrixType>
 class MGSolverOperatorBase : public Subscriptor
 {
 public:
@@ -152,11 +154,11 @@ public:
 
   // Return the actual system matrix, which can be used in any matrix-based
   // solvers (like AMG).
-  virtual const TrilinosWrappers::SparseMatrix &
+  virtual const MatrixType &
   get_system_matrix() const;
 
 private:
-  const TrilinosWrappers::SparseMatrix dummy_trilinos_wrapper_sparse_matrix;
+  const MatrixType dummy_sparse_matrix;
 };
 
 
@@ -164,9 +166,9 @@ private:
 // template <int dim_, typename number>
 // types::global_dof_index
 // MGSolverOperatorBase<dim_, number>::m() const
-template <int dim, typename VectorType>
+template <int dim, typename VectorType, typename MatrixType>
 types::global_dof_index
-MGSolverOperatorBase<dim, VectorType>::m() const
+MGSolverOperatorBase<dim, VectorType, MatrixType>::m() const
 {
   Assert(false, ExcNotImplemented());
   return 0;
@@ -177,9 +179,10 @@ MGSolverOperatorBase<dim, VectorType>::m() const
 // template <int dim_, typename number>
 // number
 // MGSolverOperatorBase<dim_, number>::el(unsigned int, unsigned int) const
-template <int dim, typename VectorType>
-typename MGSolverOperatorBase<dim, VectorType>::value_type
-MGSolverOperatorBase<dim, VectorType>::el(unsigned int, unsigned int) const
+template <int dim, typename VectorType, typename MatrixType>
+typename MGSolverOperatorBase<dim, VectorType, MatrixType>::value_type
+MGSolverOperatorBase<dim, VectorType, MatrixType>::el(unsigned int,
+                                                      unsigned int) const
 {
   Assert(false, ExcNotImplemented());
   return 0;
@@ -191,9 +194,9 @@ MGSolverOperatorBase<dim, VectorType>::el(unsigned int, unsigned int) const
 // void
 // MGSolverOperatorBase<dim_, number>::initialize_dof_vector(VectorType &vec)
 // const
-template <int dim, typename VectorType>
+template <int dim, typename VectorType, typename MatrixType>
 void
-MGSolverOperatorBase<dim, VectorType>::initialize_dof_vector(
+MGSolverOperatorBase<dim, VectorType, MatrixType>::initialize_dof_vector(
   VectorType &vec) const
 {
   Assert(false, ExcNotImplemented());
@@ -206,10 +209,11 @@ MGSolverOperatorBase<dim, VectorType>::initialize_dof_vector(
 // void
 // MGSolverOperatorBase<dim_, number>::vmult(VectorType &      dst,
 //                                          const VectorType &src) const
-template <int dim, typename VectorType>
+template <int dim, typename VectorType, typename MatrixType>
 void
-MGSolverOperatorBase<dim, VectorType>::vmult(VectorType &      dst,
-                                             const VectorType &src) const
+MGSolverOperatorBase<dim, VectorType, MatrixType>::vmult(
+  VectorType &      dst,
+  const VectorType &src) const
 {
   Assert(false, ExcNotImplemented());
   (void)dst;
@@ -222,10 +226,11 @@ MGSolverOperatorBase<dim, VectorType>::vmult(VectorType &      dst,
 // void
 // MGSolverOperatorBase<dim_, number>::Tvmult(VectorType &      dst,
 //                                           const VectorType &src) const
-template <int dim, typename VectorType>
+template <int dim, typename VectorType, typename MatrixType>
 void
-MGSolverOperatorBase<dim, VectorType>::Tvmult(VectorType &      dst,
-                                              const VectorType &src) const
+MGSolverOperatorBase<dim, VectorType, MatrixType>::Tvmult(
+  VectorType &      dst,
+  const VectorType &src) const
 {
   Assert(false, ExcNotImplemented());
   (void)dst;
@@ -238,9 +243,9 @@ MGSolverOperatorBase<dim, VectorType>::Tvmult(VectorType &      dst,
 // void
 // MGSolverOperatorBase<dim_, number>::compute_inverse_diagonal(
 //  VectorType &diagonal) const
-template <int dim, typename VectorType>
+template <int dim, typename VectorType, typename MatrixType>
 void
-MGSolverOperatorBase<dim, VectorType>::compute_inverse_diagonal(
+MGSolverOperatorBase<dim, VectorType, MatrixType>::compute_inverse_diagonal(
   VectorType &diagonal) const
 {
   Assert(false, ExcNotImplemented());
@@ -252,12 +257,12 @@ MGSolverOperatorBase<dim, VectorType>::compute_inverse_diagonal(
 // template <int dim_, typename number>
 // const TrilinosWrappers::SparseMatrix &
 // MGSolverOperatorBase<dim_, number>::get_system_matrix() const
-template <int dim, typename VectorType>
-const TrilinosWrappers::SparseMatrix &
-MGSolverOperatorBase<dim, VectorType>::get_system_matrix() const
+template <int dim, typename VectorType, typename MatrixType>
+const MatrixType &
+MGSolverOperatorBase<dim, VectorType, MatrixType>::get_system_matrix() const
 {
   Assert(false, ExcNotImplemented());
-  return dummy_trilinos_wrapper_sparse_matrix;
+  return dummy_sparse_matrix;
 }
 
 

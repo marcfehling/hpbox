@@ -28,10 +28,11 @@ namespace Operator
 {
   namespace Poisson
   {
-    template <int dim, typename VectorType, int spacedim = dim>
-    class MatrixFree : public Operator::Base<dim, VectorType, spacedim>
+    template <int dim, typename LinearAlgebra, int spacedim = dim>
+    class MatrixFree : public Operator::Base<dim, LinearAlgebra, spacedim>
     {
     public:
+      using VectorType = typename LinearAlgebra::Vector;
       using value_type = typename VectorType::value_type;
 
       using FECellIntegrator = dealii::FEEvaluation<dim, -1, 0, 1, value_type>;
@@ -57,7 +58,7 @@ namespace Operator
       void
       compute_inverse_diagonal(VectorType &diagonal) const override;
 
-      const dealii::TrilinosWrappers::SparseMatrix &
+      const typename LinearAlgebra::SparseMatrix &
       get_system_matrix() const override;
 
       void
@@ -94,7 +95,7 @@ namespace Operator
 
       dealii::MatrixFree<dim, value_type> matrix_free;
 
-      mutable dealii::TrilinosWrappers::SparseMatrix system_matrix;
+      mutable typename LinearAlgebra::SparseMatrix system_matrix;
     };
   } // namespace Poisson
 } // namespace Operator

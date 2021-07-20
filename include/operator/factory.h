@@ -25,24 +25,30 @@
 
 namespace Factory
 {
-  template <
-    int dim,
-    typename VectorType = dealii::LinearAlgebra::distributed::Vector<double>,
-    int spacedim        = dim,
-    typename... Args>
-  std::unique_ptr<dealii::MGSolverOperatorBase<dim, VectorType>>
-  create_operator(std::string type, Args &&...args)
+  template <int dim,
+            typename LinearAlgebra,
+            int spacedim = dim,
+            typename... Args>
+  std::unique_ptr<
+    dealii::MGSolverOperatorBase<dim,
+                                 typename LinearAlgebra::Vector,
+                                 typename LinearAlgebra::SparseMatrix>>
+  create_operator(const std::string &type, Args &&...args)
   {
     if (type == "poisson")
       return std::make_unique<
-        Operator::Poisson::MatrixBased<dim, VectorType, spacedim>>(
+        Operator::Poisson::MatrixBased<dim, LinearAlgebra, spacedim>>(
         std::forward<Args>(args)...);
     else if (type == "poisson")
       return std::make_unique<
-        Operator::Poisson::MatrixFree<dim, VectorType, spacedim>>(
+        Operator::Poisson::MatrixFree<dim, LinearAlgebra, spacedim>>(
         std::forward<Args>(args)...);
-    else
-      Assert(false, dealii::ExcNotImplemented());
+
+    Assert(false, dealii::ExcNotImplemented());
+    return std::unique_ptr<
+      dealii::MGSolverOperatorBase<dim,
+                                   typename LinearAlgebra::Vector,
+                                   typename LinearAlgebra::SparseMatrix>>();
   }
 } // namespace Factory
 

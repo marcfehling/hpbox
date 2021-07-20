@@ -21,8 +21,6 @@
 
 #include <deal.II/hp/fe_values.h>
 
-#include <deal.II/lac/trilinos_sparse_matrix.h>
-
 #include <operator/base.h>
 
 
@@ -30,10 +28,11 @@ namespace Operator
 {
   namespace Poisson
   {
-    template <int dim, typename VectorType, int spacedim = dim>
-    class MatrixBased : public Operator::Base<dim, VectorType, spacedim>
+    template <int dim, typename LinearAlgebra, int spacedim = dim>
+    class MatrixBased : public Operator::Base<dim, LinearAlgebra, spacedim>
     {
     public:
+      using VectorType = typename LinearAlgebra::Vector;
       using value_type = typename VectorType::value_type;
 
       MatrixBased(
@@ -58,7 +57,7 @@ namespace Operator
       void
       compute_inverse_diagonal(VectorType &diagonal) const override;
 
-      const dealii::TrilinosWrappers::SparseMatrix &
+      const typename LinearAlgebra::SparseMatrix &
       get_system_matrix() const override;
 
       void
@@ -79,7 +78,7 @@ namespace Operator
       dealii::SmartPointer<dealii::hp::FEValues<dim, spacedim>>
         fe_values_collection;
 
-      dealii::TrilinosWrappers::SparseMatrix system_matrix;
+      typename LinearAlgebra::SparseMatrix system_matrix;
 
       std::shared_ptr<const dealii::Utilities::MPI::Partitioner> partitioner;
     };
