@@ -104,6 +104,20 @@ namespace Adaptation
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
+  h<dim, LinearAlgebra, spacedim>::prepare_for_serialization()
+  {}
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
+  void
+  h<dim, LinearAlgebra, spacedim>::unpack_after_serialization()
+  {}
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
+  void
   h<dim, LinearAlgebra, spacedim>::refine()
   {
     TimerOutput::Scope t(getTimer(), "refine");

@@ -56,9 +56,14 @@ namespace Problem
     void
     compute_errors();
     void
-    output_results(const unsigned int cycle);
+    output_results();
     void
     log_timings();
+
+    void
+    resume_from_checkpoint();
+    void
+    write_to_checkpoint();
 
     MPI_Comm mpi_communicator;
 
@@ -95,6 +100,8 @@ namespace Problem
 
     typename LinearAlgebra::Vector locally_relevant_solution;
     typename LinearAlgebra::Vector system_rhs;
+
+    unsigned int cycle;
   };
 } // namespace Problem
 

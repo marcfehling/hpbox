@@ -26,6 +26,7 @@
 #include <base/global.h>
 #include <base/linear_algebra.h>
 #include <function/factory.h>
+#include <grid/factory.h>
 #include <problem/poisson.h>
 #include <solver/cg/amg.h>
 #include <solver/cg/gmg.h>
@@ -52,7 +53,8 @@ namespace Problem
     time_t             now = time(nullptr);
     tm *               ltm = localtime(&now);
     std::ostringstream oss;
-    oss << prm.filestem << "-" << std::put_time(ltm, "%Y%m%d-%H%M%S") << ".log";
+    oss << prm.file_stem << "-" << std::put_time(ltm, "%Y%m%d-%H%M%S")
+        << ".log";
     filename_log = oss.str();
 
     // prepare collections
@@ -120,7 +122,7 @@ namespace Problem
     // choose functions
     boundary_function = Factory::create_function<dim>("reentrant corner");
     solution_function = Factory::create_function<dim>("reentrant corner");
-    rhs_function      = Factory::create_function<dim>("zero");
+    // rhs_function      = Factory::create_function<dim>("zero");
 
     // choose adaptation strategy
     adaptation_strategy =
@@ -141,35 +143,22 @@ namespace Problem
   {
     TimerOutput::Scope t(getTimer(), "initialize_grid");
 
-    std::vector<unsigned int> repetitions(dim);
-    Point<dim>                bottom_left, top_right;
-    for (unsigned int d = 0; d < dim; ++d)
-      if (d < 2)
-        {
-          repetitions[d] = 2;
-          bottom_left[d] = -1.;
-          top_right[d]   = 1.;
-        }
-      else
-        {
-          repetitions[d] = 1;
-          bottom_left[d] = 0.;
-          top_right[d]   = 1.;
-        }
+    Factory::create_grid("reentrant corner", triangulation);
 
-    std::vector<int> cells_to_remove(dim, 1);
-    cells_to_remove[0] = -1;
+    if (prm.resume_filename.compare("") != 0)
+      {
+        resume_from_checkpoint();
+      }
+    else
+      {
+        const unsigned int min_fe_index = prm.prm_adaptation.min_p_degree - 1;
+        for (const auto &cell : dof_handler.active_cell_iterators())
+          if (cell->is_locally_owned())
+            cell->set_active_fe_index(min_fe_index);
 
-    GridGenerator::subdivided_hyper_L(
-      triangulation, repetitions, bottom_left, top_right, cells_to_remove);
-
-    triangulation.refine_global(
-      adaptation_strategy->get_n_initial_refinements());
-
-    const unsigned int min_fe_index = prm.prm_adaptation.min_p_degree - 1;
-    for (const auto &cell : dof_handler.active_cell_iterators())
-      if (cell->is_locally_owned())
-        cell->set_active_fe_index(min_fe_index);
+        triangulation.refine_global(
+          adaptation_strategy->get_n_initial_refinements());
+      }
   }
 
 
@@ -453,8 +442,7 @@ namespace Problem
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  Poisson<dim, LinearAlgebra, spacedim>::output_results(
-    const unsigned int cycle)
+  Poisson<dim, LinearAlgebra, spacedim>::output_results()
   {
     TimerOutput::Scope t(getTimer(), "output_results");
 
@@ -484,7 +472,7 @@ namespace Problem
     data_out.build_patches(mapping_collection);
 
     data_out.write_vtu_with_pvtu_record(
-      "./", prm.filestem, cycle, mpi_communicator, 2, 1);
+      "./", prm.file_stem, cycle, mpi_communicator, 2, 1);
   }
 
 
@@ -508,23 +496,69 @@ namespace Problem
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
+  Poisson<dim, LinearAlgebra, spacedim>::resume_from_checkpoint()
+  {
+    // load triangulation and data
+    triangulation.load(prm.resume_filename);
+
+    dof_handler.deserialize_active_fe_indices();
+    adaptation_strategy->unpack_after_serialization();
+
+    // load metadata
+    std::ifstream file(prm.resume_filename + ".metadata", std::ios::binary);
+    boost::archive::binary_iarchive ia(file);
+    ia >> cycle;
+  }
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
+  void
+  Poisson<dim, LinearAlgebra, spacedim>::write_to_checkpoint()
+  {
+    // write triangulation and data
+    dof_handler.prepare_for_serialization_of_active_fe_indices();
+    adaptation_strategy->prepare_for_serialization();
+
+    const std::string filename = prm.file_stem + "-checkpoint";
+    triangulation.save(filename);
+
+    // write metadata
+    std::ofstream file(filename + ".metadata", std::ios::binary);
+    boost::archive::binary_oarchive oa(file);
+    oa << cycle;
+
+    getPCOut() << "Checkpoint written." << std::endl;
+  }
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
+  void
   Poisson<dim, LinearAlgebra, spacedim>::run()
   {
     getTable().set_auto_fill_mode(true);
 
-    for (unsigned int cycle = 0; cycle < adaptation_strategy->get_n_cycles();
-         ++cycle)
+    for (cycle = 0; cycle < adaptation_strategy->get_n_cycles(); ++cycle)
       {
-        getPCOut() << "Cycle " << cycle << ':' << std::endl;
-        getTable().add_value("cycle", cycle);
-
         {
           TimerOutput::Scope t(getTimer(), "full_cycle");
 
           if (cycle == 0)
-            initialize_grid();
+            {
+              initialize_grid();
+            }
           else
-            adaptation_strategy->refine();
+            {
+              adaptation_strategy->refine();
+
+              if ((prm.checkpoint_frequency > 0) &&
+                  (cycle % prm.checkpoint_frequency == 0))
+                write_to_checkpoint();
+            }
+
+          getPCOut() << "Cycle " << cycle << ':' << std::endl;
+          getTable().add_value("cycle", cycle);
 
           setup_system();
 
@@ -550,12 +584,15 @@ namespace Problem
                     system_rhs);
             }
           else
-            Assert(false, ExcInternalError());
+            {
+              Assert(false, ExcInternalError());
+            }
 
           compute_errors();
           adaptation_strategy->estimate_mark();
 
-          output_results(cycle);
+          if ((prm.output_frequency > 0) && (cycle % prm.output_frequency == 0))
+            output_results();
         }
 
         log_timings();
