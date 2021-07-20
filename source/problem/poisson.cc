@@ -222,14 +222,17 @@ namespace Problem
   void
   Poisson<dim, spacedim>::log_diagnostics()
   {
-    const unsigned int first_n_processes =
-      std::min<unsigned int>(8,
-                             Utilities::MPI::n_mpi_processes(mpi_communicator));
-    const bool output_cropped =
-      first_n_processes < Utilities::MPI::n_mpi_processes(mpi_communicator);
-
     dealii::ConditionalOStream &pcout = getPCOut();
     dealii::TableHandler &      table = getTable();
+
+    const unsigned int n_processes =
+      Utilities::MPI::n_mpi_processes(mpi_communicator);
+    table.add_value("n_procs", n_processes);
+
+    const unsigned int first_n_processes =
+      std::min<unsigned int>(8, n_processes);
+    const bool output_cropped = first_n_processes < n_processes;
+
     {
       pcout << "   Number of active cells:       "
             << triangulation.n_global_active_cells() << std::endl;
