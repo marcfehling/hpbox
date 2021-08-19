@@ -38,7 +38,7 @@ getTimer()
 {
   static TimerOutput computing_timer(MPI_COMM_WORLD,
                                      getPCOut(),
-                                     TimerOutput::summary,
+                                     TimerOutput::never,
                                      TimerOutput::wall_times);
   return computing_timer;
 }
