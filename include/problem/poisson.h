@@ -44,8 +44,6 @@ namespace Problem
     initialize_grid();
     void
     setup_system();
-    void
-    log_diagnostics();
 
     template <typename OperatorType>
     void
@@ -57,8 +55,6 @@ namespace Problem
     compute_errors();
     void
     output_results();
-    void
-    log_timings();
 
     void
     resume_from_checkpoint();
