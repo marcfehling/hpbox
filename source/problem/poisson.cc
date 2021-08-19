@@ -27,6 +27,7 @@
 #include <base/linear_algebra.h>
 #include <function/factory.h>
 #include <grid/factory.h>
+#include <log/log.h>
 #include <problem/poisson.h>
 #include <solver/cg/amg.h>
 #include <solver/cg/gmg.h>
@@ -50,12 +51,14 @@ namespace Problem
     TimerOutput::Scope t(getTimer(), "initialize_problem");
 
     // prepare name for logfile
-    time_t             now = time(nullptr);
-    tm *               ltm = localtime(&now);
-    std::ostringstream oss;
-    oss << prm.file_stem << "-" << std::put_time(ltm, "%Y%m%d-%H%M%S")
-        << ".log";
-    filename_log = oss.str();
+    {
+      time_t             now = time(nullptr);
+      tm *               ltm = localtime(&now);
+      std::ostringstream oss;
+      oss << prm.file_stem << "-" << std::put_time(ltm, "%Y%m%d-%H%M%S")
+          << ".log";
+      filename_log = oss.str();
+    }
 
     // prepare collections
     mapping_collection.push_back(MappingQ1<dim, spacedim>());
@@ -203,91 +206,6 @@ namespace Problem
       ExcMessage("AffineConstraints object contains inconsistencies!"));
 #endif
     constraints.close();
-  }
-
-
-
-  template <int dim, typename LinearAlgebra, int spacedim>
-  void
-  Poisson<dim, LinearAlgebra, spacedim>::log_diagnostics()
-  {
-    dealii::ConditionalOStream &pcout = getPCOut();
-    dealii::TableHandler &      table = getTable();
-
-    const unsigned int n_processes =
-      Utilities::MPI::n_mpi_processes(mpi_communicator);
-    table.add_value("n_procs", n_processes);
-
-    const unsigned int first_n_processes =
-      std::min<unsigned int>(8, n_processes);
-    const bool output_cropped = first_n_processes < n_processes;
-
-    {
-      pcout << "   Number of active cells:       "
-            << triangulation.n_global_active_cells() << std::endl;
-      table.add_value("active_cells", triangulation.n_global_active_cells());
-
-      pcout << "     by partition:              ";
-      std::vector<unsigned int> n_active_cells_per_subdomain =
-        Utilities::MPI::gather(mpi_communicator,
-                               triangulation.n_locally_owned_active_cells());
-      for (unsigned int i = 0; i < first_n_processes; ++i)
-        pcout << ' ' << n_active_cells_per_subdomain[i];
-      if (output_cropped)
-        pcout << " ...";
-      pcout << std::endl;
-    }
-
-    {
-      pcout << "   Number of degrees of freedom: " << dof_handler.n_dofs()
-            << std::endl;
-      table.add_value("dofs", dof_handler.n_dofs());
-
-      pcout << "     by partition:              ";
-      std::vector<types::global_dof_index> n_dofs_per_subdomain =
-        Utilities::MPI::gather(mpi_communicator,
-                               dof_handler.n_locally_owned_dofs());
-      for (unsigned int i = 0; i < first_n_processes; ++i)
-        pcout << ' ' << n_dofs_per_subdomain[i];
-      if (output_cropped)
-        pcout << " ...";
-      pcout << std::endl;
-    }
-
-    {
-      std::vector<types::global_dof_index> n_constraints_per_subdomain =
-        Utilities::MPI::gather(mpi_communicator, constraints.n_constraints());
-      const unsigned int n_constraints =
-        std::accumulate(n_constraints_per_subdomain.begin(),
-                        n_constraints_per_subdomain.end(),
-                        0);
-
-      pcout << "   Number of constraints:        " << n_constraints
-            << std::endl;
-      table.add_value("constraints", n_constraints);
-
-      pcout << "     by partition:              ";
-      for (unsigned int i = 0; i < first_n_processes; ++i)
-        pcout << ' ' << n_constraints_per_subdomain[i];
-      if (output_cropped)
-        pcout << " ...";
-      pcout << std::endl;
-    }
-
-    {
-      std::vector<unsigned int> n_fe_indices(fe_collection.size(), 0);
-      for (const auto &cell : dof_handler.active_cell_iterators())
-        if (cell->is_locally_owned())
-          n_fe_indices[cell->active_fe_index()]++;
-
-      Utilities::MPI::sum(n_fe_indices, mpi_communicator, n_fe_indices);
-
-      pcout << "   Frequencies of poly. degrees:";
-      for (unsigned int i = 0; i < fe_collection.size(); ++i)
-        if (n_fe_indices[i] > 0)
-          pcout << ' ' << fe_collection[i].degree << ":" << n_fe_indices[i];
-      pcout << std::endl;
-    }
   }
 
 
@@ -479,23 +397,6 @@ namespace Problem
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  Poisson<dim, LinearAlgebra, spacedim>::log_timings()
-  {
-    getTimer().print_summary();
-    getPCOut() << std::endl;
-
-    for (const auto &summary :
-         getTimer().get_summary_data(TimerOutput::total_wall_time))
-      {
-        getTable().add_value(summary.first, summary.second);
-        getTable().set_scientific(summary.first, true);
-      }
-  }
-
-
-
-  template <int dim, typename LinearAlgebra, int spacedim>
-  void
   Poisson<dim, LinearAlgebra, spacedim>::resume_from_checkpoint()
   {
     // load triangulation and data
@@ -562,7 +463,7 @@ namespace Problem
 
           setup_system();
 
-          log_diagnostics();
+          Log::log_hp_diagnostics(triangulation, dof_handler, constraints);
 
           // TODO: I am not happy with this
           if (prm.operator_type == "MatrixBased")
@@ -595,7 +496,7 @@ namespace Problem
             output_results();
         }
 
-        log_timings();
+        Log::log_timings();
 
         if (Utilities::MPI::this_mpi_process(mpi_communicator) == 0)
           {
