@@ -399,10 +399,14 @@ namespace Problem
   void
   Poisson<dim, LinearAlgebra, spacedim>::resume_from_checkpoint()
   {
-    // load triangulation and data
     triangulation.load(prm.resume_filename);
 
+    // custom repartitioning using DoFs requires correctly assigned FEs
     dof_handler.deserialize_active_fe_indices();
+    dof_handler.distribute_dofs(fe_collection);
+    triangulation.repartition();
+
+    // unpack after repartitioning to avoid unnecessary data transfer
     adaptation_strategy->unpack_after_serialization();
 
     // load metadata
