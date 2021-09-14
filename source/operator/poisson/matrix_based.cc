@@ -21,6 +21,7 @@
 #include <deal.II/lac/vector.h>
 
 #include <base/explicitely_instantiate.h>
+#include <base/global.h>
 #include <base/linear_algebra.h>
 #include <operator/poisson/matrix_based.h>
 
@@ -50,6 +51,8 @@ namespace Operator
       const dealii::AffineConstraints<value_type> &constraints,
       VectorType &                                 system_rhs)
     {
+      TimerOutput::Scope t(getTimer(), "reinit");
+
       const MPI_Comm mpi_communicator = dof_handler.get_communicator();
 
       IndexSet locally_relevant_dofs;

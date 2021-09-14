@@ -20,6 +20,7 @@
 #include <deal.II/lac/la_parallel_vector.h>
 #include <deal.II/lac/vector.h>
 
+#include <base/global.h>
 #include <base/linear_algebra.h>
 #include <operator/poisson/matrix_free.h>
 
@@ -47,6 +48,8 @@ namespace Operator
       const dealii::AffineConstraints<value_type> &constraints,
       VectorType &                                 system_rhs)
     {
+      TimerOutput::Scope t(getTimer(), "reinit");
+
       this->system_matrix.clear();
 
       this->constraints = &constraints;
