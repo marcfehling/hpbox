@@ -47,7 +47,7 @@ namespace Log
 
 
 
-  template <int dim, typename T, int spacedim = dim>
+  template <int dim, typename T, int spacedim>
   void
   log_hp_diagnostics(
     const parallel::distributed::Triangulation<dim, spacedim> &triangulation,
