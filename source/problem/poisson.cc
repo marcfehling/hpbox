@@ -34,6 +34,7 @@
 
 #include <ctime>
 #include <iomanip>
+#include <random>
 #include <sstream>
 
 using namespace dealii;
@@ -43,19 +44,27 @@ namespace Problem
 {
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  Poisson<dim, LinearAlgebra, spacedim>::benchmark_vmult(const typename LinearAlgebra::Vector &src)
+  Poisson<dim, LinearAlgebra, spacedim>::benchmark_vmult()
   {
     Assert(poisson_operator_matrixbased != nullptr, ExcNotImplemented());
-
     const typename LinearAlgebra::SparseMatrix& matrix = poisson_operator_matrixbased->get_system_matrix();
-    typename LinearAlgebra::Vector dst(locally_owned_dofs, mpi_communicator);
 
+    typename LinearAlgebra::Vector src(locally_owned_dofs, mpi_communicator);
+    std::default_random_engine             generator(0);
+    std::uniform_real_distribution<double> distribution(0.0, 1.0);
+    for (const auto& i : locally_owned_dofs)
+      src[i] = distribution(generator);
+
+    const unsigned int n_repetitions = 6 * 100000000;
+    typename LinearAlgebra::Vector dst(locally_owned_dofs, mpi_communicator);
     {
       TimerOutput::Scope t(getTimer(), "benchmark_vmult");
-      for (unsigned int i=0; i < 10000; ++i)
+      for (unsigned int i=0; i < n_repetitions; ++i)
         matrix.vmult(dst, src);
     }
   }
+
+
 
   template <int dim, typename LinearAlgebra, int spacedim>
   Poisson<dim, LinearAlgebra, spacedim>::Poisson(const Parameters &prm)
@@ -315,12 +324,6 @@ namespace Problem
                << solver_control.last_step() << std::endl;
     getTable().add_value("iteratations", solver_control.last_step());
 
-    //
-    // let's intervene here for benchmark
-    // only works with matrix based methods so far
-    //
-    this->benchmark_vmult(completely_distributed_solution);
-
     constraints.distribute(completely_distributed_solution);
 
     if constexpr (std::is_same<
@@ -466,72 +469,26 @@ namespace Problem
   {
     getTable().set_auto_fill_mode(true);
 
-    for (cycle = 0; cycle < adaptation_strategy->get_n_cycles(); ++cycle)
+    {
+      TimerOutput::Scope t(getTimer(), "full_cycle");
+
+      initialize_grid();
+
+      getTable().add_value("cycle", cycle);
+
+      setup_system();
+
+      Log::log_hp_diagnostics(triangulation, dof_handler, constraints);
+
+      benchmark_vmult();
+    }
+
+    Log::log_timings();
+
+    if (Utilities::MPI::this_mpi_process(mpi_communicator) == 0)
       {
-        {
-          TimerOutput::Scope t(getTimer(), "full_cycle");
-
-          if (cycle == 0)
-            {
-              initialize_grid();
-            }
-          else
-            {
-              adaptation_strategy->refine();
-
-              if ((prm.checkpoint_frequency > 0) &&
-                  (cycle % prm.checkpoint_frequency == 0))
-                write_to_checkpoint();
-            }
-
-          getPCOut() << "Cycle " << cycle << ':' << std::endl;
-          getTable().add_value("cycle", cycle);
-
-          setup_system();
-
-          Log::log_hp_diagnostics(triangulation, dof_handler, constraints);
-
-          // TODO: I am not happy with this
-          if (prm.operator_type == "MatrixBased")
-            {
-              poisson_operator_matrixbased->reinit(dof_handler,
-                                                   constraints,
-                                                   system_rhs);
-              solve(*poisson_operator_matrixbased,
-                    locally_relevant_solution,
-                    system_rhs);
-            }
-          else if (prm.operator_type == "MatrixFree")
-            {
-              poisson_operator_matrixfree->reinit(dof_handler,
-                                                  constraints,
-                                                  system_rhs);
-              solve(*poisson_operator_matrixfree,
-                    locally_relevant_solution,
-                    system_rhs);
-            }
-          else
-            {
-              Assert(false, ExcInternalError());
-            }
-
-          compute_errors();
-          adaptation_strategy->estimate_mark();
-
-          if ((prm.output_frequency > 0) && (cycle % prm.output_frequency == 0))
-            output_results();
-        }
-
-        Log::log_timings();
-
-        if (Utilities::MPI::this_mpi_process(mpi_communicator) == 0)
-          {
-            std::ofstream logstream(filename_log);
-            getTable().write_text(logstream);
-          }
-
-        getTimer().reset();
-        getTable().start_new_row();
+        std::ofstream logstream(filename_log);
+        getTable().write_text(logstream);
       }
   }
 

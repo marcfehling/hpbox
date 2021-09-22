@@ -52,7 +52,7 @@ namespace Problem
           const typename LinearAlgebra::Vector &system_rhs);
 
     void
-    benchmark_vmult(const typename LinearAlgebra::Vector &src);
+    benchmark_vmult();
 
     void
     compute_errors();
