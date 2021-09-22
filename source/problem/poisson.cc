@@ -42,6 +42,22 @@ using namespace dealii;
 namespace Problem
 {
   template <int dim, typename LinearAlgebra, int spacedim>
+  void
+  Poisson<dim, LinearAlgebra, spacedim>::benchmark_vmult(const typename LinearAlgebra::Vector &src)
+  {
+    Assert(poisson_operator_matrixbased != nullptr, ExcNotImplemented());
+
+    const typename LinearAlgebra::SparseMatrix& matrix = poisson_operator_matrixbased->get_system_matrix();
+    typename LinearAlgebra::Vector dst(locally_owned_dofs, mpi_communicator);
+
+    {
+      TimerOutput::Scope t(getTimer(), "benchmark_vmult");
+      for (unsigned int i=0; i < 10000; ++i)
+        matrix.vmult(dst, src);
+    }
+  }
+
+  template <int dim, typename LinearAlgebra, int spacedim>
   Poisson<dim, LinearAlgebra, spacedim>::Poisson(const Parameters &prm)
     : mpi_communicator(MPI_COMM_WORLD)
     , prm(prm)
@@ -298,6 +314,12 @@ namespace Problem
     getPCOut() << "   Number of iterations:         "
                << solver_control.last_step() << std::endl;
     getTable().add_value("iteratations", solver_control.last_step());
+
+    //
+    // let's intervene here for benchmark
+    // only works with matrix based methods so far
+    //
+    this->benchmark_vmult(completely_distributed_solution);
 
     constraints.distribute(completely_distributed_solution);
 
