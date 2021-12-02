@@ -191,7 +191,7 @@ namespace Problem
 #ifdef DEBUG
     // We have not dealt with chains of constraints on ghost cells yet.
     // Thus, we are content with verifying their consistency for now.
-    std::vector<IndexSet> locally_owned_dofs_per_processor =
+    const std::vector<IndexSet> locally_owned_dofs_per_processor =
       Utilities::MPI::all_gather(mpi_communicator,
                                  dof_handler.locally_owned_dofs());
 
