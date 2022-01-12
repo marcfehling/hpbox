@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2021 - 2022 by the deal.II authors
+// Copyright (C) 2022 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -13,30 +13,19 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef grid_factory_h
-#define grid_factory_h
+#ifndef grid_y_pipe_h
+#define grid_y_pipe_h
 
 
-#include <deal.II/base/exceptions.h>
-
-#include <grid/reentrant_corner.h>
-#include <grid/y_pipe.h>
+#include <deal.II/grid/tria.h>
 
 
-namespace Factory
+namespace Grid
 {
-  template <typename... Args>
+  template <int dim, int spacedim = dim>
   void
-  create_grid(std::string type, Args &&...args)
-  {
-    if (type == "reentrant corner")
-      Grid::reentrant_corner(std::forward<Args>(args)...);
-    else if (type == "y-pipe")
-      Grid::y_pipe(std::forward<Args>(args)...);
-    else
-      Assert(false, dealii::ExcNotImplemented());
-  }
-} // namespace Factory
+  y_pipe(dealii::Triangulation<dim, spacedim> &triangulation);
+} // namespace Grid
 
 
 #endif
