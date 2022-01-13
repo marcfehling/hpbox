@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2021 by the deal.II authors
+// Copyright (C) 2021 - 2022 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -20,6 +20,7 @@
 #include <deal.II/base/exceptions.h>
 
 #include <problem/poisson.h>
+#include <problem/stokes.h>
 
 
 namespace Factory
@@ -34,6 +35,11 @@ namespace Factory
     if (type == "poisson")
       return std::make_unique<Problem::Poisson<dim, LinearAlgebra, spacedim>>(
         std::forward<Args>(args)...);
+    /*
+    else if (type == "stokes")
+      return std::make_unique<Problem::Stokes<dim, LinearAlgebra, spacedim>>(
+        std::forward<Args>(args)...);
+    */
 
     Assert(false, dealii::ExcNotImplemented());
     return std::unique_ptr<Problem::Base>();
