@@ -75,17 +75,23 @@ namespace Problem
     std::unique_ptr<dealii::hp::FEValues<dim, spacedim>> fe_values_collection;
     std::unique_ptr<Adaptation::Base>                    adaptation_strategy;
 
-    // ...
+    std::unique_ptr<dealii::Function<dim>> boundary_function;
+    std::unique_ptr<dealii::Function<dim>> solution_function;
+    std::unique_ptr<dealii::Function<dim>> rhs_function;
 
-    dealii::IndexSet locally_owned_dofs;
-    dealii::IndexSet locally_relevant_dofs;
+    std::vector<dealii::IndexSet> owned_partitioning;
+    std::vector<dealii::IndexSet> relevant_partitioning;
 
     dealii::AffineConstraints<double> constraints;
 
-    // ...
+    /*
+    std::unique_ptr<
+      Operator::Stokes::MatrixBased<dim, LinearAlgebra, spacedim>>
+      stokes_operator_matrixbased;
+    */
 
-    typename LinearAlgebra::Vector locally_relevant_solution;
-    typename LinearAlgebra::Vector system_rhs;
+    typename LinearAlgebra::BlockVector locally_relevant_solution;
+    typename LinearAlgebra::BlockVector system_rhs;
 
     unsigned int cycle;
   };

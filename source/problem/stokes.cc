@@ -16,6 +16,7 @@
 
 #include <deal.II/fe/fe_q.h>
 
+#include <deal.II/grid/grid_generator.h>
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
 
@@ -124,7 +125,22 @@ namespace Problem
 
     TimerOutput::Scope t(getTimer(), "initialize_grid");
 
-    Factory::create_grid("y-pipe", triangulation);
+    // Factory::create_grid("y-pipe", triangulation);
+    // first reproduce step-22
+    {
+      std::vector<unsigned int> subdivisions(dim, 1);
+      subdivisions[0] = 4;
+      const Point<dim> bottom_left = (dim == 2 ?
+                                        Point<dim>(-2, -1) :    // 2d case
+                                        Point<dim>(-2, 0, -1)); // 3d case
+      const Point<dim> top_right = (dim == 2 ?
+                                      Point<dim>(2, 0) :    // 2d case
+                                      Point<dim>(2, 1, 0)); // 3d case
+      GridGenerator::subdivided_hyper_rectangle(triangulation,
+                                                subdivisions,
+                                                bottom_left,
+                                                top_right);
+    }
 
     if (prm.resume_filename.compare("") != 0)
       {
