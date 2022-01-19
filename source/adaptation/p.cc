@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2020 by the deal.II authors
+// Copyright (C) 2020 - 2022 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -24,7 +24,6 @@
 #include <deal.II/numerics/error_estimator.h>
 
 #include <adaptation/p.h>
-#include <base/explicitely_instantiate.h>
 #include <base/global.h>
 #include <base/linear_algebra.h>
 
@@ -33,10 +32,10 @@ using namespace dealii;
 
 namespace Adaptation
 {
-  template <int dim, typename LinearAlgebra, int spacedim>
-  p<dim, LinearAlgebra, spacedim>::p(
+  template <int dim, typename VectorType, int spacedim>
+  p<dim, VectorType, spacedim>::p(
     const Parameters &                    prm,
-    const typename LinearAlgebra::Vector &locally_relevant_solution,
+    const VectorType &locally_relevant_solution,
     const hp::FECollection<dim, spacedim> & /*fe_collection*/,
     DoFHandler<dim, spacedim> &                          dof_handler,
     parallel::distributed::Triangulation<dim, spacedim> &triangulation)
@@ -70,9 +69,9 @@ namespace Adaptation
 
 
 
-  template <int dim, typename LinearAlgebra, int spacedim>
+  template <int dim, typename VectorType, int spacedim>
   void
-  p<dim, LinearAlgebra, spacedim>::estimate_mark()
+  p<dim, VectorType, spacedim>::estimate_mark()
   {
     TimerOutput::Scope t(getTimer(), "estimate_mark");
 
@@ -113,9 +112,9 @@ namespace Adaptation
 
 
 
-  template <int dim, typename LinearAlgebra, int spacedim>
+  template <int dim, typename VectorType, int spacedim>
   void
-  p<dim, LinearAlgebra, spacedim>::refine()
+  p<dim, VectorType, spacedim>::refine()
   {
     TimerOutput::Scope t(getTimer(), "refine");
     triangulation->execute_coarsening_and_refinement();
@@ -123,55 +122,72 @@ namespace Adaptation
 
 
 
-  template <int dim, typename LinearAlgebra, int spacedim>
+  template <int dim, typename VectorType, int spacedim>
   void
-  p<dim, LinearAlgebra, spacedim>::prepare_for_serialization()
+  p<dim, VectorType, spacedim>::prepare_for_serialization()
   {}
 
 
 
-  template <int dim, typename LinearAlgebra, int spacedim>
+  template <int dim, typename VectorType, int spacedim>
   void
-  p<dim, LinearAlgebra, spacedim>::unpack_after_serialization()
+  p<dim, VectorType, spacedim>::unpack_after_serialization()
   {}
 
 
 
-  template <int dim, typename LinearAlgebra, int spacedim>
+  template <int dim, typename VectorType, int spacedim>
   unsigned int
-  p<dim, LinearAlgebra, spacedim>::get_n_cycles() const
+  p<dim, VectorType, spacedim>::get_n_cycles() const
   {
     return prm.n_cycles;
   }
 
 
 
-  template <int dim, typename LinearAlgebra, int spacedim>
+  template <int dim, typename VectorType, int spacedim>
   unsigned int
-  p<dim, LinearAlgebra, spacedim>::get_n_initial_refinements() const
+  p<dim, VectorType, spacedim>::get_n_initial_refinements() const
   {
     return prm.min_h_level;
   }
 
 
 
-  template <int dim, typename LinearAlgebra, int spacedim>
+  template <int dim, typename VectorType, int spacedim>
   const Vector<float> &
-  p<dim, LinearAlgebra, spacedim>::get_error_estimates() const
+  p<dim, VectorType, spacedim>::get_error_estimates() const
   {
     return error_estimates;
   }
 
 
 
-  template <int dim, typename LinearAlgebra, int spacedim>
+  template <int dim, typename VectorType, int spacedim>
   const Vector<float> &
-  p<dim, LinearAlgebra, spacedim>::get_hp_indicators() const
+  p<dim, VectorType, spacedim>::get_hp_indicators() const
   {
     return dummy;
   }
 
 
 
-  EXPLICITLY_INSTANTIATE(p)
+  // explicit instantiations
+  template class p<2,LinearAlgebra::distributed::Vector<double>,2>;
+  template class p<3,LinearAlgebra::distributed::Vector<double>,3>;
+
+#ifdef DEAL_II_WITH_TRILINOS
+  template class p<2,TrilinosWrappers::MPI::BlockVector,2>;
+  template class p<3,TrilinosWrappers::MPI::BlockVector,3>;
+  template class p<2,TrilinosWrappers::MPI::Vector,2>;
+  template class p<3,TrilinosWrappers::MPI::Vector,3>;
+#endif
+
+#ifdef DEALII_WITH_PETSC
+  template class p<2,PETScWrappers::BlockVector,2>;
+  template class p<3,PETScWrappers::BlockVector,3>;
+  template class p<2,PETScWrappers::Vector,2>;
+  template class p<3,PETScWrappers::Vector,3>;
+#endif
+
 } // namespace Adaptation

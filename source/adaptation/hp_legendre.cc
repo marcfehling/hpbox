@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2020 by the deal.II authors
+// Copyright (C) 2020 - 2022 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -25,7 +25,6 @@
 #include <deal.II/numerics/smoothness_estimator.h>
 
 #include <adaptation/hp_legendre.h>
-#include <base/explicitely_instantiate.h>
 #include <base/global.h>
 #include <base/linear_algebra.h>
 
@@ -34,10 +33,10 @@ using namespace dealii;
 
 namespace Adaptation
 {
-  template <int dim, typename LinearAlgebra, int spacedim>
-  hpLegendre<dim, LinearAlgebra, spacedim>::hpLegendre(
+  template <int dim, typename VectorType, int spacedim>
+  hpLegendre<dim, VectorType, spacedim>::hpLegendre(
     const Parameters &                     prm,
-    const typename LinearAlgebra::Vector & locally_relevant_solution,
+    const VectorType & locally_relevant_solution,
     const hp::FECollection<dim, spacedim> &fe_collection,
     DoFHandler<dim, spacedim> &            dof_handler,
     parallel::distributed::Triangulation<dim, spacedim> &triangulation)
@@ -77,9 +76,9 @@ namespace Adaptation
 
 
 
-  template <int dim, typename LinearAlgebra, int spacedim>
+  template <int dim, typename VectorType, int spacedim>
   void
-  hpLegendre<dim, LinearAlgebra, spacedim>::estimate_mark()
+  hpLegendre<dim, VectorType, spacedim>::estimate_mark()
   {
     TimerOutput::Scope t(getTimer(), "estimate_mark");
 
@@ -143,9 +142,9 @@ namespace Adaptation
 
 
 
-  template <int dim, typename LinearAlgebra, int spacedim>
+  template <int dim, typename VectorType, int spacedim>
   void
-  hpLegendre<dim, LinearAlgebra, spacedim>::refine()
+  hpLegendre<dim, VectorType, spacedim>::refine()
   {
     TimerOutput::Scope t(getTimer(), "refine");
     triangulation->execute_coarsening_and_refinement();
@@ -153,55 +152,72 @@ namespace Adaptation
 
 
 
-  template <int dim, typename LinearAlgebra, int spacedim>
+  template <int dim, typename VectorType, int spacedim>
   void
-  hpLegendre<dim, LinearAlgebra, spacedim>::prepare_for_serialization()
+  hpLegendre<dim, VectorType, spacedim>::prepare_for_serialization()
   {}
 
 
 
-  template <int dim, typename LinearAlgebra, int spacedim>
+  template <int dim, typename VectorType, int spacedim>
   void
-  hpLegendre<dim, LinearAlgebra, spacedim>::unpack_after_serialization()
+  hpLegendre<dim, VectorType, spacedim>::unpack_after_serialization()
   {}
 
 
 
-  template <int dim, typename LinearAlgebra, int spacedim>
+  template <int dim, typename VectorType, int spacedim>
   unsigned int
-  hpLegendre<dim, LinearAlgebra, spacedim>::get_n_cycles() const
+  hpLegendre<dim, VectorType, spacedim>::get_n_cycles() const
   {
     return prm.n_cycles;
   }
 
 
 
-  template <int dim, typename LinearAlgebra, int spacedim>
+  template <int dim, typename VectorType, int spacedim>
   unsigned int
-  hpLegendre<dim, LinearAlgebra, spacedim>::get_n_initial_refinements() const
+  hpLegendre<dim, VectorType, spacedim>::get_n_initial_refinements() const
   {
     return prm.min_h_level;
   }
 
 
 
-  template <int dim, typename LinearAlgebra, int spacedim>
+  template <int dim, typename VectorType, int spacedim>
   const Vector<float> &
-  hpLegendre<dim, LinearAlgebra, spacedim>::get_error_estimates() const
+  hpLegendre<dim, VectorType, spacedim>::get_error_estimates() const
   {
     return error_estimates;
   }
 
 
 
-  template <int dim, typename LinearAlgebra, int spacedim>
+  template <int dim, typename VectorType, int spacedim>
   const Vector<float> &
-  hpLegendre<dim, LinearAlgebra, spacedim>::get_hp_indicators() const
+  hpLegendre<dim, VectorType, spacedim>::get_hp_indicators() const
   {
     return hp_indicators;
   }
 
 
 
-  EXPLICITLY_INSTANTIATE(hpLegendre)
+  // explicit instantiations
+  template class hpLegendre<2,LinearAlgebra::distributed::Vector<double>,2>;
+  template class hpLegendre<3,LinearAlgebra::distributed::Vector<double>,3>;
+
+#ifdef DEAL_II_WITH_TRILINOS
+  template class hpLegendre<2,TrilinosWrappers::MPI::BlockVector,2>;
+  template class hpLegendre<3,TrilinosWrappers::MPI::BlockVector,3>;
+  template class hpLegendre<2,TrilinosWrappers::MPI::Vector,2>;
+  template class hpLegendre<3,TrilinosWrappers::MPI::Vector,3>;
+#endif
+
+#ifdef DEALII_WITH_PETSC
+  template class hpLegendre<2,PETScWrappers::BlockVector,2>;
+  template class hpLegendre<3,PETScWrappers::BlockVector,3>;
+  template class hpLegendre<2,PETScWrappers::Vector,2>;
+  template class hpLegendre<3,PETScWrappers::Vector,3>;
+#endif
+
 } // namespace Adaptation

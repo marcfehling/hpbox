@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2020 by the deal.II authors
+// Copyright (C) 2020 - 2022 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -29,29 +29,29 @@
 namespace Factory
 {
   template <int dim,
-            typename LinearAlgebra,
+            typename VectorType,
             int spacedim = dim,
             typename... Args>
   std::unique_ptr<Adaptation::Base>
   create_adaptation(const std::string &type, Args &&...args)
   {
     if (type == "h")
-      return std::make_unique<Adaptation::h<dim, LinearAlgebra, spacedim>>(
+      return std::make_unique<Adaptation::h<dim, VectorType, spacedim>>(
         std::forward<Args>(args)...);
     else if (type == "p")
-      return std::make_unique<Adaptation::p<dim, LinearAlgebra, spacedim>>(
+      return std::make_unique<Adaptation::p<dim, VectorType, spacedim>>(
         std::forward<Args>(args)...);
     else if (type == "hp Fourier")
       return std::make_unique<
-        Adaptation::hpFourier<dim, LinearAlgebra, spacedim>>(
+        Adaptation::hpFourier<dim, VectorType, spacedim>>(
         std::forward<Args>(args)...);
     else if (type == "hp History")
       return std::make_unique<
-        Adaptation::hpHistory<dim, LinearAlgebra, spacedim>>(
+        Adaptation::hpHistory<dim, VectorType, spacedim>>(
         std::forward<Args>(args)...);
     else if (type == "hp Legendre")
       return std::make_unique<
-        Adaptation::hpLegendre<dim, LinearAlgebra, spacedim>>(
+        Adaptation::hpLegendre<dim, VectorType, spacedim>>(
         std::forward<Args>(args)...);
 
     Assert(false, dealii::ExcNotImplemented());

@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2021 by the deal.II authors
+// Copyright (C) 2021 - 2022 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -19,11 +19,14 @@
 
 #include <deal.II/base/config.h>
 
+#include <deal.II/lac/block_sparsity_pattern.h>
 #include <deal.II/lac/dynamic_sparsity_pattern.h>
 #include <deal.II/lac/la_parallel_vector.h>
 #include <deal.II/lac/solver_cg.h>
 
 #ifdef DEAL_II_WITH_TRILINOS
+#  include <deal.II/lac/trilinos_block_sparse_matrix.h>
+#  include <deal.II/lac/trilinos_parallel_block_vector.h>
 #  include <deal.II/lac/trilinos_precondition.h>
 #  include <deal.II/lac/trilinos_solver.h>
 #  include <deal.II/lac/trilinos_sparse_matrix.h>
@@ -32,6 +35,8 @@
 #endif
 
 #ifdef DEAL_II_WITH_PETSC
+#  include <deal.II/lac/petsc_block_sparse_matrix.h>
+#  include <deal.II/lac/petsc_block_vector.h>
 #  include <deal.II/lac/petsc_precondition.h>
 #  include <deal.II/lac/petsc_solver.h>
 #  include <deal.II/lac/petsc_sparse_matrix.h>
@@ -50,13 +55,14 @@
 struct Trilinos
 {
   using SparsityPattern = dealii::TrilinosWrappers::SparsityPattern;
-
   using SparseMatrix = dealii::TrilinosWrappers::SparseMatrix;
-
   using Vector = dealii::TrilinosWrappers::MPI::Vector;
 
-  using PreconditionAMG = dealii::TrilinosWrappers::PreconditionAMG;
+  using BlockSparsityPattern = dealii::TrilinosWrappers::BlockSparsityPattern;
+  using BlockSparseMatrix = dealii::TrilinosWrappers::BlockSparseMatrix;
+  using BlockVector = dealii::TrilinosWrappers::MPI::BlockVector;
 
+  using PreconditionAMG = dealii::TrilinosWrappers::PreconditionAMG;
   using SolverCG = dealii::TrilinosWrappers::SolverCG;
 };
 
@@ -69,13 +75,16 @@ struct Trilinos
 struct dealiiTrilinos
 {
   using SparsityPattern = dealii::TrilinosWrappers::SparsityPattern;
-
   using SparseMatrix = dealii::TrilinosWrappers::SparseMatrix;
-
   using Vector = dealii::LinearAlgebra::distributed::Vector<double>;
 
-  using PreconditionAMG = dealii::TrilinosWrappers::PreconditionAMG;
+  using BlockSparsityPattern = dealii::TrilinosWrappers::BlockSparsityPattern;
+  using BlockSparseMatrix = dealii::TrilinosWrappers::BlockSparseMatrix;
+  using BlockVector = dealii::TrilinosWrappers::MPI::BlockVector;
+  // TODO: is there an equivalent of
+  //       dealii::LinearAlgebra::distributed::Vector<double> for blocks???
 
+  using PreconditionAMG = dealii::TrilinosWrappers::PreconditionAMG;
   using SolverCG = dealii::SolverCG<Vector>;
 };
 
@@ -112,14 +121,17 @@ struct dealiiTrilinos
 struct PETSc
 {
   // petsc has no dedicated sparsitypattern class
+  // TODO: maybe use SparsityPattern instead of DynamicSparsityPattern here?
   using SparsityPattern = dealii::DynamicSparsityPattern;
-
   using SparseMatrix = dealii::PETScWrappers::MPI::SparseMatrix;
-
   using Vector = dealii::PETScWrappers::MPI::Vector;
 
-  using PreconditionAMG = dealii::PETScWrappers::PreconditionBoomerAMG;
+  // TODO: maybe use SparsityPattern instead of DynamicSparsityPattern here?
+  using BlockSparsityPattern = dealii::BlockDynamicSparistyPattern;
+  using BlockSparseMatrix = dealii::PETScWrappers::MPI::BlockSparseMatrix;
+  using BlockVector = dealii::PETScWrappers::MPI::BlockVector;
 
+  using PreconditionAMG = dealii::PETScWrappers::PreconditionBoomerAMG;
   using SolverCG = dealii::PETScWrappers::SolverCG;
 };
 

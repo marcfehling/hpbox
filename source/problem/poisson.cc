@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2021 by the deal.II authors
+// Copyright (C) 2021 - 2022 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -22,7 +22,6 @@
 #include <deal.II/numerics/vector_tools.h>
 
 #include <adaptation/factory.h>
-#include <base/explicitely_instantiate.h>
 #include <base/global.h>
 #include <base/linear_algebra.h>
 #include <function/factory.h>
@@ -129,7 +128,7 @@ namespace Problem
 
     // choose adaptation strategy
     adaptation_strategy =
-      Factory::create_adaptation<dim, LinearAlgebra, spacedim>(
+      Factory::create_adaptation<dim, typename LinearAlgebra::Vector, spacedim>(
         prm.adaptation_type,
         prm.prm_adaptation,
         locally_relevant_solution,
@@ -515,5 +514,17 @@ namespace Problem
 
 
 
-  EXPLICITLY_INSTANTIATE(Poisson)
+  // explicit instantiations
+#ifdef DEAL_II_WITH_TRILINOS
+  template class Poisson<2, dealiiTrilinos, 2>;
+  template class Poisson<3, dealiiTrilinos, 3>;
+  template class Poisson<2, Trilinos, 2>;
+  template class Poisson<3, Trilinos, 3>;
+#endif
+
+#ifdef DEAL_II_WITH_PETSC
+  template class Poisson<2, PETSc, 2>;
+  template class Poisson<3, PETSc, 3>;
+#endif
+
 } // namespace Problem

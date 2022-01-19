@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2020 by the deal.II authors
+// Copyright (C) 2020 - 2022 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -25,7 +25,6 @@
 #include <deal.II/numerics/error_estimator.h>
 
 #include <adaptation/hp_history.h>
-#include <base/explicitely_instantiate.h>
 #include <base/global.h>
 #include <base/linear_algebra.h>
 
@@ -34,10 +33,10 @@ using namespace dealii;
 
 namespace Adaptation
 {
-  template <int dim, typename LinearAlgebra, int spacedim>
-  hpHistory<dim, LinearAlgebra, spacedim>::hpHistory(
+  template <int dim, typename VectorType, int spacedim>
+  hpHistory<dim, VectorType, spacedim>::hpHistory(
     const Parameters &                    prm,
-    const typename LinearAlgebra::Vector &locally_relevant_solution,
+    const VectorType &locally_relevant_solution,
     const hp::FECollection<dim, spacedim> & /*fe_collection*/,
     DoFHandler<dim, spacedim> &                          dof_handler,
     parallel::distributed::Triangulation<dim, spacedim> &triangulation)
@@ -88,9 +87,9 @@ namespace Adaptation
 
 
 
-  template <int dim, typename LinearAlgebra, int spacedim>
+  template <int dim, typename VectorType, int spacedim>
   void
-  hpHistory<dim, LinearAlgebra, spacedim>::estimate_mark()
+  hpHistory<dim, VectorType, spacedim>::estimate_mark()
   {
     TimerOutput::Scope t(getTimer(), "estimate_mark");
 
@@ -172,9 +171,9 @@ namespace Adaptation
 
 
 
-  template <int dim, typename LinearAlgebra, int spacedim>
+  template <int dim, typename VectorType, int spacedim>
   void
-  hpHistory<dim, LinearAlgebra, spacedim>::refine()
+  hpHistory<dim, VectorType, spacedim>::refine()
   {
     TimerOutput::Scope t(getTimer(), "refine");
 
@@ -193,9 +192,9 @@ namespace Adaptation
 
 
 
-  template <int dim, typename LinearAlgebra, int spacedim>
+  template <int dim, typename VectorType, int spacedim>
   void
-  hpHistory<dim, LinearAlgebra, spacedim>::prepare_for_serialization()
+  hpHistory<dim, VectorType, spacedim>::prepare_for_serialization()
   {
     Assert(init_step == false,
            ExcMessage(
@@ -205,9 +204,9 @@ namespace Adaptation
 
 
 
-  template <int dim, typename LinearAlgebra, int spacedim>
+  template <int dim, typename VectorType, int spacedim>
   void
-  hpHistory<dim, LinearAlgebra, spacedim>::unpack_after_serialization()
+  hpHistory<dim, VectorType, spacedim>::unpack_after_serialization()
   {
     error_predictions.grow_or_shrink(triangulation->n_active_cells());
     data_transfer.deserialize(error_predictions);
@@ -217,41 +216,58 @@ namespace Adaptation
 
 
 
-  template <int dim, typename LinearAlgebra, int spacedim>
+  template <int dim, typename VectorType, int spacedim>
   unsigned int
-  hpHistory<dim, LinearAlgebra, spacedim>::get_n_cycles() const
+  hpHistory<dim, VectorType, spacedim>::get_n_cycles() const
   {
     return prm.n_cycles + 1;
   }
 
 
 
-  template <int dim, typename LinearAlgebra, int spacedim>
+  template <int dim, typename VectorType, int spacedim>
   unsigned int
-  hpHistory<dim, LinearAlgebra, spacedim>::get_n_initial_refinements() const
+  hpHistory<dim, VectorType, spacedim>::get_n_initial_refinements() const
   {
     return prm.min_h_level - 1;
   }
 
 
 
-  template <int dim, typename LinearAlgebra, int spacedim>
+  template <int dim, typename VectorType, int spacedim>
   const Vector<float> &
-  hpHistory<dim, LinearAlgebra, spacedim>::get_error_estimates() const
+  hpHistory<dim, VectorType, spacedim>::get_error_estimates() const
   {
     return error_estimates;
   }
 
 
 
-  template <int dim, typename LinearAlgebra, int spacedim>
+  template <int dim, typename VectorType, int spacedim>
   const Vector<float> &
-  hpHistory<dim, LinearAlgebra, spacedim>::get_hp_indicators() const
+  hpHistory<dim, VectorType, spacedim>::get_hp_indicators() const
   {
     return hp_indicators;
   }
 
 
 
-  EXPLICITLY_INSTANTIATE(hpHistory)
+  // explicit instantiations
+  template class hpHistory<2,LinearAlgebra::distributed::Vector<double>,2>;
+  template class hpHistory<3,LinearAlgebra::distributed::Vector<double>,3>;
+
+#ifdef DEAL_II_WITH_TRILINOS
+  template class hpHistory<2,TrilinosWrappers::MPI::BlockVector,2>;
+  template class hpHistory<3,TrilinosWrappers::MPI::BlockVector,3>;
+  template class hpHistory<2,TrilinosWrappers::MPI::Vector,2>;
+  template class hpHistory<3,TrilinosWrappers::MPI::Vector,3>;
+#endif
+
+#ifdef DEALII_WITH_PETSC
+  template class hpHistory<2,PETScWrappers::BlockVector,2>;
+  template class hpHistory<3,PETScWrappers::BlockVector,3>;
+  template class hpHistory<2,PETScWrappers::Vector,2>;
+  template class hpHistory<3,PETScWrappers::Vector,3>;
+#endif
+
 } // namespace Adaptation

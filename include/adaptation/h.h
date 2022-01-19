@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2020 by the deal.II authors
+// Copyright (C) 2020 - 2022 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -34,12 +34,12 @@
 
 namespace Adaptation
 {
-  template <int dim, typename LinearAlgebra, int spacedim = dim>
+  template <int dim, typename VectorType, int spacedim = dim>
   class h : public Base
   {
   public:
     h(const Parameters &                             prm,
-      const typename LinearAlgebra::Vector &         locally_relevant_solution,
+      const VectorType &         locally_relevant_solution,
       const dealii::hp::FECollection<dim, spacedim> &fe_collection,
       dealii::DoFHandler<dim, spacedim> &            dof_handler,
       dealii::parallel::distributed::Triangulation<dim, spacedim>
@@ -68,7 +68,7 @@ namespace Adaptation
   private:
     const Parameters &prm;
 
-    const dealii::SmartPointer<const typename LinearAlgebra::Vector>
+    const dealii::SmartPointer<const VectorType>
       locally_relevant_solution;
     const dealii::SmartPointer<dealii::DoFHandler<dim, spacedim>> dof_handler;
     const dealii::SmartPointer<

@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2020 by the deal.II authors
+// Copyright (C) 2020 - 2022 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -240,10 +240,11 @@ namespace Operator
 
 
 
+    // explicit instantiations
 #ifdef DEAL_II_WITH_TRILINOS
-    // explicit instantiations only for dealiiTrilinos
     template class MatrixFree<2, dealiiTrilinos, 2>;
     template class MatrixFree<3, dealiiTrilinos, 3>;
 #endif
+
   } // namespace Poisson
 } // namespace Operator

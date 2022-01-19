@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2020 by the deal.II authors
+// Copyright (C) 2020 - 2022 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -20,7 +20,6 @@
 #include <deal.II/lac/sparsity_tools.h>
 #include <deal.II/lac/vector.h>
 
-#include <base/explicitely_instantiate.h>
 #include <base/global.h>
 #include <base/linear_algebra.h>
 #include <operator/poisson/matrix_based.h>
@@ -221,6 +220,18 @@ namespace Operator
 
 
 
-    EXPLICITLY_INSTANTIATE(MatrixBased)
+    // explicit instantiations
+#ifdef DEAL_II_WITH_TRILINOS
+    template class MatrixBased<2, dealiiTrilinos, 2>;
+    template class MatrixBased<3, dealiiTrilinos, 3>;
+    template class MatrixBased<2, Trilinos, 2>;
+    template class MatrixBased<3, Trilinos, 3>;
+#endif
+
+#ifdef DEAL_II_WITH_PETSC
+    template class MatrixBased<2, PETSc, 2>;
+    template class MatrixBased<3, PETSc, 3>;
+#endif
+
   } // namespace Poisson
 } // namespace Operator
