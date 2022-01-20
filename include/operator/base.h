@@ -39,6 +39,26 @@ namespace Operator
            const dealii::AffineConstraints<value_type> &constraints,
            VectorType                                  &system_rhs) = 0;
   };
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim = dim>
+  class BlockBase
+    : public dealii::MGSolverOperatorBase<dim,
+                                          typename LinearAlgebra::BlockVector,
+                                          typename LinearAlgebra::BlockSparseMatrix>
+  {
+  public:
+    using VectorType = typename LinearAlgebra::BlockVector;
+    using value_type = typename VectorType::value_type;
+
+    virtual ~BlockBase() = default;
+
+    virtual void
+    reinit(const dealii::DoFHandler<dim, spacedim>     &dof_handler,
+           const dealii::AffineConstraints<value_type> &constraints,
+           VectorType                                  &system_rhs) = 0;
+  };
 } // namespace Operator
 
 

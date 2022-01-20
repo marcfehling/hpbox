@@ -29,7 +29,7 @@ namespace Operator
   namespace Stokes
   {
     template <int dim, typename LinearAlgebra, int spacedim = dim>
-    class MatrixBased : public Operator::BaseBlock<dim, LinearAlgebra, spacedim>
+    class MatrixBased : public Operator::BlockBase<dim, LinearAlgebra, spacedim>
     {
       using VectorType = typename LinearAlgebra::BlockVector;
       using value_type = typename VectorType::value_type;
