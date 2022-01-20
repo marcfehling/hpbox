@@ -212,7 +212,7 @@ MGSolverOperatorBase<dim, VectorType, MatrixType>::initialize_dof_vector(
 template <int dim, typename VectorType, typename MatrixType>
 void
 MGSolverOperatorBase<dim, VectorType, MatrixType>::vmult(
-  VectorType &      dst,
+  VectorType       &dst,
   const VectorType &src) const
 {
   Assert(false, ExcNotImplemented());
@@ -229,7 +229,7 @@ MGSolverOperatorBase<dim, VectorType, MatrixType>::vmult(
 template <int dim, typename VectorType, typename MatrixType>
 void
 MGSolverOperatorBase<dim, VectorType, MatrixType>::Tvmult(
-  VectorType &      dst,
+  VectorType       &dst,
   const VectorType &src) const
 {
   Assert(false, ExcNotImplemented());
@@ -275,14 +275,14 @@ template <typename VectorType,
           typename LevelMatrixType,
           typename MGTransferType>
 static void
-mg_solve(SolverControl &                                        solver_control,
-         VectorType &                                           dst,
-         const VectorType &                                     src,
-         const MGSolverParameters &                             mg_data,
-         const DoFHandler<dim> &                                dof,
-         const SystemMatrixType &                               fine_matrix,
+mg_solve(SolverControl                                         &solver_control,
+         VectorType                                            &dst,
+         const VectorType                                      &src,
+         const MGSolverParameters                              &mg_data,
+         const DoFHandler<dim>                                 &dof,
+         const SystemMatrixType                                &fine_matrix,
          const MGLevelObject<std::unique_ptr<LevelMatrixType>> &mg_matrices,
-         const MGTransferType &                                 mg_transfer)
+         const MGTransferType                                  &mg_transfer)
 {
   AssertThrow(mg_data.smoother.type == "chebyshev", ExcNotImplemented());
 

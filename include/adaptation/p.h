@@ -39,10 +39,10 @@ namespace Adaptation
   class p : public Base
   {
   public:
-    p(const Parameters &                             prm,
-      const VectorType &         locally_relevant_solution,
+    p(const Parameters                              &prm,
+      const VectorType                              &locally_relevant_solution,
       const dealii::hp::FECollection<dim, spacedim> &fe_collection,
-      dealii::DoFHandler<dim, spacedim> &            dof_handler,
+      dealii::DoFHandler<dim, spacedim>             &dof_handler,
       dealii::parallel::distributed::Triangulation<dim, spacedim>
         &triangulation);
 
@@ -69,8 +69,7 @@ namespace Adaptation
   private:
     const Parameters &prm;
 
-    const dealii::SmartPointer<const VectorType>
-      locally_relevant_solution;
+    const dealii::SmartPointer<const VectorType> locally_relevant_solution;
     const dealii::SmartPointer<dealii::DoFHandler<dim, spacedim>> dof_handler;
     const dealii::SmartPointer<
       dealii::parallel::distributed::Triangulation<dim, spacedim>>

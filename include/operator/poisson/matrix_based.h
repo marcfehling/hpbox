@@ -37,13 +37,13 @@ namespace Operator
 
       MatrixBased(
         const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
-        const dealii::hp::QCollection<dim> & quadrature_collection,
+        const dealii::hp::QCollection<dim>  &quadrature_collection,
         dealii::hp::FEValues<dim, spacedim> &fe_values_collection);
 
       void
-      reinit(const dealii::DoFHandler<dim, spacedim> &    dof_handler,
+      reinit(const dealii::DoFHandler<dim, spacedim>     &dof_handler,
              const dealii::AffineConstraints<value_type> &constraints,
-             VectorType &                                 system_rhs) override;
+             VectorType                                  &system_rhs) override;
 
       void
       vmult(VectorType &dst, const VectorType &src) const override;

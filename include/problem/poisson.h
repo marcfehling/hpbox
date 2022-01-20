@@ -47,8 +47,8 @@ namespace Problem
 
     template <typename OperatorType>
     void
-    solve(const OperatorType &                  system_matrix,
-          typename LinearAlgebra::Vector &      locally_relevant_solution,
+    solve(const OperatorType                   &system_matrix,
+          typename LinearAlgebra::Vector       &locally_relevant_solution,
           const typename LinearAlgebra::Vector &system_rhs);
 
     void

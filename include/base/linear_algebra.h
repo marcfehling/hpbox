@@ -55,15 +55,15 @@
 struct Trilinos
 {
   using SparsityPattern = dealii::TrilinosWrappers::SparsityPattern;
-  using SparseMatrix = dealii::TrilinosWrappers::SparseMatrix;
-  using Vector = dealii::TrilinosWrappers::MPI::Vector;
+  using SparseMatrix    = dealii::TrilinosWrappers::SparseMatrix;
+  using Vector          = dealii::TrilinosWrappers::MPI::Vector;
 
   using BlockSparsityPattern = dealii::TrilinosWrappers::BlockSparsityPattern;
-  using BlockSparseMatrix = dealii::TrilinosWrappers::BlockSparseMatrix;
-  using BlockVector = dealii::TrilinosWrappers::MPI::BlockVector;
+  using BlockSparseMatrix    = dealii::TrilinosWrappers::BlockSparseMatrix;
+  using BlockVector          = dealii::TrilinosWrappers::MPI::BlockVector;
 
   using PreconditionAMG = dealii::TrilinosWrappers::PreconditionAMG;
-  using SolverCG = dealii::TrilinosWrappers::SolverCG;
+  using SolverCG        = dealii::TrilinosWrappers::SolverCG;
 };
 
 /**
@@ -75,17 +75,17 @@ struct Trilinos
 struct dealiiTrilinos
 {
   using SparsityPattern = dealii::TrilinosWrappers::SparsityPattern;
-  using SparseMatrix = dealii::TrilinosWrappers::SparseMatrix;
-  using Vector = dealii::LinearAlgebra::distributed::Vector<double>;
+  using SparseMatrix    = dealii::TrilinosWrappers::SparseMatrix;
+  using Vector          = dealii::LinearAlgebra::distributed::Vector<double>;
 
   using BlockSparsityPattern = dealii::TrilinosWrappers::BlockSparsityPattern;
-  using BlockSparseMatrix = dealii::TrilinosWrappers::BlockSparseMatrix;
-  using BlockVector = dealii::TrilinosWrappers::MPI::BlockVector;
+  using BlockSparseMatrix    = dealii::TrilinosWrappers::BlockSparseMatrix;
+  using BlockVector          = dealii::TrilinosWrappers::MPI::BlockVector;
   // TODO: is there an equivalent of
   //       dealii::LinearAlgebra::distributed::Vector<double> for blocks???
 
   using PreconditionAMG = dealii::TrilinosWrappers::PreconditionAMG;
-  using SolverCG = dealii::SolverCG<Vector>;
+  using SolverCG        = dealii::SolverCG<Vector>;
 };
 
 #else
@@ -123,16 +123,16 @@ struct PETSc
   // petsc has no dedicated sparsitypattern class
   // TODO: maybe use SparsityPattern instead of DynamicSparsityPattern here?
   using SparsityPattern = dealii::DynamicSparsityPattern;
-  using SparseMatrix = dealii::PETScWrappers::MPI::SparseMatrix;
-  using Vector = dealii::PETScWrappers::MPI::Vector;
+  using SparseMatrix    = dealii::PETScWrappers::MPI::SparseMatrix;
+  using Vector          = dealii::PETScWrappers::MPI::Vector;
 
   // TODO: maybe use SparsityPattern instead of DynamicSparsityPattern here?
   using BlockSparsityPattern = dealii::BlockDynamicSparistyPattern;
-  using BlockSparseMatrix = dealii::PETScWrappers::MPI::BlockSparseMatrix;
-  using BlockVector = dealii::PETScWrappers::MPI::BlockVector;
+  using BlockSparseMatrix    = dealii::PETScWrappers::MPI::BlockSparseMatrix;
+  using BlockVector          = dealii::PETScWrappers::MPI::BlockVector;
 
   using PreconditionAMG = dealii::PETScWrappers::PreconditionBoomerAMG;
-  using SolverCG = dealii::PETScWrappers::SolverCG;
+  using SolverCG        = dealii::PETScWrappers::SolverCG;
 };
 
 #else

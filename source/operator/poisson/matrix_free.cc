@@ -34,7 +34,7 @@ namespace Operator
     template <int dim, typename LinearAlgebra, int spacedim>
     MatrixFree<dim, LinearAlgebra, spacedim>::MatrixFree(
       const hp::MappingCollection<dim, spacedim> &mapping_collection,
-      const hp::QCollection<dim> &                quadrature_collection)
+      const hp::QCollection<dim>                 &quadrature_collection)
       : mapping_collection(&mapping_collection)
       , quadrature_collection(&quadrature_collection)
     {}
@@ -44,9 +44,9 @@ namespace Operator
     template <int dim, typename LinearAlgebra, int spacedim>
     void
     MatrixFree<dim, LinearAlgebra, spacedim>::reinit(
-      const dealii::DoFHandler<dim, spacedim> &    dof_handler,
+      const dealii::DoFHandler<dim, spacedim>     &dof_handler,
       const dealii::AffineConstraints<value_type> &constraints,
-      VectorType &                                 system_rhs)
+      VectorType                                  &system_rhs)
     {
       TimerOutput::Scope t(getTimer(), "reinit");
 
@@ -102,7 +102,7 @@ namespace Operator
 
     template <int dim, typename LinearAlgebra, int spacedim>
     void
-    MatrixFree<dim, LinearAlgebra, spacedim>::vmult(VectorType &      dst,
+    MatrixFree<dim, LinearAlgebra, spacedim>::vmult(VectorType       &dst,
                                                     const VectorType &src) const
     {
       this->matrix_free.cell_loop(
@@ -180,7 +180,7 @@ namespace Operator
     template <int dim, typename LinearAlgebra, int spacedim>
     void
     MatrixFree<dim, LinearAlgebra, spacedim>::Tvmult(
-      VectorType &      dst,
+      VectorType       &dst,
       const VectorType &src) const
     {
       this->vmult(dst, src);
@@ -207,7 +207,7 @@ namespace Operator
     void
     MatrixFree<dim, LinearAlgebra, spacedim>::do_cell_integral_global(
       FECellIntegrator &integrator,
-      VectorType &      dst,
+      VectorType       &dst,
       const VectorType &src) const
     {
       integrator.gather_evaluate(src, EvaluationFlags::gradients);
@@ -223,9 +223,9 @@ namespace Operator
     template <int dim, typename LinearAlgebra, int spacedim>
     void
     MatrixFree<dim, LinearAlgebra, spacedim>::do_cell_integral_range(
-      const dealii::MatrixFree<dim, value_type> &  matrix_free,
-      VectorType &                                 dst,
-      const VectorType &                           src,
+      const dealii::MatrixFree<dim, value_type>   &matrix_free,
+      VectorType                                  &dst,
+      const VectorType                            &src,
       const std::pair<unsigned int, unsigned int> &range) const
     {
       FECellIntegrator integrator(matrix_free, range);

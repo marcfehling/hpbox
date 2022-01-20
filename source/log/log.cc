@@ -51,11 +51,11 @@ namespace Log
   void
   log_hp_diagnostics(
     const parallel::distributed::Triangulation<dim, spacedim> &triangulation,
-    const DoFHandler<dim, spacedim> &                          dof_handler,
-    const AffineConstraints<T> &                               constraints)
+    const DoFHandler<dim, spacedim>                           &dof_handler,
+    const AffineConstraints<T>                                &constraints)
   {
     ConditionalOStream &pcout = getPCOut();
-    TableHandler &      table = getTable();
+    TableHandler       &table = getTable();
 
     const MPI_Comm &mpi_communicator = dof_handler.get_communicator();
     const hp::FECollection<dim, spacedim> &fe_collection =

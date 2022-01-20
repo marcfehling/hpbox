@@ -42,9 +42,9 @@ namespace Operator
         const dealii::hp::QCollection<dim> &quadrature_collection);
 
       void
-      reinit(const dealii::DoFHandler<dim, spacedim> &    dof_handler,
+      reinit(const dealii::DoFHandler<dim, spacedim>     &dof_handler,
              const dealii::AffineConstraints<value_type> &constraints,
-             VectorType &                                 system_rhs) override;
+             VectorType                                  &system_rhs) override;
 
       void
       vmult(VectorType &dst, const VectorType &src) const override;
@@ -83,14 +83,14 @@ namespace Operator
 
       void
       do_cell_integral_global(FECellIntegrator &integrator,
-                              VectorType &      dst,
+                              VectorType       &dst,
                               const VectorType &src) const;
 
       void
       do_cell_integral_range(
-        const dealii::MatrixFree<dim, value_type> &  matrix_free,
-        VectorType &                                 dst,
-        const VectorType &                           src,
+        const dealii::MatrixFree<dim, value_type>   &matrix_free,
+        VectorType                                  &dst,
+        const VectorType                            &src,
         const std::pair<unsigned int, unsigned int> &range) const;
 
       dealii::MatrixFree<dim, value_type> matrix_free;

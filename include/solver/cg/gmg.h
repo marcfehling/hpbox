@@ -42,12 +42,12 @@ namespace Solver
                 typename... Args>
       static void
       solve(
-        dealii::SolverControl &                            solver_control,
-        const OperatorType &                               system_matrix,
-        VectorType &                                       dst,
-        const VectorType &                                 src,
+        dealii::SolverControl                             &solver_control,
+        const OperatorType                                &system_matrix,
+        VectorType                                        &dst,
+        const VectorType                                  &src,
         const dealii::hp::MappingCollection<dim, spacedim> mapping_collection,
-        const dealii::DoFHandler<dim, spacedim> &          dof_handler,
+        const dealii::DoFHandler<dim, spacedim>           &dof_handler,
         Args &&...operator_args)
       {
         using namespace dealii;
@@ -178,7 +178,7 @@ namespace Solver
         for (unsigned int level = minlevel; level <= maxlevel; level++)
           {
             const auto &dof_handler = dof_handlers[level];
-            auto &      constraint  = constraints[level];
+            auto       &constraint  = constraints[level];
 
             // ... constraints (with homogenous Dirichlet BC)
             {

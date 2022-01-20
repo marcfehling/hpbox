@@ -34,10 +34,10 @@ namespace Adaptation
 {
   template <int dim, typename VectorType, int spacedim>
   p<dim, VectorType, spacedim>::p(
-    const Parameters &                    prm,
+    const Parameters &prm,
     const VectorType &locally_relevant_solution,
     const hp::FECollection<dim, spacedim> & /*fe_collection*/,
-    DoFHandler<dim, spacedim> &                          dof_handler,
+    DoFHandler<dim, spacedim>                           &dof_handler,
     parallel::distributed::Triangulation<dim, spacedim> &triangulation)
     : prm(prm)
     , locally_relevant_solution(&locally_relevant_solution)
@@ -173,21 +173,21 @@ namespace Adaptation
 
 
   // explicit instantiations
-  template class p<2,LinearAlgebra::distributed::Vector<double>,2>;
-  template class p<3,LinearAlgebra::distributed::Vector<double>,3>;
+  template class p<2, LinearAlgebra::distributed::Vector<double>, 2>;
+  template class p<3, LinearAlgebra::distributed::Vector<double>, 3>;
 
 #ifdef DEAL_II_WITH_TRILINOS
-  template class p<2,TrilinosWrappers::MPI::BlockVector,2>;
-  template class p<3,TrilinosWrappers::MPI::BlockVector,3>;
-  template class p<2,TrilinosWrappers::MPI::Vector,2>;
-  template class p<3,TrilinosWrappers::MPI::Vector,3>;
+  template class p<2, TrilinosWrappers::MPI::BlockVector, 2>;
+  template class p<3, TrilinosWrappers::MPI::BlockVector, 3>;
+  template class p<2, TrilinosWrappers::MPI::Vector, 2>;
+  template class p<3, TrilinosWrappers::MPI::Vector, 3>;
 #endif
 
 #ifdef DEALII_WITH_PETSC
-  template class p<2,PETScWrappers::BlockVector,2>;
-  template class p<3,PETScWrappers::BlockVector,3>;
-  template class p<2,PETScWrappers::Vector,2>;
-  template class p<3,PETScWrappers::Vector,3>;
+  template class p<2, PETScWrappers::BlockVector, 2>;
+  template class p<3, PETScWrappers::BlockVector, 3>;
+  template class p<2, PETScWrappers::Vector, 2>;
+  template class p<3, PETScWrappers::Vector, 3>;
 #endif
 
 } // namespace Adaptation

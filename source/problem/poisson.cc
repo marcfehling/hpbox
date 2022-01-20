@@ -52,7 +52,7 @@ namespace Problem
     // prepare name for logfile
     {
       time_t             now = time(nullptr);
-      tm *               ltm = localtime(&now);
+      tm                *ltm = localtime(&now);
       std::ostringstream oss;
       oss << prm.file_stem << "-" << std::put_time(ltm, "%Y%m%d-%H%M%S")
           << ".log";
@@ -213,8 +213,8 @@ namespace Problem
   template <typename OperatorType>
   void
   Poisson<dim, LinearAlgebra, spacedim>::solve(
-    const OperatorType &                  system_matrix,
-    typename LinearAlgebra::Vector &      locally_relevant_solution,
+    const OperatorType                   &system_matrix,
+    typename LinearAlgebra::Vector       &locally_relevant_solution,
     const typename LinearAlgebra::Vector &system_rhs)
   {
     TimerOutput::Scope t(getTimer(), "solve");

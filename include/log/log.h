@@ -33,9 +33,9 @@ namespace Log
   void
   log_hp_diagnostics(
     const dealii::parallel::distributed::Triangulation<dim, spacedim>
-      &                                      triangulation,
+                                            &triangulation,
     const dealii::DoFHandler<dim, spacedim> &dof_handler,
-    const dealii::AffineConstraints<T> &     constraints);
+    const dealii::AffineConstraints<T>      &constraints);
 } // namespace Log
 
 

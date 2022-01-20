@@ -34,8 +34,8 @@ namespace Operator
     template <int dim, typename LinearAlgebra, int spacedim>
     MatrixBased<dim, LinearAlgebra, spacedim>::MatrixBased(
       const hp::MappingCollection<dim, spacedim> &mapping_collection,
-      const hp::QCollection<dim> &                quadrature_collection,
-      hp::FEValues<dim, spacedim> &               fe_values_collection)
+      const hp::QCollection<dim>                 &quadrature_collection,
+      hp::FEValues<dim, spacedim>                &fe_values_collection)
       : mapping_collection(&mapping_collection)
       , quadrature_collection(&quadrature_collection)
       , fe_values_collection(&fe_values_collection)
@@ -46,9 +46,9 @@ namespace Operator
     template <int dim, typename LinearAlgebra, int spacedim>
     void
     MatrixBased<dim, LinearAlgebra, spacedim>::reinit(
-      const dealii::DoFHandler<dim, spacedim> &    dof_handler,
+      const dealii::DoFHandler<dim, spacedim>     &dof_handler,
       const dealii::AffineConstraints<value_type> &constraints,
-      VectorType &                                 system_rhs)
+      VectorType                                  &system_rhs)
     {
       TimerOutput::Scope t(getTimer(), "reinit");
 
@@ -148,7 +148,7 @@ namespace Operator
     template <int dim, typename LinearAlgebra, int spacedim>
     void
     MatrixBased<dim, LinearAlgebra, spacedim>::vmult(
-      VectorType &      dst,
+      VectorType       &dst,
       const VectorType &src) const
     {
       system_matrix.vmult(dst, src);
@@ -212,7 +212,7 @@ namespace Operator
     template <int dim, typename LinearAlgebra, int spacedim>
     void
     MatrixBased<dim, LinearAlgebra, spacedim>::Tvmult(
-      VectorType &      dst,
+      VectorType       &dst,
       const VectorType &src) const
     {
       vmult(dst, src);

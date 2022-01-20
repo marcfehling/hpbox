@@ -30,9 +30,9 @@ namespace Solver
     {
       template <typename LinearAlgebra, typename OperatorType>
       static void
-      solve(dealii::SolverControl &               solver_control,
-            const OperatorType &                  system_matrix,
-            typename LinearAlgebra::Vector &      dst,
+      solve(dealii::SolverControl                &solver_control,
+            const OperatorType                   &system_matrix,
+            typename LinearAlgebra::Vector       &dst,
             const typename LinearAlgebra::Vector &src)
       {
         typename LinearAlgebra::PreconditionAMG::AdditionalData data;

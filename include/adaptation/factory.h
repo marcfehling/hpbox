@@ -28,10 +28,7 @@
 
 namespace Factory
 {
-  template <int dim,
-            typename VectorType,
-            int spacedim = dim,
-            typename... Args>
+  template <int dim, typename VectorType, int spacedim = dim, typename... Args>
   std::unique_ptr<Adaptation::Base>
   create_adaptation(const std::string &type, Args &&...args)
   {
@@ -42,12 +39,10 @@ namespace Factory
       return std::make_unique<Adaptation::p<dim, VectorType, spacedim>>(
         std::forward<Args>(args)...);
     else if (type == "hp Fourier")
-      return std::make_unique<
-        Adaptation::hpFourier<dim, VectorType, spacedim>>(
+      return std::make_unique<Adaptation::hpFourier<dim, VectorType, spacedim>>(
         std::forward<Args>(args)...);
     else if (type == "hp History")
-      return std::make_unique<
-        Adaptation::hpHistory<dim, VectorType, spacedim>>(
+      return std::make_unique<Adaptation::hpHistory<dim, VectorType, spacedim>>(
         std::forward<Args>(args)...);
     else if (type == "hp Legendre")
       return std::make_unique<
