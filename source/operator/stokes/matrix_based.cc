@@ -20,7 +20,6 @@
 // #include <deal.II/lac/sparsity_tools.h>
 // #include <deal.II/lac/vector.h>
 
-#include <base/explicitely_instantiate.h>
 #include <base/global.h>
 #include <base/linear_algebra.h>
 #include <operator/stokes/matrix_based.h>
@@ -124,6 +123,17 @@ namespace Operator
 
 
 
-    EXPLICITLY_INSTANTIATE(MatrixBased)
+#ifdef DEAL_II_WITH_TRILINOS
+    template class MatrixBased<2, dealiiTrilinos, 2>;
+    template class MatrixBased<3, dealiiTrilinos, 3>;
+    template class MatrixBased<2, Trilinos, 2>;
+    template class MatrixBased<3, Trilinos, 3>;
+#endif
+
+#ifdef DEAL_II_WITH_PETSC
+    template class MatrixBased<2, PETSc, 2>;
+    template class MatrixBased<3, PETSc, 3>;
+#endif
+
   } // namespace Stokes
 } // namespace Operator

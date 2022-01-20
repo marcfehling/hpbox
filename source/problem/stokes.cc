@@ -21,7 +21,6 @@
 #include <deal.II/numerics/vector_tools.h>
 
 #include <adaptation/factory.h>
-#include <base/explicitely_instantiate.h>
 #include <base/global.h>
 #include <base/linear_algebra.h>
 #include <grid/factory.h>
@@ -103,7 +102,7 @@ namespace Problem
 
     // choose adaptation strategy
     adaptation_strategy =
-      Factory::create_adaptation<dim, LinearAlgebra, spacedim>(
+      Factory::create_adaptation<dim, typename LinearAlgebra::BlockVector, spacedim>(
         prm.adaptation_type,
         prm.prm_adaptation,
         locally_relevant_solution,
@@ -265,5 +264,16 @@ namespace Problem
 
 
 
-  EXPLICITLY_INSTANTIATE(Stokes)
+#ifdef DEAL_II_WITH_TRILINOS
+    template class Stokes<2, dealiiTrilinos, 2>;
+    template class Stokes<3, dealiiTrilinos, 3>;
+    template class Stokes<2, Trilinos, 2>;
+    template class Stokes<3, Trilinos, 3>;
+#endif
+
+#ifdef DEAL_II_WITH_PETSC
+    template class Stokes<2, PETSc, 2>;
+    template class Stokes<3, PETSc, 3>;
+#endif
+
 } // namespace Problem
