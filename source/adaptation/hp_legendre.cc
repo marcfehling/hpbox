@@ -39,21 +39,47 @@ namespace Adaptation
     const VectorType                      &locally_relevant_solution,
     const hp::FECollection<dim, spacedim> &fe_collection,
     DoFHandler<dim, spacedim>             &dof_handler,
-    parallel::distributed::Triangulation<dim, spacedim> &triangulation)
+    parallel::distributed::Triangulation<dim, spacedim> &triangulation,
+    const ComponentMask                                 &component_mask)
     : prm(prm)
     , locally_relevant_solution(&locally_relevant_solution)
     , dof_handler(&dof_handler)
     , triangulation(&triangulation)
+    , component_mask(component_mask)
     , cell_weights(dof_handler,
                    parallel::CellWeights<dim>::ndofs_weighting(
                      {prm.weighting_factor, prm.weighting_exponent}))
-    , legendre(SmoothnessEstimator::Legendre::default_fe_series(fe_collection))
   {
     Assert(prm.min_h_level <= prm.max_h_level,
            ExcMessage(
              "Triangulation level limits have been incorrectly set up."));
     Assert(prm.min_p_degree <= prm.max_p_degree,
            ExcMessage("FECollection degrees have been incorrectly set up."));
+    if (fe_collection[0].n_components() > 1)
+      Assert(component_mask.n_selected_components() == 1,
+             ExcMessage("For vector problems, you need to specify "
+                        "only one component."));
+
+    // like SmoothnessEstimator::default_fe_series(), but with component_mask
+    {
+      std::vector<unsigned int> n_coefficients_per_direction;
+      for (unsigned int i = 0; i < fe_collection.size(); ++i)
+        n_coefficients_per_direction.push_back(fe_collection[i].degree + 2);
+
+      hp::QCollection<dim> q_collection;
+      for (unsigned int i = 0; i < fe_collection.size(); ++i)
+        {
+          const QGauss<dim>  quadrature(n_coefficients_per_direction[i]);
+          const QSorted<dim> quadrature_sorted(quadrature);
+          q_collection.push_back(quadrature_sorted);
+        }
+
+      legendre = std::make_unique<dealii::FESeries::Legendre<dim, spacedim>>
+            (n_coefficients_per_direction,
+             fe_collection,
+             q_collection,
+             component_mask.first_selected_component());
+    }
 
     for (unsigned int degree = 1; degree <= prm.max_p_degree; ++degree)
       face_quadrature_collection.push_back(QGauss<dim - 1>(degree + 1));
@@ -70,7 +96,7 @@ namespace Adaptation
 
     {
       TimerOutput::Scope t(getTimer(), "calculate_transformation");
-      legendre.precalculate_all_transformation_matrices();
+      legendre->precalculate_all_transformation_matrices();
     }
   }
 
@@ -91,7 +117,7 @@ namespace Adaptation
       std::map<types::boundary_id, const Function<dim> *>(),
       *locally_relevant_solution,
       error_estimates,
-      /*component_mask=*/ComponentMask(),
+      component_mask,
       /*coefficients=*/nullptr,
       /*n_threads=*/numbers::invalid_unsigned_int,
       /*subdomain_id=*/numbers::invalid_subdomain_id,
@@ -110,7 +136,7 @@ namespace Adaptation
     hp_indicators.grow_or_shrink(triangulation->n_active_cells());
 
     SmoothnessEstimator::Legendre::coefficient_decay(
-      legendre,
+      *legendre,
       *dof_handler,
       *locally_relevant_solution,
       hp_indicators,

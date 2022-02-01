@@ -17,7 +17,7 @@
 #define operator_stokes_matrixbased_h
 
 
-#include <deal.II/base/partitioner.h>
+// #include <deal.II/base/mpi_noncontiguous_partitioner.h>
 
 #include <deal.II/hp/fe_values.h>
 
@@ -31,6 +31,7 @@ namespace Operator
     template <int dim, typename LinearAlgebra, int spacedim = dim>
     class MatrixBased : public Operator::BlockBase<dim, LinearAlgebra, spacedim>
     {
+    public:
       using VectorType = typename LinearAlgebra::BlockVector;
       using value_type = typename VectorType::value_type;
 
@@ -78,8 +79,13 @@ namespace Operator
         fe_values_collection;
 
       typename LinearAlgebra::BlockSparseMatrix system_matrix;
+      typename LinearAlgebra::BlockSparseMatrix preconditioner_matrix;
 
-      std::shared_ptr<const dealii::Utilities::MPI::Partitioner> partitioner;
+      // TODO: This should be part of some struct or
+      //       Utilities::MPI::Partitioner class.
+      MPI_Comm mpi_communicator;
+      std::vector<dealii::IndexSet> owned_partitioning;
+      std::vector<dealii::IndexSet> relevant_partitioning;
     };
   } // namespace Stokes
 } // namespace Operator

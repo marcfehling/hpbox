@@ -78,6 +78,59 @@ namespace Solver
             cg.solve(system_matrix, dst, src, preconditioner);
           }
       }
+
+
+
+      template <typename LinearAlgebra, typename OperatorType>
+      static void
+      solve(dealii::SolverControl                &solver_control,
+            const OperatorType                   &system_matrix,
+            typename LinearAlgebra::BlockVector       &dst,
+            const typename LinearAlgebra::BlockVector &src)
+      {
+        typename LinearAlgebra::PreconditionAMG::AdditionalData data;
+        if constexpr (std::is_same<LinearAlgebra, PETSc>::value)
+          {
+            data.symmetric_operator = true;
+          }
+        else if constexpr (std::is_same<LinearAlgebra, Trilinos>::value ||
+                           std::is_same<LinearAlgebra, dealiiTrilinos>::value)
+          {
+            data.elliptic              = true;
+            data.higher_order_elements = true;
+          }
+        else
+          {
+            Assert(false, dealii::ExcNotImplemented());
+          }
+
+        typename LinearAlgebra::PreconditionAMG preconditioner;
+        preconditioner.initialize(system_matrix.get_system_matrix(), data);
+
+        if constexpr (std::is_same<LinearAlgebra, PETSc>::value)
+          {
+            typename LinearAlgebra::SolverCG cg(
+              solver_control,
+              system_matrix.get_system_matrix().get_mpi_communicator());
+            cg.solve(system_matrix.get_system_matrix(),
+                     dst,
+                     src,
+                     preconditioner);
+          }
+        else if constexpr (std::is_same<LinearAlgebra, Trilinos>::value)
+          {
+            typename LinearAlgebra::SolverCG cg(solver_control);
+            cg.solve(system_matrix.get_system_matrix(),
+                     dst,
+                     src,
+                     preconditioner);
+          }
+        else
+          {
+            typename LinearAlgebra::SolverCG cg(solver_control);
+            cg.solve(system_matrix, dst, src, preconditioner);
+          }
+      }
     };
   } // namespace CG
 } // namespace Solver

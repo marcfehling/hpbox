@@ -19,10 +19,12 @@
 
 #include <deal.II/distributed/tria.h>
 
+#include <deal.II/fe/fe_values_extractors.h>
+
 #include <deal.II/hp/fe_values.h>
 
 #include <adaptation/base.h>
-#include <operator/stokes/matrix_based.h>
+// #include <operator/stokes/matrix_based.h>
 #include <problem/base.h>
 #include <problem/parameter.h>
 
@@ -44,11 +46,16 @@ namespace Problem
     void
     setup_system();
 
-    template <typename OperatorType>
+    // TODO: we go with the classical matrix based way for now
+    // template <typename OperatorType>
+    // void
+    // solve(const OperatorType                        &system_matrix,
+    //       typename LinearAlgebra::BlockVector       &locally_relevant_solution,
+    //       const typename LinearAlgebra::BlockVector &system_rhs);
     void
-    solve(const OperatorType &                  system_matrix,
-          typename LinearAlgebra::Vector &      locally_relevant_solution,
-          const typename LinearAlgebra::Vector &system_rhs);
+    assemble_system();
+    void
+    solve();
 
     void
     compute_errors();
@@ -68,9 +75,14 @@ namespace Problem
     dealii::parallel::distributed::Triangulation<dim> triangulation;
     dealii::DoFHandler<dim, spacedim>                 dof_handler;
 
+    // or in operator class, or in both?
+    const dealii::FEValuesExtractors::Vector velocities;
+    const dealii::FEValuesExtractors::Scalar pressure;
+
     dealii::hp::MappingCollection<dim, spacedim> mapping_collection;
     dealii::hp::FECollection<dim, spacedim>      fe_collection;
     dealii::hp::QCollection<dim>                 quadrature_collection;
+    dealii::hp::QCollection<dim>                 quadrature_collection_for_errors;
 
     std::unique_ptr<dealii::hp::FEValues<dim, spacedim>> fe_values_collection;
     std::unique_ptr<Adaptation::Base>                    adaptation_strategy;
@@ -84,11 +96,12 @@ namespace Problem
 
     dealii::AffineConstraints<double> constraints;
 
-    /*
-    std::unique_ptr<
-      Operator::Stokes::MatrixBased<dim, LinearAlgebra, spacedim>>
-      stokes_operator_matrixbased;
-    */
+    // TODO: stick to classical matrix based appraoch
+    // std::unique_ptr<
+    //  Operator::Stokes::MatrixBased<dim, LinearAlgebra, spacedim>>
+    //  stokes_operator_matrixbased;
+    typename LinearAlgebra::BlockSparseMatrix system_matrix;
+    typename LinearAlgebra::BlockSparseMatrix preconditioner_matrix;
 
     typename LinearAlgebra::BlockVector locally_relevant_solution;
     typename LinearAlgebra::BlockVector system_rhs;

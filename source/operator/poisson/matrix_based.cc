@@ -16,6 +16,8 @@
 
 #include <deal.II/dofs/dof_tools.h>
 
+#include <deal.II/grid/filtered_iterator.h>
+
 #include <deal.II/lac/full_matrix.h>
 #include <deal.II/lac/sparsity_tools.h>
 #include <deal.II/lac/vector.h>
@@ -46,14 +48,16 @@ namespace Operator
     template <int dim, typename LinearAlgebra, int spacedim>
     void
     MatrixBased<dim, LinearAlgebra, spacedim>::reinit(
-      const dealii::DoFHandler<dim, spacedim>     &dof_handler,
-      const dealii::AffineConstraints<value_type> &constraints,
-      VectorType                                  &system_rhs)
+      const DoFHandler<dim, spacedim>     &dof_handler,
+      const AffineConstraints<value_type> &constraints,
+      VectorType                          &system_rhs)
     {
       TimerOutput::Scope t(getTimer(), "reinit");
 
       const MPI_Comm mpi_communicator = dof_handler.get_communicator();
 
+      // ---
+      // kind of copied form setup_system()
       IndexSet locally_relevant_dofs;
       DoFTools::extract_locally_relevant_dofs(dof_handler,
                                               locally_relevant_dofs);
@@ -62,6 +66,7 @@ namespace Operator
         dof_handler.locally_owned_dofs(),
         locally_relevant_dofs,
         mpi_communicator);
+      // ---
 
       // constructors differ, so we need this workaround... -- not happy with
       // this
@@ -103,12 +108,14 @@ namespace Operator
       FullMatrix<double>                   cell_matrix;
       Vector<double>                       cell_rhs;
       std::vector<types::global_dof_index> local_dof_indices;
-      for (const auto &cell : dof_handler.active_cell_iterators())
+      for (const auto &cell : dof_handler.active_cell_iterators()  |
+           IteratorFilters::LocallyOwnedCell())
         {
           if (cell->is_locally_owned() == false)
             continue;
 
-          const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
+          const FiniteElement<dim> &fe = cell->get_fe();
+          const unsigned int dofs_per_cell = fe.dofs_per_cell;
           cell_matrix.reinit(dofs_per_cell, dofs_per_cell);
           cell_matrix = 0;
           cell_rhs.reinit(dofs_per_cell);

@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2020 by the deal.II authors
+// Copyright (C) 2020 - 2021 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -19,6 +19,7 @@
 
 #include <deal.II/base/exceptions.h>
 
+#include <function/kovasznay.h>
 #include <function/reentrant_corner.h>
 
 
@@ -33,6 +34,12 @@ namespace Factory
         std::forward<Args>(args)...);
     else if (type == "reentrant corner")
       return std::make_unique<Function::ReentrantCorner<dim>>(
+        std::forward<Args>(args)...);
+    else if (type == "kovasznay exact")
+      return std::make_unique<Function::KovasznayExact<dim>>(
+        std::forward<Args>(args)...);
+    else if (type == "kovasznay rhs")
+      return std::make_unique<Function::KovasznayRHS<dim>>(
         std::forward<Args>(args)...);
 
     Assert(false, dealii::ExcNotImplemented());

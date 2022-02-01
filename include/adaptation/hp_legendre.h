@@ -46,7 +46,8 @@ namespace Adaptation
                const dealii::hp::FECollection<dim, spacedim> &fe_collection,
                dealii::DoFHandler<dim, spacedim>             &dof_handler,
                dealii::parallel::distributed::Triangulation<dim, spacedim>
-                 &triangulation);
+                 &triangulation,
+               const dealii::ComponentMask &component_mask = dealii::ComponentMask());
 
     virtual void
     estimate_mark() override;
@@ -77,9 +78,12 @@ namespace Adaptation
       dealii::parallel::distributed::Triangulation<dim, spacedim>>
       triangulation;
 
+    const dealii::ComponentMask component_mask;
+
     dealii::parallel::CellWeights<dim, spacedim> cell_weights;
 
-    dealii::FESeries::Legendre<dim, spacedim> legendre;
+    // dealii::FESeries::Legendre<dim, spacedim> legendre;
+    std::unique_ptr<dealii::FESeries::Legendre<dim, spacedim>> legendre;
 
     dealii::hp::QCollection<dim - 1> face_quadrature_collection;
 

@@ -30,7 +30,7 @@ namespace Factory
   template <typename... Args>
   std::unique_ptr<Problem::Base>
   create_application(const std::string  &type,
-                     const unsigned int &dimension,
+                     const unsigned int dimension,
                      const std::string  &linear_algebra,
                      Args &&...args)
   {

@@ -36,11 +36,13 @@ namespace Adaptation
     const VectorType &locally_relevant_solution,
     const hp::FECollection<dim, spacedim> & /*fe_collection*/,
     DoFHandler<dim, spacedim>                           &dof_handler,
-    parallel::distributed::Triangulation<dim, spacedim> &triangulation)
+    parallel::distributed::Triangulation<dim, spacedim> &triangulation,
+    const ComponentMask                                 &component_mask)
     : prm(prm)
     , locally_relevant_solution(&locally_relevant_solution)
     , dof_handler(&dof_handler)
     , triangulation(&triangulation)
+    , component_mask(component_mask)
   {
     Assert(prm.min_h_level <= prm.max_h_level,
            ExcMessage(
@@ -69,7 +71,7 @@ namespace Adaptation
       std::map<types::boundary_id, const Function<dim> *>(),
       *locally_relevant_solution,
       error_estimates,
-      /*component_mask=*/ComponentMask(),
+      component_mask,
       /*coefficients=*/nullptr,
       /*n_threads=*/numbers::invalid_unsigned_int,
       /*subdomain_id=*/numbers::invalid_subdomain_id,
