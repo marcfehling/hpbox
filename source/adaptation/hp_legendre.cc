@@ -213,11 +213,11 @@ namespace Adaptation
   template class hpLegendre<3, TrilinosWrappers::MPI::Vector, 3>;
 #endif
 
-#ifdef DEALII_WITH_PETSC
-  template class hpLegendre<2, PETScWrappers::BlockVector, 2>;
-  template class hpLegendre<3, PETScWrappers::BlockVector, 3>;
-  template class hpLegendre<2, PETScWrappers::Vector, 2>;
-  template class hpLegendre<3, PETScWrappers::Vector, 3>;
+#ifdef DEAL_II_WITH_PETSC
+  template class hpLegendre<2, PETScWrappers::MPI::BlockVector, 2>;
+  template class hpLegendre<3, PETScWrappers::MPI::BlockVector, 3>;
+  template class hpLegendre<2, PETScWrappers::MPI::Vector, 2>;
+  template class hpLegendre<3, PETScWrappers::MPI::Vector, 3>;
 #endif
 
 } // namespace Adaptation

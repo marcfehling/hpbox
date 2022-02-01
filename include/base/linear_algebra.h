@@ -127,7 +127,7 @@ struct PETSc
   using Vector          = dealii::PETScWrappers::MPI::Vector;
 
   // TODO: maybe use SparsityPattern instead of DynamicSparsityPattern here?
-  using BlockSparsityPattern = dealii::BlockDynamicSparistyPattern;
+  using BlockSparsityPattern = dealii::BlockDynamicSparsityPattern;
   using BlockSparseMatrix    = dealii::PETScWrappers::MPI::BlockSparseMatrix;
   using BlockVector          = dealii::PETScWrappers::MPI::BlockVector;
 
