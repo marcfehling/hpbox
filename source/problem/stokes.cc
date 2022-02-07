@@ -59,17 +59,18 @@ namespace LinearSolvers
     InverseMatrix(const Matrix &m, const Preconditioner &preconditioner);
 
     template <typename VectorType>
-    void vmult(VectorType &dst, const VectorType &src) const;
+    void
+    vmult(VectorType &dst, const VectorType &src) const;
 
   private:
     const SmartPointer<const Matrix> matrix;
-    const Preconditioner &           preconditioner;
+    const Preconditioner            &preconditioner;
   };
 
 
   template <class Matrix, class Preconditioner>
   InverseMatrix<Matrix, Preconditioner>::InverseMatrix(
-    const Matrix &        m,
+    const Matrix         &m,
     const Preconditioner &preconditioner)
     : matrix(&m)
     , preconditioner(preconditioner)
@@ -80,11 +81,11 @@ namespace LinearSolvers
   template <class Matrix, class Preconditioner>
   template <typename VectorType>
   void
-  InverseMatrix<Matrix, Preconditioner>::vmult(VectorType &      dst,
+  InverseMatrix<Matrix, Preconditioner>::vmult(VectorType       &dst,
                                                const VectorType &src) const
   {
     // TODO: Decrease tolerance to 1e-12 ???
-    SolverControl solver_control(src.size(), 1e-8 * src.l2_norm());
+    SolverControl        solver_control(src.size(), 1e-8 * src.l2_norm());
     SolverCG<VectorType> cg(solver_control);
     dst = 0;
 
@@ -110,8 +111,8 @@ namespace LinearSolvers
 
     // make this template like above
     template <typename VectorType>
-    void vmult(VectorType &      dst,
-               const VectorType &src) const;
+    void
+    vmult(VectorType &dst, const VectorType &src) const;
 
   private:
     const PreconditionerA &preconditioner_A;
@@ -129,8 +130,9 @@ namespace LinearSolvers
 
   template <class PreconditionerA, class PreconditionerS>
   template <typename VectorType>
-  void BlockDiagonalPreconditioner<PreconditionerA, PreconditionerS>::vmult(
-    VectorType &      dst,
+  void
+  BlockDiagonalPreconditioner<PreconditionerA, PreconditionerS>::vmult(
+    VectorType       &dst,
     const VectorType &src) const
   {
     preconditioner_A.vmult(dst.block(0), src.block(0));
@@ -217,7 +219,6 @@ namespace Problem
             update_values | update_gradients | update_quadrature_points |
               update_JxW_values);
           fe_values_collection->precalculate_fe_values();
-
         }
 
         // TODO: create operator here
@@ -229,9 +230,28 @@ namespace Problem
       }
 
     // choose functions
-    boundary_function = Factory::create_function<dim>("zero");
-    solution_function = Factory::create_function<dim>("kovasznay exact");
-    rhs_function      = Factory::create_function<dim>("kovasznay rhs");
+    if (prm.grid_type == "kovasznay")
+      {
+        // boundary_function = Factory::create_function<dim>("zero");
+        solution_function = Factory::create_function<dim>("kovasznay exact");
+        rhs_function      = Factory::create_function<dim>("kovasznay rhs");
+      }
+    else if (prm.grid_type == "y-pipe")
+      {
+        // boundary_function = Factory::create_function<dim>("zero");
+        // solution_function = Factory::create_function<dim>("zero");
+        // rhs_function      = Factory::create_function<dim>("zero");
+
+        solution_function =
+          std::make_unique<dealii::Functions::ZeroFunction<dim>>(
+            /*n_components=*/dim + 1);
+        rhs_function = std::make_unique<dealii::Functions::ZeroFunction<dim>>(
+          /*n_components=*/dim + 1);
+      }
+    else
+      {
+        Assert(false, ExcNotImplemented());
+      }
 
     // choose adaptation strategy
     adaptation_strategy =
@@ -243,7 +263,8 @@ namespace Problem
                                            fe_collection,
                                            dof_handler,
                                            triangulation,
-                                           fe_collection.component_mask(pressure));
+                                           fe_collection.component_mask(
+                                             pressure));
   }
 
 
@@ -259,26 +280,7 @@ namespace Problem
 
     TimerOutput::Scope t(getTimer(), "initialize_grid");
 
-    // Factory::create_grid("y-pipe", triangulation);
-
-    // first reproduce step-22
-    /*
-    {
-      std::vector<unsigned int> subdivisions(dim, 1);
-      subdivisions[0] = 4;
-      const Point<dim> bottom_left =
-        (dim == 2 ? Point<dim>(-2, -1) : Point<dim>(-2, 0, -1));
-      const Point<dim> top_right =
-        (dim == 2 ? Point<dim>(2, 0) : Point<dim>(2, 1, 0));
-      GridGenerator::subdivided_hyper_rectangle(triangulation,
-                                                subdivisions,
-                                                bottom_left,
-                                                top_right);
-    }
-    */
-
-    // let's stick to step-55
-    GridGenerator::hyper_cube(triangulation, -0.5, 1.5);
+    Factory::create_grid(prm.grid_type, triangulation);
 
     if (prm.resume_filename.compare("") != 0)
       {
@@ -335,13 +337,56 @@ namespace Problem
     {
       constraints.clear();
       constraints.reinit(locally_relevant_dofs);
+
       DoFTools::make_hanging_node_constraints(dof_handler, constraints);
+
       // TODO: introduce boundary_function
-      VectorTools::interpolate_boundary_values(dof_handler,
-                                               0,
-                                               *solution_function,
-                                               constraints,
-                                               fe_collection.component_mask(velocities));
+      if (prm.grid_type == "kovasznay")
+        {
+          VectorTools::interpolate_boundary_values(mapping_collection,
+                                                   dof_handler,
+                                                   /*boundary_component=*/0,
+                                                   *solution_function,
+                                                   constraints,
+                                                   fe_collection.component_mask(
+                                                     velocities));
+        }
+      else if (prm.grid_type == "y-pipe")
+        {
+          Functions::ZeroFunction<dim>     zero(/*n_components=*/dim + 1);
+          Functions::ConstantFunction<dim> constant(/*value=*/1.,
+                                                    /*n_components=*/dim + 1);
+
+          // pressure at openings
+          VectorTools::interpolate_boundary_values(
+            mapping_collection,
+            dof_handler,
+            /*function_map=*/{{0, &zero}, {1, &zero}, {2, &constant}},
+            constraints,
+            fe_collection.component_mask(pressure));
+
+          // no slip on walls
+          VectorTools::interpolate_boundary_values(mapping_collection,
+                                                   dof_handler,
+                                                   /*boundary_component=*/3,
+                                                   /*boundary_function=*/zero,
+                                                   constraints,
+                                                   fe_collection.component_mask(
+                                                     velocities));
+
+          // set normal flux on all openings
+          // TODO: add version with mapping collection to deal.II
+          VectorTools::compute_normal_flux_constraints(
+            dof_handler,
+            /*first_vector_component=*/0,
+            /*boundary_ids=*/{0, 1, 2},
+            constraints,
+            mapping_collection[0]);
+        }
+      else
+        {
+          Assert(false, ExcNotImplemented());
+        }
 
 #ifdef DEBUG
       // We have not dealt with chains of constraints on ghost cells yet.
@@ -438,9 +483,8 @@ namespace Problem
     typename LinearAlgebra::BlockVector completely_distributed_solution;
     typename LinearAlgebra::BlockVector completely_distributed_system_rhs;
 
-    // TODO: Maybe use initialization functions and overloads for each vector type
-    if constexpr (std::is_same<
-                    typename LinearAlgebra::Vector,
+    // TODO: Maybe use initialization functions and overloads for each vector
+  type if constexpr (std::is_same< typename LinearAlgebra::Vector,
                     dealii::LinearAlgebra::distributed::Vector<double>>::value)
       {
         Assert(false, ExcNotImplemented());
@@ -503,13 +547,13 @@ namespace Problem
     const FEValuesExtractors::Vector     velocities(0);
     const FEValuesExtractors::Scalar     pressure(dim);
     for (const auto &cell : dof_handler.active_cell_iterators() |
-         IteratorFilters::LocallyOwnedCell())
+                              IteratorFilters::LocallyOwnedCell())
       {
         fe_values_collection->reinit(cell);
 
         const FEValues<dim> &fe_values =
           fe_values_collection->get_present_fe_values();
-        const unsigned int n_q_points = fe_values.n_quadrature_points;
+        const unsigned int n_q_points    = fe_values.n_quadrature_points;
         const unsigned int dofs_per_cell = fe_values.dofs_per_cell;
 
         cell_matrix.reinit(dofs_per_cell, dofs_per_cell);
@@ -534,8 +578,7 @@ namespace Problem
         // TODO: move to parameter
         const double viscosity = 0.1;
 
-        for (unsigned int q_point = 0;
-             q_point < fe_values.n_quadrature_points;
+        for (unsigned int q_point = 0; q_point < fe_values.n_quadrature_points;
              ++q_point)
           {
             for (unsigned int k = 0; k < dofs_per_cell; ++k)
@@ -562,17 +605,15 @@ namespace Problem
                 const unsigned int component_i =
                   cell->get_fe().system_to_component_index(i).first;
                 cell_rhs(i) += fe_values.shape_value(i, q_point) *
-                               rhs_values[q_point](component_i) * fe_values.JxW(q_point);
+                               rhs_values[q_point](component_i) *
+                               fe_values.JxW(q_point);
               }
           }
         local_dof_indices.resize(dofs_per_cell);
         cell->get_dof_indices(local_dof_indices);
 
-        constraints.distribute_local_to_global(cell_matrix,
-                                               cell_rhs,
-                                               local_dof_indices,
-                                               system_matrix,
-                                               system_rhs);
+        constraints.distribute_local_to_global(
+          cell_matrix, cell_rhs, local_dof_indices, system_matrix, system_rhs);
 
         constraints.distribute_local_to_global(cell_matrix2,
                                                local_dof_indices,
@@ -634,12 +675,14 @@ namespace Problem
       prec_S.initialize(preconditioner_matrix.block(1, 1), data);
     }
 
-    using mp_inverse_t = LinearSolvers::InverseMatrix<typename LinearAlgebra::SparseMatrix,
-                                                      typename LinearAlgebra::PreconditionAMG>;
+    using mp_inverse_t =
+      LinearSolvers::InverseMatrix<typename LinearAlgebra::SparseMatrix,
+                                   typename LinearAlgebra::PreconditionAMG>;
     const mp_inverse_t mp_inverse(preconditioner_matrix.block(1, 1), prec_S);
 
-    const LinearSolvers::BlockDiagonalPreconditioner<typename LinearAlgebra::PreconditionAMG,
-                                                     mp_inverse_t>
+    const LinearSolvers::BlockDiagonalPreconditioner<
+      typename LinearAlgebra::PreconditionAMG,
+      mp_inverse_t>
       preconditioner(prec_A, mp_inverse);
 
     SolverControl solver_control(system_matrix.m(),
@@ -647,8 +690,8 @@ namespace Problem
 
     SolverMinRes<typename LinearAlgebra::BlockVector> solver(solver_control);
 
-    typename LinearAlgebra::BlockVector completely_distributed_solution(owned_partitioning,
-                                                             mpi_communicator);
+    typename LinearAlgebra::BlockVector completely_distributed_solution(
+      owned_partitioning, mpi_communicator);
 
     constraints.set_zero(completely_distributed_solution);
 
@@ -657,8 +700,8 @@ namespace Problem
                  system_rhs,
                  preconditioner);
 
-    getPCOut() << "   Solved in " << solver_control.last_step() << " iterations."
-               << std::endl;
+    getPCOut() << "   Solved in " << solver_control.last_step()
+               << " iterations." << std::endl;
 
     constraints.distribute(completely_distributed_solution);
 
@@ -666,14 +709,19 @@ namespace Problem
 
     // TODO: Is this step necessary?
     //       We subtract mean pressure here
-    const double mean_pressure =
-      VectorTools::compute_mean_value(mapping_collection,
-                                      dof_handler,
-                                      quadrature_collection_for_errors,
-                                      locally_relevant_solution,
-                                      dim);
-    completely_distributed_solution.block(1).add(-mean_pressure);
-    locally_relevant_solution.block(1) = completely_distributed_solution.block(1);
+    //       no, only necessary for kovasznay
+    if (prm.grid_type == "kovasznay")
+      {
+        const double mean_pressure =
+          VectorTools::compute_mean_value(mapping_collection,
+                                          dof_handler,
+                                          quadrature_collection_for_errors,
+                                          locally_relevant_solution,
+                                          dim);
+        completely_distributed_solution.block(1).add(-mean_pressure);
+        locally_relevant_solution.block(1) =
+          completely_distributed_solution.block(1);
+      }
   }
 
 
@@ -747,10 +795,12 @@ namespace Problem
                                         VectorTools::H1_norm);
     */
 
-    getPCOut() << "   L2 error velocity:            " << L2_error_u << std::endl
-               // << "   H1 error velocity:            " << H1_error_u << std::endl
-               << "   L2 error pressure:            " << L2_error_p << std::endl;
-               // << "   H1 error pressure:            " << H1_error_p << std::endl;
+    getPCOut()
+      << "   L2 error velocity:            " << L2_error_u
+      << std::endl
+      // << "   H1 error velocity:            " << H1_error_u << std::endl
+      << "   L2 error pressure:            " << L2_error_p << std::endl;
+    // << "   H1 error pressure:            " << H1_error_p << std::endl;
 
     TableHandler &table = getTable();
     table.add_value("L2_u", L2_error_u);

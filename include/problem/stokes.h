@@ -50,7 +50,7 @@ namespace Problem
     // template <typename OperatorType>
     // void
     // solve(const OperatorType                        &system_matrix,
-    //       typename LinearAlgebra::BlockVector       &locally_relevant_solution,
+    //       typename LinearAlgebra::BlockVector &locally_relevant_solution,
     //       const typename LinearAlgebra::BlockVector &system_rhs);
     void
     assemble_system();
@@ -82,7 +82,7 @@ namespace Problem
     dealii::hp::MappingCollection<dim, spacedim> mapping_collection;
     dealii::hp::FECollection<dim, spacedim>      fe_collection;
     dealii::hp::QCollection<dim>                 quadrature_collection;
-    dealii::hp::QCollection<dim>                 quadrature_collection_for_errors;
+    dealii::hp::QCollection<dim> quadrature_collection_for_errors;
 
     std::unique_ptr<dealii::hp::FEValues<dim, spacedim>> fe_values_collection;
     std::unique_ptr<Adaptation::Base>                    adaptation_strategy;

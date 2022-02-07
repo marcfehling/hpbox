@@ -43,10 +43,10 @@ namespace Operator
 
 
   template <int dim, typename LinearAlgebra, int spacedim = dim>
-  class BlockBase
-    : public dealii::MGSolverOperatorBase<dim,
-                                          typename LinearAlgebra::BlockVector,
-                                          typename LinearAlgebra::BlockSparseMatrix>
+  class BlockBase : public dealii::MGSolverOperatorBase<
+                      dim,
+                      typename LinearAlgebra::BlockVector,
+                      typename LinearAlgebra::BlockSparseMatrix>
   {
   public:
     using VectorType = typename LinearAlgebra::BlockVector;

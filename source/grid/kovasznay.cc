@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2021 - 2022 by the deal.II authors
+// Copyright (C) 2022 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -13,33 +13,28 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef grid_factory_h
-#define grid_factory_h
 
-
-#include <deal.II/base/exceptions.h>
+#include <deal.II/grid/grid_generator.h>
 
 #include <grid/kovasznay.h>
-#include <grid/reentrant_corner.h>
-#include <grid/y_pipe.h>
+
+using namespace dealii;
 
 
-namespace Factory
+namespace Grid
 {
-  template <typename... Args>
+  template <int dim, int spacedim>
   void
-  create_grid(std::string type, Args &&...args)
+  kovasznay(Triangulation<dim, spacedim> &triangulation)
   {
-    if (type == "reentrant corner")
-      Grid::reentrant_corner(std::forward<Args>(args)...);
-    else if (type == "kovasznay")
-      Grid::kovasznay(std::forward<Args>(args)...);
-    else if (type == "y-pipe")
-      Grid::y_pipe(std::forward<Args>(args)...);
-    else
-      Assert(false, dealii::ExcNotImplemented());
+    GridGenerator::hyper_cube(triangulation, -0.5, 1.5);
   }
-} // namespace Factory
 
 
-#endif
+
+  // explicit instantiations
+  template void
+  kovasznay<2, 2>(Triangulation<2, 2> &);
+  template void
+  kovasznay<3, 3>(Triangulation<3, 3> &);
+} // namespace Grid

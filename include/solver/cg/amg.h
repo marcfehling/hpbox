@@ -83,8 +83,8 @@ namespace Solver
 
       template <typename LinearAlgebra, typename OperatorType>
       static void
-      solve(dealii::SolverControl                &solver_control,
-            const OperatorType                   &system_matrix,
+      solve(dealii::SolverControl                     &solver_control,
+            const OperatorType                        &system_matrix,
             typename LinearAlgebra::BlockVector       &dst,
             const typename LinearAlgebra::BlockVector &src)
       {

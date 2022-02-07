@@ -69,15 +69,18 @@ namespace Operator
         const unsigned int n_p = dofs_per_block[1];
 
         owned_partitioning.resize(2);
-        owned_partitioning[0] = dof_handler.locally_owned_dofs().get_view(0, n_u);
+        owned_partitioning[0] =
+          dof_handler.locally_owned_dofs().get_view(0, n_u);
         owned_partitioning[1] =
           dof_handler.locally_owned_dofs().get_view(n_u, n_u + n_p);
 
         IndexSet locally_relevant_dofs;
-        DoFTools::extract_locally_relevant_dofs(dof_handler, locally_relevant_dofs);
+        DoFTools::extract_locally_relevant_dofs(dof_handler,
+                                                locally_relevant_dofs);
         relevant_partitioning.resize(2);
         relevant_partitioning[0] = locally_relevant_dofs.get_view(0, n_u);
-        relevant_partitioning[1] = locally_relevant_dofs.get_view(n_u, n_u + n_p);
+        relevant_partitioning[1] =
+          locally_relevant_dofs.get_view(n_u, n_u + n_p);
       }
       // ---
 
@@ -91,7 +94,8 @@ namespace Operator
 
       // TODO: the RHS function is part of the problem class
       //       should be part of this class
-      const std::unique_ptr<dealii::Function<dim>> rhs_function = Factory::create_function<dim>("kovasznay rhs");
+      const std::unique_ptr<dealii::Function<dim>> rhs_function =
+        Factory::create_function<dim>("kovasznay rhs");
       std::vector<Vector<double>> rhs_values;
 
       std::vector<Tensor<2, dim>> grad_phi_u;
@@ -102,13 +106,13 @@ namespace Operator
       const FEValuesExtractors::Vector     velocities(0);
       const FEValuesExtractors::Scalar     pressure(dim);
       for (const auto &cell : dof_handler.active_cell_iterators() |
-           IteratorFilters::LocallyOwnedCell())
+                                IteratorFilters::LocallyOwnedCell())
         {
           fe_values_collection->reinit(cell);
 
           const FEValues<dim> &fe_values =
             fe_values_collection->get_present_fe_values();
-          const unsigned int n_q_points = fe_values.n_quadrature_points;
+          const unsigned int n_q_points    = fe_values.n_quadrature_points;
           const unsigned int dofs_per_cell = fe_values.dofs_per_cell;
 
           cell_matrix.reinit(dofs_per_cell, dofs_per_cell);
@@ -161,7 +165,8 @@ namespace Operator
                   const unsigned int component_i =
                     cell->get_fe().system_to_component_index(i).first;
                   cell_rhs(i) += fe_values.shape_value(i, q_point) *
-                                 rhs_values[q_point](component_i) * fe_values.JxW(q_point);
+                                 rhs_values[q_point](component_i) *
+                                 fe_values.JxW(q_point);
                 }
             }
           local_dof_indices.resize(dofs_per_cell);
@@ -260,20 +265,20 @@ namespace Operator
 
 
 
-// Do not build this class now.
-/*
-#ifdef DEAL_II_WITH_TRILINOS
-    template class MatrixBased<2, dealiiTrilinos, 2>;
-    template class MatrixBased<3, dealiiTrilinos, 3>;
-    template class MatrixBased<2, Trilinos, 2>;
-    template class MatrixBased<3, Trilinos, 3>;
-#endif
+    // Do not build this class now.
+    /*
+    #ifdef DEAL_II_WITH_TRILINOS
+        template class MatrixBased<2, dealiiTrilinos, 2>;
+        template class MatrixBased<3, dealiiTrilinos, 3>;
+        template class MatrixBased<2, Trilinos, 2>;
+        template class MatrixBased<3, Trilinos, 3>;
+    #endif
 
-#ifdef DEAL_II_WITH_PETSC
-    template class MatrixBased<2, PETSc, 2>;
-    template class MatrixBased<3, PETSc, 3>;
-#endif
-*/
+    #ifdef DEAL_II_WITH_PETSC
+        template class MatrixBased<2, PETSc, 2>;
+        template class MatrixBased<3, PETSc, 3>;
+    #endif
+    */
 
   } // namespace Stokes
 } // namespace Operator

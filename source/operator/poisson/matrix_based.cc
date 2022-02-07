@@ -108,14 +108,14 @@ namespace Operator
       FullMatrix<double>                   cell_matrix;
       Vector<double>                       cell_rhs;
       std::vector<types::global_dof_index> local_dof_indices;
-      for (const auto &cell : dof_handler.active_cell_iterators()  |
-           IteratorFilters::LocallyOwnedCell())
+      for (const auto &cell : dof_handler.active_cell_iterators() |
+                                IteratorFilters::LocallyOwnedCell())
         {
           if (cell->is_locally_owned() == false)
             continue;
 
-          const FiniteElement<dim> &fe = cell->get_fe();
-          const unsigned int dofs_per_cell = fe.dofs_per_cell;
+          const FiniteElement<dim> &fe            = cell->get_fe();
+          const unsigned int        dofs_per_cell = fe.dofs_per_cell;
           cell_matrix.reinit(dofs_per_cell, dofs_per_cell);
           cell_matrix = 0;
           cell_rhs.reinit(dofs_per_cell);

@@ -33,11 +33,7 @@ namespace Function
 
     virtual void
     vector_value(const dealii::Point<dim> &p,
-                 dealii::Vector<double> &values) const override;
-
-  private:
-    static constexpr double pi = dealii::numbers::PI;
-    static constexpr double pi2 = dealii::numbers::PI * dealii::numbers::PI;
+                 dealii::Vector<double>   &values) const override;
   };
 
 
@@ -50,11 +46,7 @@ namespace Function
 
     virtual void
     vector_value(const dealii::Point<dim> &p,
-                 dealii::Vector<double> &values) const override;
-
-  private:
-    static constexpr double pi = dealii::numbers::PI;
-    static constexpr double pi2 = dealii::numbers::PI * dealii::numbers::PI;
+                 dealii::Vector<double>   &values) const override;
   };
 } // namespace Function
 

@@ -41,13 +41,14 @@ namespace Adaptation
   class hpLegendre : public Base
   {
   public:
-    hpLegendre(const Parameters &prm,
-               const VectorType &locally_relevant_solution,
-               const dealii::hp::FECollection<dim, spacedim> &fe_collection,
-               dealii::DoFHandler<dim, spacedim>             &dof_handler,
-               dealii::parallel::distributed::Triangulation<dim, spacedim>
-                 &triangulation,
-               const dealii::ComponentMask &component_mask = dealii::ComponentMask());
+    hpLegendre(
+      const Parameters                              &prm,
+      const VectorType                              &locally_relevant_solution,
+      const dealii::hp::FECollection<dim, spacedim> &fe_collection,
+      dealii::DoFHandler<dim, spacedim>             &dof_handler,
+      dealii::parallel::distributed::Triangulation<dim, spacedim>
+                                  &triangulation,
+      const dealii::ComponentMask &component_mask = dealii::ComponentMask());
 
     virtual void
     estimate_mark() override;

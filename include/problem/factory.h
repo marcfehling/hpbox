@@ -35,11 +35,9 @@ namespace Factory
     if (type == "poisson")
       return std::make_unique<Problem::Poisson<dim, LinearAlgebra, spacedim>>(
         std::forward<Args>(args)...);
-    /*
     else if (type == "stokes")
       return std::make_unique<Problem::Stokes<dim, LinearAlgebra, spacedim>>(
         std::forward<Args>(args)...);
-    */
 
     Assert(false, dealii::ExcNotImplemented());
     return std::unique_ptr<Problem::Base>();

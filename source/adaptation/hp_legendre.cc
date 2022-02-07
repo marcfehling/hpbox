@@ -74,11 +74,11 @@ namespace Adaptation
           q_collection.push_back(quadrature_sorted);
         }
 
-      legendre = std::make_unique<dealii::FESeries::Legendre<dim, spacedim>>
-            (n_coefficients_per_direction,
-             fe_collection,
-             q_collection,
-             component_mask.first_selected_component());
+      legendre = std::make_unique<dealii::FESeries::Legendre<dim, spacedim>>(
+        n_coefficients_per_direction,
+        fe_collection,
+        q_collection,
+        component_mask.first_selected_component());
     }
 
     for (unsigned int degree = 1; degree <= prm.max_p_degree; ++degree)
