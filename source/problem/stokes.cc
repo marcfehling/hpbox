@@ -14,6 +14,8 @@
 // ---------------------------------------------------------------------
 
 
+#include <deal.II/base/flow_function.h>
+
 #include <deal.II/dofs/dof_renumbering.h>
 #include <deal.II/dofs/dof_tools.h>
 
@@ -353,52 +355,25 @@ namespace Problem
         }
       else if (prm.grid_type == "y-pipe")
         {
-          // TODO: compute_..._constraints needs dim components
-          //       interpolate_boundary_values needs dim+1 components
-          //       that is weird
+          // flow at inlet opening 0
+          VectorTools::interpolate_boundary_values(
+            mapping_collection,
+            dof_handler,
+            /*boundary_component=*/0,
+            /*boundary_function=*/
+            Functions::PoisseuilleFlow<dim>(/*radius=*/1., /*Reynolds=*/1.),
+            constraints,
+            fe_collection.component_mask(velocities));
 
-          // TODO: add versions of compute_..._constraints with mapping collection to deal.II
-          {
-            Functions::ConstantFunction<dim> constant(/*value=*/1.,
-                                                      /*n_components=*/dim);
-
-            // flow at inlet opening 0
-            VectorTools::compute_nonzero_normal_flux_constraints(
-              dof_handler,
-              /*first_vector_component=*/0,
-              /*boundary_ids=*/{0},
-              /*function_map=*/{{0, &constant}},
-              constraints,
-              mapping_collection[0]);
-
-            // set normal flux on outlet openings 1,2
-            VectorTools::compute_normal_flux_constraints(
-              dof_handler,
-              /*first_vector_component=*/0,
-              /*boundary_ids=*/{1, 2},
-              constraints,
-              mapping_collection[0]);
-          }
-
-          {
-            Functions::ZeroFunction<dim> zero(/*n_components=*/dim + 1);
-
-            // pressure at outlet openings 1,2
-            VectorTools::interpolate_boundary_values(
-              mapping_collection,
-              dof_handler,
-              /*function_map=*/{{1, &zero}, {2, &zero}},
-              constraints,
-              fe_collection.component_mask(pressure));
-
-            // no slip on walls
-            VectorTools::interpolate_boundary_values(mapping_collection,
-                                                     dof_handler,
-                                                     /*function_map=*/{{3, &zero}},
-                                                     constraints,
-                                                     fe_collection.component_mask(
-                                                       velocities));
-          }
+          // no slip on walls
+          VectorTools::interpolate_boundary_values(
+            mapping_collection,
+            dof_handler,
+            /*boundary_component=*/3,
+            /*boundary_function=*/
+            Functions::ZeroFunction<dim>(/*n_components=*/dim + 1),
+            constraints,
+            fe_collection.component_mask(velocities));
         }
       else
         {
