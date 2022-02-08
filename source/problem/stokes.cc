@@ -355,23 +355,16 @@ namespace Problem
         }
       else if (prm.grid_type == "y-pipe")
         {
-          // flow at inlet opening 0
-          VectorTools::interpolate_boundary_values(
-            mapping_collection,
-            dof_handler,
-            /*boundary_component=*/0,
-            /*boundary_function=*/
-            Functions::PoisseuilleFlow<dim>(/*radius=*/1., /*Reynolds=*/1.),
-            constraints,
-            fe_collection.component_mask(velocities));
+          Functions::PoisseuilleFlow<dim> inflow(/*radius=*/1.,
+                                                 /*Reynolds=*/1.);
+          Functions::ZeroFunction<dim>    zero(/*n_components=*/dim + 1);
 
+          // flow at inlet opening 0
           // no slip on walls
           VectorTools::interpolate_boundary_values(
             mapping_collection,
             dof_handler,
-            /*boundary_component=*/3,
-            /*boundary_function=*/
-            Functions::ZeroFunction<dim>(/*n_components=*/dim + 1),
+            /*function_map=*/{{0, &inflow}, {3, &zero}},
             constraints,
             fe_collection.component_mask(velocities));
         }
