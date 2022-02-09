@@ -874,9 +874,22 @@ namespace Problem
   void
   Stokes<dim, LinearAlgebra, spacedim>::resume_from_checkpoint()
   {
-    Assert(false, ExcNotImplemented());
+    // TODO: same as Poisson
 
     triangulation.load(prm.resume_filename);
+
+    // custom repartitioning using DoFs requires correctly assigned FEs
+    dof_handler.deserialize_active_fe_indices();
+    dof_handler.distribute_dofs(fe_collection);
+    triangulation.repartition();
+
+    // unpack after repartitioning to avoid unnecessary data transfer
+    adaptation_strategy->unpack_after_serialization();
+
+    // load metadata
+    std::ifstream file(prm.resume_filename + ".metadata", std::ios::binary);
+    boost::archive::binary_iarchive ia(file);
+    ia >> cycle;
   }
 
 
@@ -885,7 +898,7 @@ namespace Problem
   void
   Stokes<dim, LinearAlgebra, spacedim>::write_to_checkpoint()
   {
-    Assert(false, ExcNotImplemented());
+    // TODO: same as Poisson
 
     // write triangulation and data
     dof_handler.prepare_for_serialization_of_active_fe_indices();
@@ -893,6 +906,13 @@ namespace Problem
 
     const std::string filename = prm.file_stem + "-checkpoint";
     triangulation.save(filename);
+
+    // write metadata
+    std::ofstream file(filename + ".metadata", std::ios::binary);
+    boost::archive::binary_oarchive oa(file);
+    oa << cycle;
+
+    getPCOut() << "Checkpoint written." << std::endl;
   }
 
 
