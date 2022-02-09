@@ -373,7 +373,10 @@ namespace Problem
           Assert(false, ExcNotImplemented());
         }
 
-#ifdef DEBUG
+#if false
+      // Disable consistency check for now.
+      //   see also: https://github.com/dealii/dealii/issues/6255
+#  ifdef DEBUG
       // We have not dealt with chains of constraints on ghost cells yet.
       // Thus, we are content with verifying their consistency for now.
       std::vector<IndexSet> locally_owned_dofs_per_processor =
@@ -389,6 +392,7 @@ namespace Problem
                                               mpi_communicator,
                                               /*verbose=*/true),
         ExcMessage("AffineConstraints object contains inconsistencies!"));
+#  endif
 #endif
       constraints.close();
     }
