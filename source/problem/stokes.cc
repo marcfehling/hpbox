@@ -180,19 +180,22 @@ namespace Problem
     // TODO: different mapping for curved cells?
     mapping_collection.push_back(MappingQ1<dim, spacedim>());
 
-    for (unsigned int degree = 1; degree <= prm.prm_adaptation.max_p_degree;
+    Assert(prm.prm_adaptation.min_p_degree > 1,
+           ExcMessage("The minimal polynomial degree must be at least 2!"));
+
+    for (unsigned int degree = 2; degree <= prm.prm_adaptation.max_p_degree;
          ++degree)
       {
         fe_collection.push_back(
-          FESystem<dim, spacedim>(FE_Q<dim, spacedim>(degree + 1),
+          FESystem<dim, spacedim>(FE_Q<dim, spacedim>(degree),
                                   dim,
-                                  FE_Q<dim, spacedim>(degree),
+                                  FE_Q<dim, spacedim>(degree - 1),
                                   1));
-        quadrature_collection.push_back(QGauss<dim>(degree + 2));
-        quadrature_collection_for_errors.push_back(QGauss<dim>(degree + 3));
+        quadrature_collection.push_back(QGauss<dim>(degree + 1));
+        quadrature_collection_for_errors.push_back(QGauss<dim>(degree + 2));
       }
 
-    const unsigned int min_fe_index = prm.prm_adaptation.min_p_degree - 1;
+    const unsigned int min_fe_index = prm.prm_adaptation.min_p_degree - 2;
     fe_collection.set_hierarchy(
       /*next_index=*/
       [](const typename hp::FECollection<dim> &fe_collection,
@@ -290,7 +293,7 @@ namespace Problem
       }
     else
       {
-        const unsigned int min_fe_index = prm.prm_adaptation.min_p_degree - 1;
+        const unsigned int min_fe_index = prm.prm_adaptation.min_p_degree - 2;
         for (const auto &cell : dof_handler.active_cell_iterators())
           if (cell->is_locally_owned())
             cell->set_active_fe_index(min_fe_index);
@@ -963,7 +966,7 @@ namespace Problem
               Assert(false, ExcInternalError());
             }
 
-          compute_errors();
+          // compute_errors();
           adaptation_strategy->estimate_mark();
 
           if ((prm.output_frequency > 0) && (cycle % prm.output_frequency == 0))

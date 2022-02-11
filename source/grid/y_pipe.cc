@@ -28,9 +28,9 @@ namespace Grid
   y_pipe(Triangulation<dim, spacedim> &triangulation)
   {
     const std::vector<std::pair<Point<spacedim>, double>> openings = {
-      {{{-2., 0., 0.}, 1.},
-       {{1., std::sqrt(3), 0.}, 1.},
-       {{1., -std::sqrt(3), 0.}, 1.}}};
+      {{{-4., 0., 0.}, 1.},
+       {{2., 2.*std::sqrt(3.), 0.}, 1.},
+       {{2., -2.*std::sqrt(3.), 0.}, 1.}}};
 
     const std::pair<Point<spacedim>, double> bifurcation = {{0., 0., 0.}, 1.};
 
