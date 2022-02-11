@@ -413,7 +413,7 @@ namespace Problem
           else
             coupling[c][d] = DoFTools::none;
 
-      BlockDynamicSparsityPattern dsp(dofs_per_block, dofs_per_block);
+      BlockDynamicSparsityPattern dsp(relevant_partitioning);
 
       DoFTools::make_sparsity_pattern(
         dof_handler, coupling, dsp, constraints, false);
@@ -438,7 +438,7 @@ namespace Problem
           else
             coupling[c][d] = DoFTools::none;
 
-      BlockDynamicSparsityPattern dsp(dofs_per_block, dofs_per_block);
+      BlockDynamicSparsityPattern dsp(relevant_partitioning);
 
       DoFTools::make_sparsity_pattern(
         dof_handler, coupling, dsp, constraints, false);
@@ -449,7 +449,6 @@ namespace Problem
         mpi_communicator,
         locally_relevant_dofs);
       preconditioner_matrix.reinit(owned_partitioning,
-                                   //      owned_partitioning,
                                    dsp,
                                    mpi_communicator);
     }
