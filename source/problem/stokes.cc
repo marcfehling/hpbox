@@ -995,8 +995,10 @@ namespace Problem
 #endif
 
 #ifdef DEAL_II_WITH_PETSC
+  /*
   template class Stokes<2, PETSc, 2>;
   template class Stokes<3, PETSc, 3>;
+  */
 #endif
 
 } // namespace Problem
