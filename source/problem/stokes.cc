@@ -24,7 +24,7 @@
 
 #include <deal.II/grid/grid_generator.h>
 
-#include <deal.II/lac/solver_minres.h>
+#include <deal.II/lac/solver_gmres.h>
 
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
@@ -48,98 +48,68 @@ using namespace dealii;
 
 namespace LinearSolvers
 {
-  // This class exposes the action of applying the inverse of a giving
-  // matrix via the function InverseMatrix::vmult(). Internally, the
-  // inverse is not formed explicitly. Instead, a linear solver with CG
-  // is performed. This class extends the InverseMatrix class in step-22
-  // with an option to specify a preconditioner, and to allow for different
-  // vector types in the vmult function.
-  template <class Matrix, class Preconditioner>
-  class InverseMatrix : public Subscriptor
+  template <class PreconditionerTypeA, class PreconditionerTypeMp>
+  class BlockSchurPreconditioner : public Subscriptor
   {
   public:
-    InverseMatrix(const Matrix &m, const Preconditioner &preconditioner);
+    BlockSchurPreconditioner(const TrilinosWrappers::BlockSparseMatrix &S,
+                             const TrilinosWrappers::BlockSparseMatrix &Spre,
+                             const PreconditionerTypeMp &Mppreconditioner,
+                             const PreconditionerTypeA & Apreconditioner,
+                             const bool                  do_solve_A)
+      : stokes_matrix(&S)
+      , stokes_preconditioner_matrix(&Spre)
+      , mp_preconditioner(Mppreconditioner)
+      , a_preconditioner(Apreconditioner)
+      , do_solve_A(do_solve_A)
+    {}
 
-    template <typename VectorType>
-    void
-    vmult(VectorType &dst, const VectorType &src) const;
+    void vmult(TrilinosWrappers::MPI::BlockVector &      dst,
+               const TrilinosWrappers::MPI::BlockVector &src) const
+    {
+      TrilinosWrappers::MPI::Vector utmp(src.block(0));
+
+      {
+        SolverControl solver_control(5000, 1e-6 * src.block(1).l2_norm());
+
+        SolverCG<TrilinosWrappers::MPI::Vector> solver(solver_control);
+
+        solver.solve(stokes_preconditioner_matrix->block(1, 1),
+                     dst.block(1),
+                     src.block(1),
+                     mp_preconditioner);
+
+        dst.block(1) *= -1.0;
+      }
+
+      {
+        stokes_matrix->block(0, 1).vmult(utmp, dst.block(1));
+        utmp *= -1.0;
+        utmp.add(src.block(0));
+      }
+
+      if (do_solve_A == true)
+        {
+          SolverControl solver_control(5000, utmp.l2_norm() * 1e-2);
+          TrilinosWrappers::SolverCG solver(solver_control);
+          solver.solve(stokes_matrix->block(0, 0),
+                       dst.block(0),
+                       utmp,
+                       a_preconditioner);
+        }
+      else
+        a_preconditioner.vmult(dst.block(0), utmp);
+    }
 
   private:
-    const SmartPointer<const Matrix> matrix;
-    const Preconditioner            &preconditioner;
+    const SmartPointer<const TrilinosWrappers::BlockSparseMatrix>
+      stokes_matrix;
+    const SmartPointer<const TrilinosWrappers::BlockSparseMatrix>
+                                stokes_preconditioner_matrix;
+    const PreconditionerTypeMp &mp_preconditioner;
+    const PreconditionerTypeA & a_preconditioner;
+    const bool                  do_solve_A;
   };
-
-
-  template <class Matrix, class Preconditioner>
-  InverseMatrix<Matrix, Preconditioner>::InverseMatrix(
-    const Matrix         &m,
-    const Preconditioner &preconditioner)
-    : matrix(&m)
-    , preconditioner(preconditioner)
-  {}
-
-
-
-  template <class Matrix, class Preconditioner>
-  template <typename VectorType>
-  void
-  InverseMatrix<Matrix, Preconditioner>::vmult(VectorType       &dst,
-                                               const VectorType &src) const
-  {
-    // TODO: Decrease tolerance to 1e-12 ???
-    SolverControl        solver_control(src.size(), 1e-8 * src.l2_norm());
-    SolverCG<VectorType> cg(solver_control);
-    dst = 0;
-
-    try
-      {
-        cg.solve(*matrix, dst, src, preconditioner);
-      }
-    catch (std::exception &e)
-      {
-        Assert(false, ExcMessage(e.what()));
-      }
-  }
-
-
-  // The class A template class for a simple block diagonal preconditioner
-  // for 2x2 matrices.
-  template <class PreconditionerA, class PreconditionerS>
-  class BlockDiagonalPreconditioner : public Subscriptor
-  {
-  public:
-    BlockDiagonalPreconditioner(const PreconditionerA &preconditioner_A,
-                                const PreconditionerS &preconditioner_S);
-
-    // make this template like above
-    template <typename VectorType>
-    void
-    vmult(VectorType &dst, const VectorType &src) const;
-
-  private:
-    const PreconditionerA &preconditioner_A;
-    const PreconditionerS &preconditioner_S;
-  };
-
-  template <class PreconditionerA, class PreconditionerS>
-  BlockDiagonalPreconditioner<PreconditionerA, PreconditionerS>::
-    BlockDiagonalPreconditioner(const PreconditionerA &preconditioner_A,
-                                const PreconditionerS &preconditioner_S)
-    : preconditioner_A(preconditioner_A)
-    , preconditioner_S(preconditioner_S)
-  {}
-
-
-  template <class PreconditionerA, class PreconditionerS>
-  template <typename VectorType>
-  void
-  BlockDiagonalPreconditioner<PreconditionerA, PreconditionerS>::vmult(
-    VectorType       &dst,
-    const VectorType &src) const
-  {
-    preconditioner_A.vmult(dst.block(0), src.block(0));
-    preconditioner_S.vmult(dst.block(1), src.block(1));
-  }
 } // namespace LinearSolvers
 
 
@@ -406,25 +376,28 @@ namespace Problem
       Table<2, DoFTools::Coupling> coupling(dim + 1, dim + 1);
       for (unsigned int c = 0; c < dim + 1; ++c)
         for (unsigned int d = 0; d < dim + 1; ++d)
-          if (c == dim && d == dim)
-            coupling[c][d] = DoFTools::none;
-          else if (c == dim || d == dim || c == d)
+          if (!((c == dim) && (d == dim)))
             coupling[c][d] = DoFTools::always;
           else
             coupling[c][d] = DoFTools::none;
 
-      BlockDynamicSparsityPattern dsp(relevant_partitioning);
+      // Implement variant for Petsc: use
+      // - BlockDynamicSparsityPattern
+      // - DoFTools::make_sparsity_pattern
+      // - SparsityTools::distribute_sparsity_pattern
+      TrilinosWrappers::BlockSparsityPattern sp(owned_partitioning,
+                                                owned_partitioning,
+                                                relevant_partitioning,
+                                                mpi_communicator);
 
       DoFTools::make_sparsity_pattern(
-        dof_handler, coupling, dsp, constraints, false);
+        dof_handler, coupling, sp, constraints, false,
+            Utilities::MPI::this_mpi_process(
+              mpi_communicator));
 
-      SparsityTools::distribute_sparsity_pattern(
-        dsp,
-        dof_handler.locally_owned_dofs(),
-        mpi_communicator,
-        locally_relevant_dofs);
+      sp.compress();
 
-      system_matrix.reinit(owned_partitioning, dsp, mpi_communicator);
+      system_matrix.reinit(sp);
     }
 
     {
@@ -433,24 +406,28 @@ namespace Problem
       Table<2, DoFTools::Coupling> coupling(dim + 1, dim + 1);
       for (unsigned int c = 0; c < dim + 1; ++c)
         for (unsigned int d = 0; d < dim + 1; ++d)
-          if (c == dim && d == dim)
+          if (c == d)
             coupling[c][d] = DoFTools::always;
           else
             coupling[c][d] = DoFTools::none;
 
-      BlockDynamicSparsityPattern dsp(relevant_partitioning);
+      // Implement variant for Petsc: use
+      // - BlockDynamicSparsityPattern
+      // - DoFTools::make_sparsity_pattern
+      // - SparsityTools::distribute_sparsity_pattern
+      TrilinosWrappers::BlockSparsityPattern sp(owned_partitioning,
+                                                owned_partitioning,
+                                                relevant_partitioning,
+                                                mpi_communicator);
 
       DoFTools::make_sparsity_pattern(
-        dof_handler, coupling, dsp, constraints, false);
-      SparsityTools::distribute_sparsity_pattern(
-        dsp,
-        Utilities::MPI::all_gather(mpi_communicator,
-                                   dof_handler.locally_owned_dofs()),
-        mpi_communicator,
-        locally_relevant_dofs);
-      preconditioner_matrix.reinit(owned_partitioning,
-                                   dsp,
-                                   mpi_communicator);
+        dof_handler, coupling, sp, constraints, false,
+            Utilities::MPI::this_mpi_process(
+              mpi_communicator));
+
+      sp.compress();
+
+      preconditioner_matrix.reinit(sp);
     }
   }
 
@@ -583,14 +560,18 @@ namespace Problem
               {
                 for (unsigned int j = 0; j < dofs_per_cell; ++j)
                   {
+                    const double tmp = viscosity *
+                        scalar_product(grad_phi_u[i], grad_phi_u[j]);
+
                     cell_matrix(i, j) +=
-                      (viscosity *
-                         scalar_product(grad_phi_u[i], grad_phi_u[j]) -
+                      (tmp -
                        div_phi_u[i] * phi_p[j] - phi_p[i] * div_phi_u[j]) *
                       fe_values.JxW(q_point);
 
-                    cell_matrix2(i, j) += 1.0 / viscosity * phi_p[i] *
-                                          phi_p[j] * fe_values.JxW(q_point);
+                    cell_matrix2(i, j) +=
+                       (tmp +
+                        1.0 / viscosity * phi_p[i] *
+                                          phi_p[j]) * fe_values.JxW(q_point);
                   }
 
                 const unsigned int component_i =
@@ -624,79 +605,77 @@ namespace Problem
   {
     TimerOutput::Scope t(getTimer(), "solve");
 
-    // mass
-    typename LinearAlgebra::PreconditionAMG prec_A;
-    {
-      typename LinearAlgebra::PreconditionAMG::AdditionalData data;
-      if constexpr (std::is_same<LinearAlgebra, PETSc>::value)
-        {
-          data.symmetric_operator = true;
-        }
-      else if constexpr (std::is_same<LinearAlgebra, Trilinos>::value ||
-                         std::is_same<LinearAlgebra, dealiiTrilinos>::value)
-        {
-          data.elliptic              = true;
-          data.higher_order_elements = true;
-        }
-      else
-        {
-          Assert(false, dealii::ExcNotImplemented());
-        }
-      prec_A.initialize(system_matrix.block(0, 0), data);
-    }
 
-    // stokes
-    typename LinearAlgebra::PreconditionAMG prec_S;
-    {
-      typename LinearAlgebra::PreconditionAMG::AdditionalData data;
-      if constexpr (std::is_same<LinearAlgebra, PETSc>::value)
-        {
-          data.symmetric_operator = true;
-        }
-      else if constexpr (std::is_same<LinearAlgebra, Trilinos>::value ||
-                         std::is_same<LinearAlgebra, dealiiTrilinos>::value)
-        {
-          data.elliptic              = true;
-          data.higher_order_elements = true;
-        }
-      else
-        {
-          Assert(false, dealii::ExcNotImplemented());
-        }
-      prec_S.initialize(preconditioner_matrix.block(1, 1), data);
-    }
+    std::vector<std::vector<bool>>   constant_modes;
+    const FEValuesExtractors::Vector velocity_components(0);
+    DoFTools::extract_constant_modes(dof_handler,
+                                     fe_collection.component_mask(
+                                       velocities),
+                                     constant_modes);
 
-    using mp_inverse_t =
-      LinearSolvers::InverseMatrix<typename LinearAlgebra::SparseMatrix,
-                                   typename LinearAlgebra::PreconditionAMG>;
-    const mp_inverse_t mp_inverse(preconditioner_matrix.block(1, 1), prec_S);
 
-    const LinearSolvers::BlockDiagonalPreconditioner<
-      typename LinearAlgebra::PreconditionAMG,
-      mp_inverse_t>
-      preconditioner(prec_A, mp_inverse);
+    TrilinosWrappers::PreconditionJacobi Mp_preconditioner;
+    TrilinosWrappers::PreconditionAMG Amg_preconditioner;
 
-    SolverControl solver_control(system_matrix.m(),
-                                 1e-10 * system_rhs.l2_norm());
+    TrilinosWrappers::PreconditionAMG::AdditionalData Amg_data;
+    Amg_data.constant_modes        = constant_modes;
+    Amg_data.elliptic              = true;
+    Amg_data.higher_order_elements = true;
+    Amg_data.smoother_sweeps       = 2;
+    Amg_data.aggregation_threshold = 0.02;
 
-    SolverMinRes<typename LinearAlgebra::BlockVector> solver(solver_control);
+
+    Mp_preconditioner.initialize(preconditioner_matrix.block(1,1));
+    Amg_preconditioner.initialize(preconditioner_matrix.block(0,0), Amg_data);
+
+
+
+
 
     typename LinearAlgebra::BlockVector completely_distributed_solution(
       owned_partitioning, mpi_communicator);
-
     constraints.set_zero(completely_distributed_solution);
 
-    solver.solve(system_matrix,
-                 completely_distributed_solution,
-                 system_rhs,
-                 preconditioner);
 
-    getPCOut() << "   Solved in " << solver_control.last_step()
-               << " iterations." << std::endl;
+    {
+
+      const LinearSolvers::BlockSchurPreconditioner<
+        TrilinosWrappers::PreconditionAMG,
+        TrilinosWrappers::PreconditionJacobi>
+        preconditioner(system_matrix,
+                       preconditioner_matrix,
+                       Mp_preconditioner,
+                       Amg_preconditioner,
+                       true);
+
+      SolverControl solver_control_refined(system_matrix.m(),
+                                           1e-8 * system_rhs.l2_norm());
+
+      PrimitiveVectorMemory<TrilinosWrappers::MPI::BlockVector> mem;
+
+      SolverFGMRES<TrilinosWrappers::MPI::BlockVector> solver(
+        solver_control_refined,
+        mem,
+        SolverFGMRES<TrilinosWrappers::MPI::BlockVector>::AdditionalData(
+          50));
+
+      solver.solve(system_matrix,
+                   completely_distributed_solution,
+                   system_rhs,
+                   preconditioner);
+
+      getPCOut() << "   Solved in " << solver_control_refined.last_step()
+                 << " iterations." << std::endl;
+    }
+
 
     constraints.distribute(completely_distributed_solution);
 
     locally_relevant_solution = completely_distributed_solution;
+
+
+
+
 
     // TODO: Is this step necessary?
     //       We subtract mean pressure here
