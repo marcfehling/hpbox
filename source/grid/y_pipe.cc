@@ -29,8 +29,8 @@ namespace Grid
   {
     const std::vector<std::pair<Point<spacedim>, double>> openings = {
       {{{-4., 0., 0.}, 1.},
-       {{2., 2.*std::sqrt(3.), 0.}, 1.},
-       {{2., -2.*std::sqrt(3.), 0.}, 1.}}};
+       {{1, 1*std::sqrt(3.), 0.}, 1.},
+       {{1, -1*std::sqrt(3.), 0.}, 1.}}};
 
     const std::pair<Point<spacedim>, double> bifurcation = {{0., 0., 0.}, 1.};
 
