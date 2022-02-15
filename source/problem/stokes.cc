@@ -279,9 +279,13 @@ namespace Problem
   void
   Stokes<dim, LinearAlgebra, spacedim>::setup_system()
   {
-    TimerOutput::Scope t(getTimer(), "setup");
+    TimerOutput::Scope t(getTimer(), "setup_system");
 
-    dof_handler.distribute_dofs(fe_collection);
+    {
+      TimerOutput::Scope t(getTimer(), "distribute_dofs");
+
+      dof_handler.distribute_dofs(fe_collection);
+    }
 
     std::vector<unsigned int> stokes_sub_blocks(dim + 1, 0);
     stokes_sub_blocks[dim] = 1;
@@ -304,12 +308,18 @@ namespace Problem
     relevant_partitioning[0] = locally_relevant_dofs.get_view(0, n_u);
     relevant_partitioning[1] = locally_relevant_dofs.get_view(n_u, n_u + n_p);
 
-    locally_relevant_solution.reinit(owned_partitioning,
-                                     relevant_partitioning,
-                                     mpi_communicator);
-    system_rhs.reinit(owned_partitioning, mpi_communicator);
+    {
+      TimerOutput::Scope(getTimer(), "reinit_vectors");
+
+      locally_relevant_solution.reinit(owned_partitioning,
+                                       relevant_partitioning,
+                                       mpi_communicator);
+      system_rhs.reinit(owned_partitioning, mpi_communicator);
+    }
 
     {
+      TimerOutput::Scope t(getTimer(), "make_constraints");
+
       constraints.clear();
       constraints.reinit(locally_relevant_dofs);
 
@@ -371,6 +381,8 @@ namespace Problem
     }
 
     {
+      TimerOutput::Scope t(getTimer(), "reinit_matrices");
+
       system_matrix.clear();
 
       Table<2, DoFTools::Coupling> coupling(dim + 1, dim + 1);
@@ -390,10 +402,14 @@ namespace Problem
                                                 relevant_partitioning,
                                                 mpi_communicator);
 
-      DoFTools::make_sparsity_pattern(
-        dof_handler, coupling, sp, constraints, false,
-            Utilities::MPI::this_mpi_process(
-              mpi_communicator));
+      {
+        TimerOutput::Scope t(getTimer(), "make_sparsity_patterns");
+
+        DoFTools::make_sparsity_pattern(
+          dof_handler, coupling, sp, constraints, false,
+              Utilities::MPI::this_mpi_process(
+                mpi_communicator));
+      }
 
       sp.compress();
 
@@ -401,6 +417,8 @@ namespace Problem
     }
 
     {
+      TimerOutput::Scope t(getTimer(), "reinit_matrices");
+
       preconditioner_matrix.clear();
 
       Table<2, DoFTools::Coupling> coupling(dim + 1, dim + 1);
@@ -420,10 +438,14 @@ namespace Problem
                                                 relevant_partitioning,
                                                 mpi_communicator);
 
-      DoFTools::make_sparsity_pattern(
-        dof_handler, coupling, sp, constraints, false,
-            Utilities::MPI::this_mpi_process(
-              mpi_communicator));
+      {
+        TimerOutput::Scope t(getTimer(), "make_sparsity_patterns");
+
+        DoFTools::make_sparsity_pattern(
+          dof_handler, coupling, sp, constraints, false,
+              Utilities::MPI::this_mpi_process(
+                mpi_communicator));
+      }
 
       sp.compress();
 
@@ -495,7 +517,7 @@ namespace Problem
   void
   Stokes<dim, LinearAlgebra, spacedim>::assemble_system()
   {
-    TimerOutput::Scope t(getTimer(), "reinit");
+    TimerOutput::Scope t(getTimer(), "assemble_system");
 
     system_matrix         = 0;
     preconditioner_matrix = 0;
