@@ -951,6 +951,9 @@ namespace Problem
           getPCOut() << "Cycle " << cycle << ':' << std::endl;
           getTable().add_value("cycle", cycle);
 
+          // also add stem to each cycle to use my old scripts
+          getTable().add_value("stem", prm.file_stem);
+
           setup_system();
 
           Log::log_hp_diagnostics(triangulation, dof_handler, constraints);
