@@ -952,11 +952,27 @@ namespace Problem
           getTable().add_value("cycle", cycle);
 
           // also add stem to each cycle to use my old scripts
+          // TODO: find better solution
           getTable().add_value("stem", prm.file_stem);
+          getTable().add_value("ncpus", Utilities::MPI::n_mpi_processes(mpi_communicator));
+          getTable().add_value("weighting_exponent", prm.prm_adaptation.weighting_exponent);
 
           setup_system();
 
           Log::log_hp_diagnostics(triangulation, dof_handler, constraints);
+
+          // TODO: make this a separate function in Log namespace
+          {
+            getPCOut() << "   Number of nonzeros system   : "
+                       << system_matrix.n_nonzero_elements()
+                       << std::endl;
+            getTable().add_value("nonzeros_system", system_matrix.n_nonzero_elements());
+
+            getPCOut() << "   Number of nonzeros precondit: "
+                       << preconditioner_matrix.n_nonzero_elements()
+                       << std::endl;
+            getTable().add_value("nonzeros_preconditioner", preconditioner_matrix.n_nonzero_elements());
+          }
 
           // TODO: I am not happy with this
           if (prm.operator_type == "MatrixBased")
