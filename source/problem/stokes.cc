@@ -893,6 +893,9 @@ namespace Problem
     // unpack after repartitioning to avoid unnecessary data transfer
     adaptation_strategy->unpack_after_serialization();
 
+    // TODO
+    triangulation.refine_global(prm.prm_adaptation.n_global_refinements_post_checkpoint);
+
     // load metadata
     std::ifstream file(prm.resume_filename + ".metadata", std::ios::binary);
     boost::archive::binary_iarchive ia(file);

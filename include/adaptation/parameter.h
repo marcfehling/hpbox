@@ -30,6 +30,9 @@ namespace Adaptation
       n_cycles = 8;
       add_parameter("n cycles", n_cycles);
 
+      n_global_refinements_post_checkpoint = 0;
+      add_parameter("n global refinements post checkpoint", n_global_refinements_post_checkpoint);
+
       min_h_level = 5;
       add_parameter("min level", min_h_level);
 
@@ -66,6 +69,7 @@ namespace Adaptation
     }
 
     unsigned int n_cycles;
+    unsigned int n_global_refinements_post_checkpoint;
 
     unsigned int min_h_level, max_h_level;
     unsigned int min_p_degree, max_p_degree;
