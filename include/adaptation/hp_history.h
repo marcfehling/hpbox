@@ -40,12 +40,14 @@ namespace Adaptation
   class hpHistory : public Base
   {
   public:
-    hpHistory(const Parameter  &prm,
-              const VectorType &locally_relevant_solution,
-              const dealii::hp::FECollection<dim, spacedim> &fe_collection,
-              dealii::DoFHandler<dim, spacedim>             &dof_handler,
-              dealii::parallel::distributed::Triangulation<dim, spacedim>
-                &triangulation);
+    hpHistory(
+      const Parameter                               &prm,
+      const VectorType                              &locally_relevant_solution,
+      const dealii::hp::FECollection<dim, spacedim> &fe_collection,
+      dealii::DoFHandler<dim, spacedim>             &dof_handler,
+      dealii::parallel::distributed::Triangulation<dim, spacedim>
+                                  &triangulation,
+      const dealii::ComponentMask &component_mask = dealii::ComponentMask());
 
     virtual void
     estimate_mark() override;
@@ -75,6 +77,8 @@ namespace Adaptation
     const dealii::SmartPointer<
       dealii::parallel::distributed::Triangulation<dim, spacedim>>
       triangulation;
+
+    const dealii::ComponentMask component_mask;
 
     dealii::parallel::CellWeights<dim, spacedim> cell_weights;
 

@@ -40,6 +40,31 @@ namespace Function
   private:
     const double alpha;
   };
+
+  /**
+   * Function from step-55.
+   */
+  template <int dim>
+  class KovasznayExact : public dealii::Function<dim>
+  {
+  public:
+    KovasznayExact();
+
+    virtual void
+    vector_value(const dealii::Point<dim> &p,
+                 dealii::Vector<double>   &values) const override;
+  };
+
+  template <int dim>
+  class KovasznayRHS : public dealii::Function<dim>
+  {
+  public:
+    KovasznayRHS();
+
+    virtual void
+    vector_value(const dealii::Point<dim> &p,
+                 dealii::Vector<double>   &values) const override;
+  };
 } // namespace Function
 
 

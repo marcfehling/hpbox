@@ -27,6 +27,14 @@ namespace Grid
   template <int dim, int spacedim = dim>
   void
   reentrant_corner(dealii::Triangulation<dim, spacedim> &triangulation);
+
+  template <int dim, int spacedim = dim>
+  void
+  kovasznay(dealii::Triangulation<dim, spacedim> &triangulation);
+
+  template <int dim, int spacedim = dim>
+  void
+  y_pipe(dealii::Triangulation<dim, spacedim> &triangulation);
 } // namespace Grid
 
 

@@ -16,8 +16,6 @@
 
 #include <deal.II/fe/fe_q.h>
 
-#include <deal.II/grid/grid_generator.h>
-
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
 
@@ -120,9 +118,16 @@ namespace Poisson
       }
 
     // choose functions
-    boundary_function = Factory::create_function<dim>("reentrant corner");
-    solution_function = Factory::create_function<dim>("reentrant corner");
-    // rhs_function      = Factory::create_function<dim>("zero");
+    if (prm.grid_type == "reentrant corner")
+      {
+        boundary_function = Factory::create_function<dim>("reentrant corner");
+        solution_function = Factory::create_function<dim>("reentrant corner");
+        // rhs_function      = Factory::create_function<dim>("zero");
+      }
+    else
+      {
+        Assert(false, ExcNotImplemented());
+      }
 
     // choose adaptation strategy
     adaptation_strategy =
@@ -143,7 +148,7 @@ namespace Poisson
   {
     TimerOutput::Scope t(getTimer(), "initialize_grid");
 
-    Factory::create_grid("reentrant corner", triangulation);
+    Factory::create_grid(prm.grid_type, triangulation);
 
     if (prm.resume_filename.compare("") != 0)
       {
@@ -181,9 +186,18 @@ namespace Poisson
 
     constraints.clear();
     constraints.reinit(locally_relevant_dofs);
+
     DoFTools::make_hanging_node_constraints(dof_handler, constraints);
-    VectorTools::interpolate_boundary_values(
-      mapping_collection, dof_handler, 0, *boundary_function, constraints);
+
+    if (prm.grid_type == "reentrant corner")
+      {
+        VectorTools::interpolate_boundary_values(
+          mapping_collection, dof_handler, 0, *boundary_function, constraints);
+      }
+    else
+      {
+        Assert(false, ExcNotImplemented());
+      }
 
 #ifdef DEBUG
     // We have not dealt with chains of constraints on ghost cells yet.

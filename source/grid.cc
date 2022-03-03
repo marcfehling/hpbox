@@ -52,9 +52,42 @@ namespace Grid
 
 
 
+  template <int dim, int spacedim>
+  void
+  kovasznay(Triangulation<dim, spacedim> &triangulation)
+  {
+    GridGenerator::hyper_cube(triangulation, -0.5, 1.5);
+  }
+
+
+
+  template <int dim, int spacedim>
+  void
+  y_pipe(Triangulation<dim, spacedim> &triangulation)
+  {
+    const std::vector<std::pair<Point<spacedim>, double>> openings = {
+      {{{-2., 0., 0.}, 1.},
+       {{1., 1. * std::sqrt(3.), 0.}, 1.},
+       {{1., -1. * std::sqrt(3.), 0.}, 1.}}};
+
+    const std::pair<Point<spacedim>, double> bifurcation = {{0., 0., 0.}, 1.};
+
+    GridGenerator::pipe_junction(triangulation, openings, bifurcation);
+  }
+
+
+
   // explicit instantiations
   template void
   reentrant_corner<2, 2>(Triangulation<2, 2> &);
   template void
   reentrant_corner<3, 3>(Triangulation<3, 3> &);
+  template void
+  kovasznay<2, 2>(Triangulation<2, 2> &);
+  template void
+  kovasznay<3, 3>(Triangulation<3, 3> &);
+  template void
+  y_pipe<2, 2>(Triangulation<2, 2> &);
+  template void
+  y_pipe<3, 3>(Triangulation<3, 3> &);
 } // namespace Grid

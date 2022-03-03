@@ -40,6 +40,9 @@ struct Parameter : public dealii::ParameterAcceptor
     adaptation_type = "hp Legendre";
     add_parameter("adaptation type", adaptation_type);
 
+    grid_type = "reentrant corner";
+    add_parameter("grid type", grid_type);
+
     operator_type = "MatrixFree";
     add_parameter("operator type", operator_type);
 
@@ -62,10 +65,12 @@ struct Parameter : public dealii::ParameterAcceptor
 
   unsigned int dimension;
   std::string  linear_algebra;
-  std::string  problem_type;
-  std::string  adaptation_type;
-  std::string  operator_type;
-  std::string  solver_type;
+
+  std::string problem_type;
+  std::string adaptation_type;
+  std::string grid_type;
+  std::string operator_type;
+  std::string solver_type;
 
   std::string  file_stem;
   unsigned int output_frequency;

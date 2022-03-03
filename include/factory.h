@@ -28,6 +28,7 @@
 #include <function.h>
 #include <grid.h>
 #include <poisson/problem.h>
+#include <stokes/problem.h>
 
 #include <memory>
 
@@ -71,6 +72,12 @@ namespace Factory
     else if (type == "reentrant corner")
       return std::make_unique<Function::ReentrantCorner<dim>>(
         std::forward<Args>(args)...);
+    else if (type == "kovasznay exact")
+      return std::make_unique<Function::KovasznayExact<dim>>(
+        std::forward<Args>(args)...);
+    else if (type == "kovasznay rhs")
+      return std::make_unique<Function::KovasznayRHS<dim>>(
+        std::forward<Args>(args)...);
 
     Assert(false, dealii::ExcNotImplemented());
     return std::unique_ptr<dealii::Function<dim>>();
@@ -84,6 +91,10 @@ namespace Factory
   {
     if (type == "reentrant corner")
       Grid::reentrant_corner(std::forward<Args>(args)...);
+    else if (type == "kovasznay")
+      Grid::kovasznay(std::forward<Args>(args)...);
+    else if (type == "y-pipe")
+      Grid::y_pipe(std::forward<Args>(args)...);
     else
       Assert(false, dealii::ExcNotImplemented());
   }
@@ -100,6 +111,9 @@ namespace Factory
     if (type == "Poisson")
       return std::make_unique<Poisson::Problem<dim, LinearAlgebra, spacedim>>(
         std::forward<Args>(args)...);
+    else if (type == "Stokes")
+      return std::make_unique<Stokes::Problem<dim, LinearAlgebra, spacedim>>(
+        std::forward<Args>(args)...);
 
     Assert(false, dealii::ExcNotImplemented());
     return std::unique_ptr<ProblemBase>();
@@ -109,9 +123,9 @@ namespace Factory
 
   template <typename... Args>
   std::unique_ptr<ProblemBase>
-  create_application(const std::string  &type,
-                     const unsigned int &dimension,
-                     const std::string  &linear_algebra,
+  create_application(const std::string &type,
+                     const unsigned int dimension,
+                     const std::string &linear_algebra,
                      Args &&...args)
   {
     if (linear_algebra == "dealii & Trilinos")
@@ -151,11 +165,13 @@ namespace Factory
     else if (linear_algebra == "PETSc")
       {
 #ifdef DEAL_II_WITH_PETSC
+        /*
         if (dimension == 2)
           return create_problem<2, PETSc, 2>(type, std::forward<Args>(args)...);
         else if (dimension == 3)
           return create_problem<3, PETSc, 3>(type, std::forward<Args>(args)...);
         else
+        */
           Assert(false, dealii::ExcNotImplemented());
 #else
         Assert(false,
