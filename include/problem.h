@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2021 by the deal.II authors
+// Copyright (C) 2021 - 2022 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -13,30 +13,18 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef log_log_h
-#define log_log_h
+#ifndef problem_h
+#define problem_h
 
 
-#include <deal.II/distributed/tria.h>
-
-#include <deal.II/dofs/dof_handler.h>
-
-#include <deal.II/lac/affine_constraints.h>
-
-
-namespace Log
+class ProblemBase
 {
-  void
-  log_timings();
+public:
+  virtual ~ProblemBase() = default;
 
-  template <int dim, typename T, int spacedim = dim>
-  void
-  log_hp_diagnostics(
-    const dealii::parallel::distributed::Triangulation<dim, spacedim>
-                                            &triangulation,
-    const dealii::DoFHandler<dim, spacedim> &dof_handler,
-    const dealii::AffineConstraints<T>      &constraints);
-} // namespace Log
+  virtual void
+  run() = 0;
+};
 
 
 #endif

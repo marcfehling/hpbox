@@ -22,9 +22,9 @@
 
 namespace Adaptation
 {
-  struct Parameters : public dealii::ParameterAcceptor
+  struct Parameter : public dealii::ParameterAcceptor
   {
-    Parameters()
+    Parameter()
       : dealii::ParameterAcceptor("adaptation")
     {
       n_cycles = 8;
@@ -58,7 +58,7 @@ namespace Adaptation
       p_coarsen_fraction = 0.9;
       add_parameter("p-coarsen fraction", p_coarsen_fraction);
 
-      weighting_factor = 1e6;
+      weighting_factor = 1.;
       add_parameter("weighting factor", weighting_factor);
 
       weighting_exponent = 1.;

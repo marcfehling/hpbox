@@ -41,7 +41,7 @@ namespace Adaptation
   class hpFourier : public Base
   {
   public:
-    hpFourier(const Parameters &prm,
+    hpFourier(const Parameter  &prm,
               const VectorType &locally_relevant_solution,
               const dealii::hp::FECollection<dim, spacedim> &fe_collection,
               dealii::DoFHandler<dim, spacedim>             &dof_handler,
@@ -69,7 +69,7 @@ namespace Adaptation
     get_hp_indicators() const override;
 
   protected:
-    const Parameters &prm;
+    const Parameter &prm;
 
     const dealii::SmartPointer<const VectorType> locally_relevant_solution;
     const dealii::SmartPointer<dealii::DoFHandler<dim, spacedim>> dof_handler;

@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2021 by the deal.II authors
+// Copyright (C) 2021 - 2022 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -16,7 +16,7 @@
 
 #include <deal.II/grid/grid_generator.h>
 
-#include <grid/reentrant_corner.h>
+#include <grid.h>
 
 using namespace dealii;
 

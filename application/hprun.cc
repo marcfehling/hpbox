@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2021 by the deal.II authors
+// Copyright (C) 2021 - 2022 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -15,10 +15,8 @@
 
 
 #include <base/global.h>
-#include <problem/parameter.h>
-#include <problem/poisson.h>
-
-#include "factory.h"
+#include <factory.h>
+#include <parameter.h>
 
 
 int
@@ -30,21 +28,18 @@ main(int argc, char *argv[])
                                                                   argv,
                                                                   1);
 
-      Problem::Parameters prm_problem;
+      Parameter prm;
 
       const std::string filename        = (argc > 1) ? argv[1] : "";
       const std::string output_filename = (argc > 1) ? "" : "poisson.prm";
       dealii::ParameterAcceptor::initialize(filename, output_filename);
 
-      getPCOut() << "Running with " << prm_problem.linear_algebra << " on "
+      getPCOut() << "Running with " << prm.linear_algebra << " on "
                  << dealii::Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD)
                  << " MPI rank(s)..." << std::endl;
 
-      std::unique_ptr<Problem::Base> problem =
-        Factory::create_application("poisson",
-                                    prm_problem.dimension,
-                                    prm_problem.linear_algebra,
-                                    prm_problem);
+      std::unique_ptr<ProblemBase> problem = Factory::create_application(
+        prm.problem_type, prm.dimension, prm.linear_algebra, prm);
       problem->run();
     }
   catch (std::exception &exc)

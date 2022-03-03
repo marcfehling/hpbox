@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2020 by the deal.II authors
+// Copyright (C) 2021 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -13,22 +13,30 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef solver_parameter_h
-#define solver_parameter_h
+#ifndef base_log_h
+#define base_log_h
 
 
-#include <deal.II/base/parameter_acceptor.h>
+#include <deal.II/distributed/tria.h>
+
+#include <deal.II/dofs/dof_handler.h>
+
+#include <deal.II/lac/affine_constraints.h>
 
 
-namespace Solver
+namespace Log
 {
-  struct Parameter : public dealii::ParameterAcceptor
-  {
-    Parameter()
-      : dealii::ParameterAcceptor("solver")
-    {}
-  };
-} // namespace Solver
+  void
+  log_timings();
+
+  template <int dim, typename T, int spacedim = dim>
+  void
+  log_hp_diagnostics(
+    const dealii::parallel::distributed::Triangulation<dim, spacedim>
+                                            &triangulation,
+    const dealii::DoFHandler<dim, spacedim> &dof_handler,
+    const dealii::AffineConstraints<T>      &constraints);
+} // namespace Log
 
 
 #endif

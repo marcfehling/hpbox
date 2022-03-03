@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2021 by the deal.II authors
+// Copyright (C) 2020 - 2022 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -13,22 +13,102 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef application_factory_h
-#define application_factory_h
+#ifndef factory_h
+#define factory_h
 
-
-#include <deal.II/base/config.h>
 
 #include <deal.II/base/exceptions.h>
 
+#include <adaptation/h.h>
+#include <adaptation/hp_fourier.h>
+#include <adaptation/hp_history.h>
+#include <adaptation/hp_legendre.h>
+#include <adaptation/p.h>
 #include <base/linear_algebra.h>
-#include <problem/factory.h>
+#include <function.h>
+#include <grid.h>
+#include <poisson/problem.h>
+
+#include <memory>
 
 
 namespace Factory
 {
+  template <int dim, typename VectorType, int spacedim = dim, typename... Args>
+  std::unique_ptr<Adaptation::Base>
+  create_adaptation(const std::string &type, Args &&...args)
+  {
+    if (type == "h")
+      return std::make_unique<Adaptation::h<dim, VectorType, spacedim>>(
+        std::forward<Args>(args)...);
+    else if (type == "p")
+      return std::make_unique<Adaptation::p<dim, VectorType, spacedim>>(
+        std::forward<Args>(args)...);
+    else if (type == "hp Fourier")
+      return std::make_unique<Adaptation::hpFourier<dim, VectorType, spacedim>>(
+        std::forward<Args>(args)...);
+    else if (type == "hp History")
+      return std::make_unique<Adaptation::hpHistory<dim, VectorType, spacedim>>(
+        std::forward<Args>(args)...);
+    else if (type == "hp Legendre")
+      return std::make_unique<
+        Adaptation::hpLegendre<dim, VectorType, spacedim>>(
+        std::forward<Args>(args)...);
+
+    Assert(false, dealii::ExcNotImplemented());
+    return std::unique_ptr<Adaptation::Base>();
+  }
+
+
+
+  template <int dim, typename... Args>
+  std::unique_ptr<dealii::Function<dim>>
+  create_function(const std::string &type, Args &&...args)
+  {
+    if (type == "zero")
+      return std::make_unique<dealii::Functions::ZeroFunction<dim>>(
+        std::forward<Args>(args)...);
+    else if (type == "reentrant corner")
+      return std::make_unique<Function::ReentrantCorner<dim>>(
+        std::forward<Args>(args)...);
+
+    Assert(false, dealii::ExcNotImplemented());
+    return std::unique_ptr<dealii::Function<dim>>();
+  }
+
+
+
   template <typename... Args>
-  std::unique_ptr<Problem::Base>
+  void
+  create_grid(std::string type, Args &&...args)
+  {
+    if (type == "reentrant corner")
+      Grid::reentrant_corner(std::forward<Args>(args)...);
+    else
+      Assert(false, dealii::ExcNotImplemented());
+  }
+
+
+
+  template <int dim,
+            typename LinearAlgebra,
+            int spacedim = dim,
+            typename... Args>
+  std::unique_ptr<ProblemBase>
+  create_problem(const std::string &type, Args &&...args)
+  {
+    if (type == "Poisson")
+      return std::make_unique<Poisson::Problem<dim, LinearAlgebra, spacedim>>(
+        std::forward<Args>(args)...);
+
+    Assert(false, dealii::ExcNotImplemented());
+    return std::unique_ptr<ProblemBase>();
+  }
+
+
+
+  template <typename... Args>
+  std::unique_ptr<ProblemBase>
   create_application(const std::string  &type,
                      const unsigned int &dimension,
                      const std::string  &linear_algebra,
@@ -85,7 +165,7 @@ namespace Factory
       }
 
     Assert(false, dealii::ExcNotImplemented());
-    return std::unique_ptr<Problem::Base>();
+    return std::unique_ptr<ProblemBase>();
   }
 } // namespace Factory
 

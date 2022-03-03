@@ -13,8 +13,8 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef problem_poisson_h
-#define problem_poisson_h
+#ifndef poisson_poisson_h
+#define poisson_poisson_h
 
 
 #include <deal.II/distributed/tria.h>
@@ -22,19 +22,19 @@
 #include <deal.II/hp/fe_values.h>
 
 #include <adaptation/base.h>
-#include <operator/poisson/matrix_based.h>
-#include <operator/poisson/matrix_free.h>
-#include <problem/base.h>
-#include <problem/parameter.h>
+#include <parameter.h>
+#include <poisson/matrixbased.h>
+#include <poisson/matrixfree.h>
+#include <problem.h>
 
 
-namespace Problem
+namespace Poisson
 {
   template <int dim, typename LinearAlgebra, int spacedim = dim>
-  class Poisson : public Base
+  class Problem : public ProblemBase
   {
   public:
-    Poisson(const Parameters &prm);
+    Problem(const Parameter &prm);
 
     void
     run() override;
@@ -63,8 +63,8 @@ namespace Problem
 
     MPI_Comm mpi_communicator;
 
-    const Parameters &prm;
-    std::string       filename_log;
+    const Parameter &prm;
+    std::string      filename_log;
 
     dealii::parallel::distributed::Triangulation<dim> triangulation;
     dealii::DoFHandler<dim, spacedim>                 dof_handler;
@@ -86,20 +86,19 @@ namespace Problem
     dealii::AffineConstraints<double> constraints;
 
     // TODO: Base class?
-    std::unique_ptr<
-      Operator::Poisson::MatrixBased<dim, LinearAlgebra, spacedim>>
-      poisson_operator_matrixbased;
+    std::unique_ptr<OperatorMatrixBased<dim, LinearAlgebra, spacedim>>
+      operator_matrixbased;
 
     // only exists for distributed vector
-    std::unique_ptr<Operator::Poisson::MatrixFree<dim, LinearAlgebra, spacedim>>
-      poisson_operator_matrixfree;
+    std::unique_ptr<OperatorMatrixFree<dim, LinearAlgebra, spacedim>>
+      operator_matrixfree;
 
     typename LinearAlgebra::Vector locally_relevant_solution;
     typename LinearAlgebra::Vector system_rhs;
 
     unsigned int cycle;
   };
-} // namespace Problem
+} // namespace Poisson
 
 
 #endif

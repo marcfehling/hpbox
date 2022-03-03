@@ -14,7 +14,7 @@
 ## ---------------------------------------------------------------------
 
 #
-# parallel-matrixfree-hp
+# hpbox
 #
 
 CMAKE_MINIMUM_REQUIRED( VERSION 3.1.0 )
@@ -73,15 +73,15 @@ SET( CXX_STANDARD_REQUIRED ON )
 
 # Initialize project
 DEAL_II_INITIALIZE_CACHED_VARIABLES()
-PROJECT( "parallel-matrixfree-hp" )
+PROJECT( "hpbox" )
 
 INCLUDE_DIRECTORIES( include )
 
 # Declare all files of the library
 FILE( GLOB_RECURSE LIB_SRC "${CMAKE_SOURCE_DIR}/source/*.cc" )
 FILE( GLOB_RECURSE LIB_INC "${CMAKE_SOURCE_DIR}/include/*.h" )
-ADD_LIBRARY( pmfhp ${LIB_SRC} ${LIB_INC} )
-DEAL_II_SETUP_TARGET( pmfhp )
+ADD_LIBRARY( hpbox ${LIB_SRC} ${LIB_INC} )
+DEAL_II_SETUP_TARGET( hpbox )
 
 # Setup individual targets
 FILE( GLOB_RECURSE APP_SRC "${CMAKE_SOURCE_DIR}/application/*.cc" )
@@ -91,5 +91,5 @@ FOREACH( APP_FILE ${APP_SRC} )
   ADD_EXECUTABLE( ${APP_NAME} ${APP_FILE} )
   # Add libraries
   DEAL_II_SETUP_TARGET( ${APP_NAME} )
-  TARGET_LINK_LIBRARIES( ${APP_NAME} pmfhp )
+  TARGET_LINK_LIBRARIES( ${APP_NAME} hpbox )
 ENDFOREACH( APP_FILE ${APP_SRC} )

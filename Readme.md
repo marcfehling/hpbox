@@ -1,5 +1,5 @@
-Parallel matrix-free hp-adaptive FEM
-====================================
+Sandbox for hp-adaptive methods
+===============================
 
 This program is used as a benchmark to demonstrate the benefits of
 parallelization, hp-adaptive methods and matrix-free methods combined.

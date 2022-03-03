@@ -34,7 +34,7 @@ namespace Adaptation
 {
   template <int dim, typename VectorType, int spacedim>
   p<dim, VectorType, spacedim>::p(
-    const Parameters &prm,
+    const Parameter  &prm,
     const VectorType &locally_relevant_solution,
     const hp::FECollection<dim, spacedim> & /*fe_collection*/,
     DoFHandler<dim, spacedim>                           &dof_handler,

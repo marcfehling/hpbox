@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2020 by the deal.II authors
+// Copyright (C) 2020 - 2022 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -13,10 +13,11 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef function_reentrant_corner_h
-#define function_reentrant_corner_h
+#ifndef function_h
+#define function_h
 
 
+#include <deal.II/base/exceptions.h>
 #include <deal.II/base/function.h>
 
 

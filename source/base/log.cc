@@ -21,7 +21,7 @@
 #include <deal.II/hp/fe_collection.h>
 
 #include <base/global.h>
-#include <log/log.h>
+#include <base/log.h>
 
 #include <algorithm>
 #include <vector>

@@ -21,15 +21,13 @@
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
 
-#include <adaptation/factory.h>
 #include <base/global.h>
 #include <base/linear_algebra.h>
-#include <function/factory.h>
-#include <grid/factory.h>
-#include <log/log.h>
-#include <problem/poisson.h>
-#include <solver/cg/amg.h>
-#include <solver/cg/gmg.h>
+#include <base/log.h>
+#include <factory.h>
+#include <poisson/amg.h>
+#include <poisson/gmg.h>
+#include <poisson/problem.h>
 
 #include <ctime>
 #include <iomanip>
@@ -38,10 +36,10 @@
 using namespace dealii;
 
 
-namespace Problem
+namespace Poisson
 {
   template <int dim, typename LinearAlgebra, int spacedim>
-  Poisson<dim, LinearAlgebra, spacedim>::Poisson(const Parameters &prm)
+  Problem<dim, LinearAlgebra, spacedim>::Problem(const Parameter &prm)
     : mpi_communicator(MPI_COMM_WORLD)
     , prm(prm)
     , triangulation(mpi_communicator)
@@ -101,20 +99,20 @@ namespace Problem
           fe_values_collection->precalculate_fe_values();
         }
 
-        poisson_operator_matrixbased = std::make_unique<
-          Operator::Poisson::MatrixBased<dim, LinearAlgebra, spacedim>>(
-          mapping_collection, quadrature_collection, *fe_values_collection);
+        operator_matrixbased =
+          std::make_unique<OperatorMatrixBased<dim, LinearAlgebra, spacedim>>(
+            mapping_collection, quadrature_collection, *fe_values_collection);
       }
     else if (prm.operator_type == "MatrixFree")
       {
         if constexpr (std::is_same<LinearAlgebra, dealiiTrilinos>::value)
-          poisson_operator_matrixfree = std::make_unique<
-            Operator::Poisson::MatrixFree<dim, LinearAlgebra, spacedim>>(
-            mapping_collection, quadrature_collection);
+          operator_matrixfree =
+            std::make_unique<OperatorMatrixFree<dim, LinearAlgebra, spacedim>>(
+              mapping_collection, quadrature_collection);
         else
           Assert(false,
                  ExcMessage(
-                   "MatrixFree only availble with dealii & Trilinos!"));
+                   "MatrixFree only available with dealii & Trilinos!"));
       }
     else
       {
@@ -141,7 +139,7 @@ namespace Problem
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  Poisson<dim, LinearAlgebra, spacedim>::initialize_grid()
+  Problem<dim, LinearAlgebra, spacedim>::initialize_grid()
   {
     TimerOutput::Scope t(getTimer(), "initialize_grid");
 
@@ -167,7 +165,7 @@ namespace Problem
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  Poisson<dim, LinearAlgebra, spacedim>::setup_system()
+  Problem<dim, LinearAlgebra, spacedim>::setup_system()
   {
     TimerOutput::Scope t(getTimer(), "setup");
 
@@ -212,7 +210,7 @@ namespace Problem
   template <int dim, typename LinearAlgebra, int spacedim>
   template <typename OperatorType>
   void
-  Poisson<dim, LinearAlgebra, spacedim>::solve(
+  Problem<dim, LinearAlgebra, spacedim>::solve(
     const OperatorType                   &system_matrix,
     typename LinearAlgebra::Vector       &locally_relevant_solution,
     const typename LinearAlgebra::Vector &system_rhs)
@@ -245,43 +243,41 @@ namespace Problem
 
     if (prm.solver_type == "AMG")
       {
-        Solver::CG::AMG::solve<LinearAlgebra>(
-          solver_control,
-          system_matrix,
-          completely_distributed_solution,
-          completely_distributed_system_rhs);
+        solve_amg<LinearAlgebra>(solver_control,
+                                 system_matrix,
+                                 completely_distributed_solution,
+                                 completely_distributed_system_rhs);
       }
     else if (prm.solver_type == "GMG")
       {
         if constexpr (std::is_same<
                         OperatorType,
-                        Operator::Poisson::
-                          MatrixFree<dim, dealiiTrilinos, spacedim>>::value)
+                        OperatorMatrixFree<dim, dealiiTrilinos, spacedim>>::
+                        value)
           {
-            Solver::CG::GMG::solve(solver_control,
-                                   system_matrix,
-                                   completely_distributed_solution,
-                                   completely_distributed_system_rhs,
-                                   /*boundary_values=*/mapping_collection,
-                                   dof_handler,
-                                   /*operator_constructor=*/mapping_collection,
-                                   quadrature_collection);
+            solve_gmg(solver_control,
+                      system_matrix,
+                      completely_distributed_solution,
+                      completely_distributed_system_rhs,
+                      /*boundary_values=*/mapping_collection,
+                      dof_handler,
+                      /*operator_constructor=*/mapping_collection,
+                      quadrature_collection);
           }
-        else if constexpr (std::is_same<
-                             OperatorType,
-                             Operator::Poisson::MatrixBased<dim,
+        else if constexpr (std::is_same<OperatorType,
+                                        OperatorMatrixBased<dim,
                                                             dealiiTrilinos,
                                                             spacedim>>::value)
           {
-            Solver::CG::GMG::solve(solver_control,
-                                   system_matrix,
-                                   completely_distributed_solution,
-                                   completely_distributed_system_rhs,
-                                   /*boundary_values=*/mapping_collection,
-                                   dof_handler,
-                                   /*operator_constructor=*/mapping_collection,
-                                   quadrature_collection,
-                                   *fe_values_collection);
+            solve_gmg(solver_control,
+                      system_matrix,
+                      completely_distributed_solution,
+                      completely_distributed_system_rhs,
+                      /*boundary_values=*/mapping_collection,
+                      dof_handler,
+                      /*operator_constructor=*/mapping_collection,
+                      quadrature_collection,
+                      *fe_values_collection);
           }
         else
           {
@@ -318,7 +314,7 @@ namespace Problem
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  Poisson<dim, LinearAlgebra, spacedim>::compute_errors()
+  Problem<dim, LinearAlgebra, spacedim>::compute_errors()
   {
     TimerOutput::Scope t(getTimer(), "compute_errors");
 
@@ -359,7 +355,7 @@ namespace Problem
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  Poisson<dim, LinearAlgebra, spacedim>::output_results()
+  Problem<dim, LinearAlgebra, spacedim>::output_results()
   {
     TimerOutput::Scope t(getTimer(), "output_results");
 
@@ -396,7 +392,7 @@ namespace Problem
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  Poisson<dim, LinearAlgebra, spacedim>::resume_from_checkpoint()
+  Problem<dim, LinearAlgebra, spacedim>::resume_from_checkpoint()
   {
     triangulation.load(prm.resume_filename);
 
@@ -418,7 +414,7 @@ namespace Problem
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  Poisson<dim, LinearAlgebra, spacedim>::write_to_checkpoint()
+  Problem<dim, LinearAlgebra, spacedim>::write_to_checkpoint()
   {
     // write triangulation and data
     dof_handler.prepare_for_serialization_of_active_fe_indices();
@@ -439,7 +435,7 @@ namespace Problem
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  Poisson<dim, LinearAlgebra, spacedim>::run()
+  Problem<dim, LinearAlgebra, spacedim>::run()
   {
     getTable().set_auto_fill_mode(true);
 
@@ -471,19 +467,17 @@ namespace Problem
           // TODO: I am not happy with this
           if (prm.operator_type == "MatrixBased")
             {
-              poisson_operator_matrixbased->reinit(dof_handler,
-                                                   constraints,
-                                                   system_rhs);
-              solve(*poisson_operator_matrixbased,
+              operator_matrixbased->reinit(dof_handler,
+                                           constraints,
+                                           system_rhs);
+              solve(*operator_matrixbased,
                     locally_relevant_solution,
                     system_rhs);
             }
           else if (prm.operator_type == "MatrixFree")
             {
-              poisson_operator_matrixfree->reinit(dof_handler,
-                                                  constraints,
-                                                  system_rhs);
-              solve(*poisson_operator_matrixfree,
+              operator_matrixfree->reinit(dof_handler, constraints, system_rhs);
+              solve(*operator_matrixfree,
                     locally_relevant_solution,
                     system_rhs);
             }
@@ -516,15 +510,14 @@ namespace Problem
 
   // explicit instantiations
 #ifdef DEAL_II_WITH_TRILINOS
-  template class Poisson<2, dealiiTrilinos, 2>;
-  template class Poisson<3, dealiiTrilinos, 3>;
-  template class Poisson<2, Trilinos, 2>;
-  template class Poisson<3, Trilinos, 3>;
+  template class Problem<2, dealiiTrilinos, 2>;
+  template class Problem<3, dealiiTrilinos, 3>;
+  template class Problem<2, Trilinos, 2>;
+  template class Problem<3, Trilinos, 3>;
 #endif
 
 #ifdef DEAL_II_WITH_PETSC
-  template class Poisson<2, PETSc, 2>;
-  template class Poisson<3, PETSc, 3>;
+  template class Problem<2, PETSc, 2>;
+  template class Problem<3, PETSc, 3>;
 #endif
-
-} // namespace Problem
+} // namespace Poisson
