@@ -1,0 +1,27 @@
+subsection adaptation
+  set max degree                           = 6
+  set max difference of polynomial degrees = 1
+  set max level                            = 12
+  set min degree                           = 2
+  set min level                            = 5
+  set n cycles                             = 8
+  set p-coarsen fraction                   = 0.9
+  set p-refine fraction                    = 0.9
+  set total coarsen fraction               = 0.03
+  set total refine fraction                = 0.3
+  set weighting exponent                   = 1
+  set weighting factor                     = 1
+end
+subsection problem
+  set adaptation type         = hp Legendre
+  set checkpoint each n steps = 0
+  set dimension               = 2
+  set file stem               = my_poisson
+  set grid type               = reentrant corner
+  set linear algebra          = dealii & Trilinos
+  set operator type           = MatrixFree
+  set output each n steps     = 1
+  set problem type            = Poisson
+  set resume from filename    = 
+  set solver type             = GMG
+end
