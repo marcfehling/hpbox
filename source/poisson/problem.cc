@@ -304,9 +304,7 @@ namespace Poisson
         Assert(false, ExcNotImplemented());
       }
 
-    getPCOut() << "   Number of iterations:         "
-               << solver_control.last_step() << std::endl;
-    getTable().add_value("iteratations", solver_control.last_step());
+    Log::log_iterations(solver_control);
 
     constraints.distribute(completely_distributed_solution);
 
@@ -471,8 +469,7 @@ namespace Poisson
                 write_to_checkpoint();
             }
 
-          getPCOut() << "Cycle " << cycle << ':' << std::endl;
-          getTable().add_value("cycle", cycle);
+          Log::log_cycle(cycle, prm);
 
           setup_system();
 
@@ -484,6 +481,9 @@ namespace Poisson
               operator_matrixbased->reinit(dof_handler,
                                            constraints,
                                            system_rhs);
+              Log::log_nonzero_elements(
+                operator_matrixbased->get_system_matrix());
+
               solve(*operator_matrixbased,
                     locally_relevant_solution,
                     system_rhs);

@@ -22,12 +22,15 @@
 #include <deal.II/dofs/dof_handler.h>
 
 #include <deal.II/lac/affine_constraints.h>
+#include <deal.II/lac/solver_control.h>
+
+#include <parameter.h>
 
 
 namespace Log
 {
   void
-  log_timings();
+  log_cycle(const unsigned int cycle, const Parameter &prm);
 
   template <int dim, typename T, int spacedim = dim>
   void
@@ -36,6 +39,16 @@ namespace Log
                                             &triangulation,
     const dealii::DoFHandler<dim, spacedim> &dof_handler,
     const dealii::AffineConstraints<T>      &constraints);
+
+  void
+  log_iterations(const dealii::SolverControl &control);
+
+  template <typename MatrixType>
+  void
+  log_nonzero_elements(const MatrixType &matrix);
+
+  void
+  log_timings();
 } // namespace Log
 
 

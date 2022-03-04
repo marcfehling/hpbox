@@ -21,6 +21,7 @@
 #include <deal.II/hp/fe_collection.h>
 
 #include <base/global.h>
+#include <base/linear_algebra.h>
 #include <base/log.h>
 
 #include <algorithm>
@@ -32,17 +33,18 @@ using namespace dealii;
 namespace Log
 {
   void
-  log_timings()
+  log_cycle(const unsigned int cycle, const Parameter &prm)
   {
-    getTimer().print_summary();
-    getPCOut() << std::endl;
+    TableHandler &table = getTable();
 
-    for (const auto &summary :
-         getTimer().get_summary_data(TimerOutput::total_wall_time))
-      {
-        getTable().add_value(summary.first, summary.second);
-        getTable().set_scientific(summary.first, true);
-      }
+    getPCOut() << "Cycle " << cycle << ':' << std::endl;
+    table.add_value("cycle", cycle);
+
+    table.add_value("processes",
+                    Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD));
+    table.add_value("stem", prm.file_stem);
+    table.add_value("weighting_exponent",
+                    prm.prm_adaptation.weighting_exponent);
   }
 
 
@@ -161,6 +163,43 @@ namespace Log
 
 
 
+  void
+  log_iterations(const SolverControl &control)
+  {
+    getPCOut() << "   Solved in " << control.last_step() << " iterations."
+               << std::endl;
+    getTable().add_value("iteratations", control.last_step());
+  }
+
+
+
+  template <typename MatrixType>
+  void
+  log_nonzero_elements(const MatrixType &matrix)
+  {
+    getPCOut() << "   Number of nonzero elements:   "
+               << matrix.n_nonzero_elements() << std::endl;
+    getTable().add_value("nonzero_elements", matrix.n_nonzero_elements());
+  }
+
+
+
+  void
+  log_timings()
+  {
+    getTimer().print_summary();
+    getPCOut() << std::endl;
+
+    for (const auto &summary :
+         getTimer().get_summary_data(TimerOutput::total_wall_time))
+      {
+        getTable().add_value(summary.first, summary.second);
+        getTable().set_scientific(summary.first, true);
+      }
+  }
+
+
+
   // explicit instantiations
   template void
   log_hp_diagnostics<2, double, 2>(
@@ -172,4 +211,25 @@ namespace Log
     const parallel::distributed::Triangulation<3, 3> &,
     const DoFHandler<3, 3> &,
     const AffineConstraints<double> &);
+
+#ifdef DEAL_II_WITH_TRILINOS
+  template void
+  log_nonzero_elements<TrilinosWrappers::SparseMatrix>(
+    const TrilinosWrappers::SparseMatrix &);
+  template void
+  log_nonzero_elements<TrilinosWrappers::BlockSparseMatrix>(
+    const TrilinosWrappers::BlockSparseMatrix &);
+#endif
+
+#ifdef DEAL_II_WITH_PETSC
+  template void
+  log_nonzero_elements<PETScWrappers::MPI::SparseMatrix>(
+    const PETScWrappers::MPI::SparseMatrix &);
+  /*
+  template void
+  log_nonzero_elements<PETScWrappers::MPI::BlockSparseMatrix>(
+    const PETScWrappers::MPI::BlockSparseMatrix &);
+  */
+#endif
+
 } // namespace Log
