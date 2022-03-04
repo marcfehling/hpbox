@@ -56,7 +56,7 @@ namespace Factory
         Adaptation::hpLegendre<dim, VectorType, spacedim>>(
         std::forward<Args>(args)...);
 
-    Assert(false, dealii::ExcNotImplemented());
+    AssertThrow(false, dealii::ExcNotImplemented());
     return std::unique_ptr<Adaptation::Base>();
   }
 
@@ -79,7 +79,7 @@ namespace Factory
       return std::make_unique<Function::KovasznayRHS<dim>>(
         std::forward<Args>(args)...);
 
-    Assert(false, dealii::ExcNotImplemented());
+    AssertThrow(false, dealii::ExcNotImplemented());
     return std::unique_ptr<dealii::Function<dim>>();
   }
 
@@ -96,7 +96,7 @@ namespace Factory
     else if (type == "y-pipe")
       Grid::y_pipe(std::forward<Args>(args)...);
     else
-      Assert(false, dealii::ExcNotImplemented());
+      AssertThrow(false, dealii::ExcNotImplemented());
   }
 
 
@@ -115,7 +115,7 @@ namespace Factory
       return std::make_unique<Stokes::Problem<dim, LinearAlgebra, spacedim>>(
         std::forward<Args>(args)...);
 
-    Assert(false, dealii::ExcNotImplemented());
+    AssertThrow(false, dealii::ExcNotImplemented());
     return std::unique_ptr<ProblemBase>();
   }
 
@@ -138,11 +138,11 @@ namespace Factory
           return create_problem<3, dealiiTrilinos, 3>(
             type, std::forward<Args>(args)...);
         else
-          Assert(false, dealii::ExcNotImplemented());
+          AssertThrow(false, dealii::ExcNotImplemented());
 #else
-        Assert(false,
-               dealii::ExcMessage(
-                 "deal.II has not been configured with Trilinos!"));
+        AssertThrow(false,
+                    dealii::ExcMessage(
+                      "deal.II has not been configured with Trilinos!"));
 #endif
       }
     else if (linear_algebra == "Trilinos")
@@ -155,11 +155,11 @@ namespace Factory
           return create_problem<3, Trilinos, 3>(type,
                                                 std::forward<Args>(args)...);
         else
-          Assert(false, dealii::ExcNotImplemented());
+          AssertThrow(false, dealii::ExcNotImplemented());
 #else
-        Assert(false,
-               dealii::ExcMessage(
-                 "deal.II has not been configured with Trilinos!"));
+        AssertThrow(false,
+                    dealii::ExcMessage(
+                      "deal.II has not been configured with Trilinos!"));
 #endif
       }
     else if (linear_algebra == "PETSc")
@@ -172,15 +172,15 @@ namespace Factory
           return create_problem<3, PETSc, 3>(type, std::forward<Args>(args)...);
         else
         */
-          Assert(false, dealii::ExcNotImplemented());
+          AssertThrow(false, dealii::ExcNotImplemented());
 #else
-        Assert(false,
-               dealii::ExcMessage(
-                 "deal.II has not been configured with PETSc!"));
+        AssertThrow(false,
+                    dealii::ExcMessage(
+                      "deal.II has not been configured with PETSc!"));
 #endif
       }
 
-    Assert(false, dealii::ExcNotImplemented());
+    AssertThrow(false, dealii::ExcNotImplemented());
     return std::unique_ptr<ProblemBase>();
   }
 } // namespace Factory
