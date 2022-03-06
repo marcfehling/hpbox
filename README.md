@@ -50,7 +50,8 @@ the executable is located, and uses the default parameter set for the
 current run.
 
 A selection of parameter files for different scenarios is located in the
-`examples` folder.
+`examples` folder. In addition, you will also find the parameter files
+that were used for data generation in the above mentioned paper.
 
 
 Acknowledgments
