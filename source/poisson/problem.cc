@@ -172,51 +172,65 @@ namespace Poisson
   void
   Problem<dim, LinearAlgebra, spacedim>::setup_system()
   {
-    TimerOutput::Scope t(getTimer(), "setup");
+    TimerOutput::Scope t(getTimer(), "setup_system");
 
-    dof_handler.distribute_dofs(fe_collection);
+    {
+      TimerOutput::Scope t(getTimer(), "distribute_dofs");
+
+      dof_handler.distribute_dofs(fe_collection);
+    }
 
     locally_owned_dofs = dof_handler.locally_owned_dofs();
     DoFTools::extract_locally_relevant_dofs(dof_handler, locally_relevant_dofs);
 
-    locally_relevant_solution.reinit(locally_owned_dofs,
-                                     locally_relevant_dofs,
-                                     mpi_communicator);
-    system_rhs.reinit(locally_owned_dofs, mpi_communicator);
+    {
+      TimerOutput::Scope(getTimer(), "reinit_vectors");
 
-    constraints.clear();
-    constraints.reinit(locally_relevant_dofs);
+      locally_relevant_solution.reinit(locally_owned_dofs,
+                                       locally_relevant_dofs,
+                                       mpi_communicator);
+    }
 
-    DoFTools::make_hanging_node_constraints(dof_handler, constraints);
+    {
+      TimerOutput::Scope t(getTimer(), "make_constraints");
 
-    if (prm.grid_type == "reentrant corner")
-      {
-        VectorTools::interpolate_boundary_values(
-          mapping_collection, dof_handler, 0, *boundary_function, constraints);
-      }
-    else
-      {
-        Assert(false, ExcNotImplemented());
-      }
+      constraints.clear();
+      constraints.reinit(locally_relevant_dofs);
+
+      DoFTools::make_hanging_node_constraints(dof_handler, constraints);
+
+      if (prm.grid_type == "reentrant corner")
+        {
+          VectorTools::interpolate_boundary_values(mapping_collection,
+                                                   dof_handler,
+                                                   0,
+                                                   *boundary_function,
+                                                   constraints);
+        }
+      else
+        {
+          Assert(false, ExcNotImplemented());
+        }
 
 #ifdef DEBUG
-    // We have not dealt with chains of constraints on ghost cells yet.
-    // Thus, we are content with verifying their consistency for now.
-    const std::vector<IndexSet> locally_owned_dofs_per_processor =
-      Utilities::MPI::all_gather(mpi_communicator,
-                                 dof_handler.locally_owned_dofs());
+      // We have not dealt with chains of constraints on ghost cells yet.
+      // Thus, we are content with verifying their consistency for now.
+      const std::vector<IndexSet> locally_owned_dofs_per_processor =
+        Utilities::MPI::all_gather(mpi_communicator,
+                                   dof_handler.locally_owned_dofs());
 
-    IndexSet locally_active_dofs;
-    DoFTools::extract_locally_active_dofs(dof_handler, locally_active_dofs);
+      IndexSet locally_active_dofs;
+      DoFTools::extract_locally_active_dofs(dof_handler, locally_active_dofs);
 
-    AssertThrow(
-      constraints.is_consistent_in_parallel(locally_owned_dofs_per_processor,
-                                            locally_active_dofs,
-                                            mpi_communicator,
-                                            /*verbose=*/true),
-      ExcMessage("AffineConstraints object contains inconsistencies!"));
+      AssertThrow(
+        constraints.is_consistent_in_parallel(locally_owned_dofs_per_processor,
+                                              locally_active_dofs,
+                                              mpi_communicator,
+                                              /*verbose=*/true),
+        ExcMessage("AffineConstraints object contains inconsistencies!"));
 #endif
-    constraints.close();
+      constraints.close();
+    }
   }
 
 

@@ -48,92 +48,127 @@ namespace Poisson
     const dealii::AffineConstraints<value_type> &constraints,
     VectorType                                  &system_rhs)
   {
-    TimerOutput::Scope t(getTimer(), "reinit");
+    {
+      TimerOutput::Scope t(getTimer(), "setup_system");
 
-    const MPI_Comm mpi_communicator = dof_handler.get_communicator();
+      const MPI_Comm mpi_communicator = dof_handler.get_communicator();
 
-    IndexSet locally_relevant_dofs;
-    DoFTools::extract_locally_relevant_dofs(dof_handler, locally_relevant_dofs);
+      IndexSet locally_relevant_dofs;
+      DoFTools::extract_locally_relevant_dofs(dof_handler,
+                                              locally_relevant_dofs);
 
-    this->partitioner = std::make_shared<const Utilities::MPI::Partitioner>(
-      dof_handler.locally_owned_dofs(),
-      locally_relevant_dofs,
-      mpi_communicator);
+      this->partitioner = std::make_shared<const Utilities::MPI::Partitioner>(
+        dof_handler.locally_owned_dofs(),
+        locally_relevant_dofs,
+        mpi_communicator);
 
-    // constructors differ, so we need this workaround... -- not happy with
-    // this
-    if constexpr (std::is_same<LinearAlgebra, PETSc>::value)
+      // constructors differ, so we need this workaround... -- not happy with
+      // this
+      if constexpr (std::is_same<LinearAlgebra, PETSc>::value)
+        {
+          TimerOutput::Scope t(getTimer(), "reinit_matrix");
+
+          typename LinearAlgebra::SparsityPattern dsp(locally_relevant_dofs);
+
+          {
+            TimerOutput::Scope t(getTimer(), "make_sparsity_pattern");
+
+            DoFTools::make_sparsity_pattern(dof_handler,
+                                            dsp,
+                                            constraints,
+                                            false);
+          }
+
+          SparsityTools::distribute_sparsity_pattern(
+            dsp,
+            dof_handler.locally_owned_dofs(),
+            mpi_communicator,
+            locally_relevant_dofs);
+
+          system_matrix.reinit(dof_handler.locally_owned_dofs(),
+                               dof_handler.locally_owned_dofs(),
+                               dsp,
+                               mpi_communicator);
+        }
+      else if constexpr (std::is_same<LinearAlgebra, Trilinos>::value ||
+                         std::is_same<LinearAlgebra, dealiiTrilinos>::value)
+        {
+          TimerOutput::Scope t(getTimer(), "reinit_matrix");
+
+          typename LinearAlgebra::SparsityPattern dsp(
+            dof_handler.locally_owned_dofs(), mpi_communicator);
+
+          {
+            TimerOutput::Scope t(getTimer(), "make_sparsity_pattern");
+
+            DoFTools::make_sparsity_pattern(dof_handler,
+                                            dsp,
+                                            constraints,
+                                            false);
+          }
+
+          dsp.compress();
+
+          system_matrix.reinit(dsp);
+        }
+      else
+        {
+          Assert(false, ExcNotImplemented());
+        }
+
       {
-        typename LinearAlgebra::SparsityPattern dsp(locally_relevant_dofs);
+        TimerOutput::Scope(getTimer(), "reinit_vectors");
 
-        DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false);
-        SparsityTools::distribute_sparsity_pattern(
-          dsp,
-          dof_handler.locally_owned_dofs(),
-          mpi_communicator,
-          locally_relevant_dofs);
-
-        system_matrix.reinit(dof_handler.locally_owned_dofs(),
-                             dof_handler.locally_owned_dofs(),
-                             dsp,
-                             mpi_communicator);
+        system_rhs.reinit(partitioner->locally_owned_range(),
+                          partitioner->get_mpi_communicator());
       }
-    else if constexpr (std::is_same<LinearAlgebra, Trilinos>::value ||
-                       std::is_same<LinearAlgebra, dealiiTrilinos>::value)
-      {
-        typename LinearAlgebra::SparsityPattern dsp(
-          dof_handler.locally_owned_dofs(), mpi_communicator);
+    }
 
-        DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false);
-        dsp.compress();
+    {
+      TimerOutput::Scope t(getTimer(), "assemble_system");
 
-        system_matrix.reinit(dsp);
-      }
-    else
-      {
-        Assert(false, ExcNotImplemented());
-      }
+      FullMatrix<double>                   cell_matrix;
+      Vector<double>                       cell_rhs;
+      std::vector<types::global_dof_index> local_dof_indices;
+      for (const auto &cell : dof_handler.active_cell_iterators())
+        {
+          if (cell->is_locally_owned() == false)
+            continue;
 
-    system_rhs.reinit(partitioner->locally_owned_range(),
-                      partitioner->get_mpi_communicator());
+          const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
+          cell_matrix.reinit(dofs_per_cell, dofs_per_cell);
+          cell_matrix = 0;
+          cell_rhs.reinit(dofs_per_cell);
+          cell_rhs = 0;
 
-    FullMatrix<double>                   cell_matrix;
-    Vector<double>                       cell_rhs;
-    std::vector<types::global_dof_index> local_dof_indices;
-    for (const auto &cell : dof_handler.active_cell_iterators())
-      {
-        if (cell->is_locally_owned() == false)
-          continue;
+          fe_values_collection->reinit(cell);
+          const FEValues<dim> &fe_values =
+            fe_values_collection->get_present_fe_values();
 
-        const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
-        cell_matrix.reinit(dofs_per_cell, dofs_per_cell);
-        cell_matrix = 0;
-        cell_rhs.reinit(dofs_per_cell);
-        cell_rhs = 0;
+          for (unsigned int q_point = 0;
+               q_point < fe_values.n_quadrature_points;
+               ++q_point)
+            for (unsigned int i = 0; i < dofs_per_cell; ++i)
+              {
+                for (unsigned int j = 0; j < dofs_per_cell; ++j)
+                  cell_matrix(i, j) +=
+                    (fe_values.shape_grad(i, q_point) * // grad phi_i(x_q)
+                     fe_values.shape_grad(j, q_point) * // grad phi_j(x_q)
+                     fe_values.JxW(q_point));           // dx
+              }
+          local_dof_indices.resize(dofs_per_cell);
+          cell->get_dof_indices(local_dof_indices);
 
-        fe_values_collection->reinit(cell);
-        const FEValues<dim> &fe_values =
-          fe_values_collection->get_present_fe_values();
+          constraints.distribute_local_to_global(cell_matrix,
+                                                 cell_rhs,
+                                                 local_dof_indices,
+                                                 system_matrix,
+                                                 system_rhs);
+        }
 
-        for (unsigned int q_point = 0; q_point < fe_values.n_quadrature_points;
-             ++q_point)
-          for (unsigned int i = 0; i < dofs_per_cell; ++i)
-            {
-              for (unsigned int j = 0; j < dofs_per_cell; ++j)
-                cell_matrix(i, j) +=
-                  (fe_values.shape_grad(i, q_point) * // grad phi_i(x_q)
-                   fe_values.shape_grad(j, q_point) * // grad phi_j(x_q)
-                   fe_values.JxW(q_point));           // dx
-            }
-        local_dof_indices.resize(dofs_per_cell);
-        cell->get_dof_indices(local_dof_indices);
-
-        constraints.distribute_local_to_global(
-          cell_matrix, cell_rhs, local_dof_indices, system_matrix, system_rhs);
-      }
-
-    system_rhs.compress(VectorOperation::values::add);
-    system_matrix.compress(VectorOperation::values::add);
+      system_rhs.compress(VectorOperation::values::add);
+      system_matrix.compress(VectorOperation::values::add);
+    }
   }
 
 
@@ -213,7 +248,7 @@ namespace Poisson
 
 
 
-  // explicit instantiations
+// explicit instantiations
 #ifdef DEAL_II_WITH_TRILINOS
   template class OperatorMatrixBased<2, dealiiTrilinos, 2>;
   template class OperatorMatrixBased<3, dealiiTrilinos, 3>;
