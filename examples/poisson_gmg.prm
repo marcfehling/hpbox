@@ -18,10 +18,10 @@ subsection problem
   set dimension               = 2
   set file stem               = my_poisson
   set grid type               = reentrant corner
-  set linear algebra          = Trilinos
-  set operator type           = MatrixBased
+  set linear algebra          = dealii & Trilinos
+  set operator type           = MatrixFree
   set output each n steps     = 1
   set problem type            = Poisson
   set resume from filename    = 
-  set solver type             = AMG
+  set solver type             = GMG
 end
