@@ -168,7 +168,7 @@ namespace Log
   {
     getPCOut() << "   Solved in " << control.last_step() << " iterations."
                << std::endl;
-    getTable().add_value("iteratations", control.last_step());
+    getTable().add_value("iterations", control.last_step());
   }
 
 
