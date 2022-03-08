@@ -225,11 +225,9 @@ namespace Log
   template void
   log_nonzero_elements<PETScWrappers::MPI::SparseMatrix>(
     const PETScWrappers::MPI::SparseMatrix &);
-  /*
   template void
   log_nonzero_elements<PETScWrappers::MPI::BlockSparseMatrix>(
     const PETScWrappers::MPI::BlockSparseMatrix &);
-  */
 #endif
 
 } // namespace Log
