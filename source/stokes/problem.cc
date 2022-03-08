@@ -903,8 +903,7 @@ namespace Stokes
     dof_handler.prepare_for_serialization_of_active_fe_indices();
     adaptation_strategy->prepare_for_serialization();
 
-    const std::string filename = prm.file_stem + "-checkpoint-" +
-                                 Utilities::to_string<unsigned int>(cycle, 2);
+    const std::string filename = prm.file_stem + "-checkpoint";
     triangulation.save(filename);
 
     // write metadata
