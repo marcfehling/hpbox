@@ -264,6 +264,8 @@ namespace Stokes
           if (cell->is_locally_owned())
             cell->set_active_fe_index(min_fe_index);
 
+        dof_handler.distribute_dofs(fe_collection);
+
         triangulation.refine_global(
           adaptation_strategy->get_n_initial_refinements());
       }
