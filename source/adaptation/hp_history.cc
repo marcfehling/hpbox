@@ -68,44 +68,47 @@ namespace Adaptation
       face_quadrature_collection.push_back(QGauss<dim - 1>(degree + 1));
 
     // limit p-level difference *before* predicting errors
-    if (prm.max_p_level_difference > 0)
-      {
-        const unsigned int min_fe_index = prm.min_p_degree - 1;
-        triangulation.signals.post_p4est_refinement.connect(
-          [&, min_fe_index]() {
-            const parallel::distributed::TemporarilyMatchRefineFlags<dim,
-                                                                     spacedim>
-              refine_modifier(triangulation);
+    // ----------
+    // DISABLE PREDICTION
+    // ----------
+    // if (prm.max_p_level_difference > 0)
+    //   {
+    //     const unsigned int min_fe_index = prm.min_p_degree - 1;
+    //     triangulation.signals.post_p4est_refinement.connect(
+    //       [&, min_fe_index]() {
+    //         const parallel::distributed::TemporarilyMatchRefineFlags<dim,
+    //                                                                  spacedim>
+    //           refine_modifier(triangulation);
 
-            hp::Refinement::limit_p_level_difference(dof_handler,
-                                                     prm.max_p_level_difference,
-                                                     /*contains=*/min_fe_index);
+    //         hp::Refinement::limit_p_level_difference(dof_handler,
+    //                                                  prm.max_p_level_difference,
+    //                                                  /*contains=*/min_fe_index);
 
-            error_predictions.grow_or_shrink(triangulation.n_active_cells());
-            hp::Refinement::predict_error(dof_handler,
-                                          error_estimates,
-                                          error_predictions,
-                                          /*gamma_p=*/std::sqrt(0.4),
-                                          /*gamma_h=*/2.,
-                                          /*gamma_n=*/1.);
-          });
-      }
-    else
-      {
-        triangulation.signals.post_p4est_refinement.connect([&]() {
-          const parallel::distributed::TemporarilyMatchRefineFlags<dim,
-                                                                   spacedim>
-            refine_modifier(triangulation);
+    //         error_predictions.grow_or_shrink(triangulation.n_active_cells());
+    //         hp::Refinement::predict_error(dof_handler,
+    //                                       error_estimates,
+    //                                       error_predictions,
+    //                                       /*gamma_p=*/std::sqrt(0.4),
+    //                                       /*gamma_h=*/2.,
+    //                                       /*gamma_n=*/1.);
+    //       });
+    //   }
+    // else
+    //   {
+    //     triangulation.signals.post_p4est_refinement.connect([&]() {
+    //       const parallel::distributed::TemporarilyMatchRefineFlags<dim,
+    //                                                                spacedim>
+    //         refine_modifier(triangulation);
 
-          error_predictions.grow_or_shrink(triangulation.n_active_cells());
-          hp::Refinement::predict_error(dof_handler,
-                                        error_estimates,
-                                        error_predictions,
-                                        /*gamma_p=*/std::sqrt(0.4),
-                                        /*gamma_h=*/2.,
-                                        /*gamma_n=*/1.);
-        });
-      }
+    //       error_predictions.grow_or_shrink(triangulation.n_active_cells());
+    //       hp::Refinement::predict_error(dof_handler,
+    //                                     error_estimates,
+    //                                     error_predictions,
+    //                                     /*gamma_p=*/std::sqrt(0.4),
+    //                                     /*gamma_h=*/2.,
+    //                                     /*gamma_n=*/1.);
+    //     });
+    //   }
   }
 
 
