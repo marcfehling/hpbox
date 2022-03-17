@@ -146,7 +146,7 @@ namespace Adaptation
 
 
   template <int dim, typename VectorType, int spacedim>
-  const Vector<float> &
+  const Vector<double> &
   h<dim, VectorType, spacedim>::get_error_estimates() const
   {
     return error_estimates;

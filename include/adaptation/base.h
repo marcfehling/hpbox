@@ -42,7 +42,7 @@ namespace Adaptation
     virtual unsigned int
     get_n_initial_refinements() const = 0;
 
-    virtual const dealii::Vector<float> &
+    virtual const dealii::Vector<double> &
     get_error_estimates() const = 0;
     virtual const dealii::Vector<float> &
     get_hp_indicators() const = 0;

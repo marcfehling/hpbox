@@ -62,7 +62,7 @@ namespace Adaptation
     virtual unsigned int
     get_n_initial_refinements() const override;
 
-    virtual const dealii::Vector<float> &
+    virtual const dealii::Vector<double> &
     get_error_estimates() const override;
     virtual const dealii::Vector<float> &
     get_hp_indicators() const override;
@@ -82,8 +82,8 @@ namespace Adaptation
 
     dealii::hp::QCollection<dim - 1> face_quadrature_collection;
 
-    dealii::Vector<float> error_estimates;
-    dealii::Vector<float> dummy;
+    dealii::Vector<double> error_estimates;
+    dealii::Vector<float>  dummy;
   };
 } // namespace Adaptation
 

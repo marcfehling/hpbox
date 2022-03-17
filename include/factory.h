@@ -172,7 +172,7 @@ namespace Factory
           return create_problem<3, PETSc, 3>(type, std::forward<Args>(args)...);
         else
         */
-          AssertThrow(false, dealii::ExcNotImplemented());
+        AssertThrow(false, dealii::ExcNotImplemented());
 #else
         AssertThrow(false,
                     dealii::ExcMessage(
