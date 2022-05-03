@@ -1,6 +1,8 @@
 Sandbox for hp-adaptive methods
 ===============================
 
+[![DOI:10.5281/zenodo.6425947](https://zenodo.org/badge/DOI/10.5281/zenodo.6425947.svg)](https://doi.org/10.5281/zenodo.6425947)
+
 This program is used as a benchmark to demonstrate the benefits of
 parallelization, hp-adaptive methods and matrix-free methods combined.
 
