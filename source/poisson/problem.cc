@@ -81,41 +81,13 @@ namespace Poisson
         return (fe_index > min_fe_index) ? fe_index - 1 : fe_index;
       });
 
-    // prepare operator (and fe values)
-    // TODO: Maybe move this to separate factory function?
-    if (prm.operator_type == "MatrixBased")
-      {
-        {
-          TimerOutput::Scope t(getTimer(), "calculate_fevalues");
-
-          fe_values_collection = std::make_unique<hp::FEValues<dim, spacedim>>(
-            mapping_collection,
-            fe_collection,
-            quadrature_collection,
-            update_values | update_gradients | update_quadrature_points |
-              update_JxW_values);
-          fe_values_collection->precalculate_fe_values();
-        }
-
-        operator_matrixbased =
-          std::make_unique<OperatorMatrixBased<dim, LinearAlgebra, spacedim>>(
-            mapping_collection, quadrature_collection, *fe_values_collection);
-      }
-    else if (prm.operator_type == "MatrixFree")
-      {
-        if constexpr (std::is_same<LinearAlgebra, dealiiTrilinos>::value)
-          operator_matrixfree =
-            std::make_unique<OperatorMatrixFree<dim, LinearAlgebra, spacedim>>(
-              mapping_collection, quadrature_collection);
-        else
-          Assert(false,
-                 ExcMessage(
-                   "MatrixFree only available with dealii & Trilinos!"));
-      }
-    else
-      {
-        Assert(false, ExcNotImplemented());
-      }
+    // prepare operator
+    poisson_operator = Factory::create_operator<dim, LinearAlgebra, spacedim>(
+      prm.operator_type,
+      "Poisson",
+      mapping_collection,
+      quadrature_collection,
+      fe_collection);
 
     // choose functions
     if (prm.grid_type == "reentrant corner")
@@ -238,12 +210,8 @@ namespace Poisson
 
 
   template <int dim, typename LinearAlgebra, int spacedim>
-  template <typename OperatorType>
   void
-  Problem<dim, LinearAlgebra, spacedim>::solve(
-    const OperatorType                   &system_matrix,
-    typename LinearAlgebra::Vector       &locally_relevant_solution,
-    const typename LinearAlgebra::Vector &system_rhs)
+  Problem<dim, LinearAlgebra, spacedim>::solve()
   {
     TimerOutput::Scope t(getTimer(), "solve");
 
@@ -254,8 +222,10 @@ namespace Poisson
                     typename LinearAlgebra::Vector,
                     dealii::LinearAlgebra::distributed::Vector<double>>::value)
       {
-        system_matrix.initialize_dof_vector(completely_distributed_solution);
-        system_matrix.initialize_dof_vector(completely_distributed_system_rhs);
+        poisson_operator->initialize_dof_vector(
+          completely_distributed_solution);
+        poisson_operator->initialize_dof_vector(
+          completely_distributed_system_rhs);
 
         completely_distributed_system_rhs.copy_locally_owned_data_from(
           system_rhs);
@@ -273,46 +243,27 @@ namespace Poisson
 
     if (prm.solver_type == "AMG")
       {
-        solve_amg<LinearAlgebra>(solver_control,
-                                 system_matrix,
-                                 completely_distributed_solution,
-                                 completely_distributed_system_rhs);
+        solve_amg(solver_control,
+                  *poisson_operator,
+                  completely_distributed_solution,
+                  completely_distributed_system_rhs);
       }
     else if (prm.solver_type == "GMG")
       {
-        if constexpr (std::is_same<
-                        OperatorType,
-                        OperatorMatrixFree<dim, dealiiTrilinos, spacedim>>::
-                        value)
+        if constexpr (std::is_same<LinearAlgebra, dealiiTrilinos>::value)
           {
             solve_gmg(solver_control,
-                      system_matrix,
+                      *poisson_operator,
                       completely_distributed_solution,
                       completely_distributed_system_rhs,
                       /*boundary_values=*/mapping_collection,
-                      dof_handler,
-                      /*operator_constructor=*/mapping_collection,
-                      quadrature_collection);
-          }
-        else if constexpr (std::is_same<OperatorType,
-                                        OperatorMatrixBased<dim,
-                                                            dealiiTrilinos,
-                                                            spacedim>>::value)
-          {
-            solve_gmg(solver_control,
-                      system_matrix,
-                      completely_distributed_solution,
-                      completely_distributed_system_rhs,
-                      /*boundary_values=*/mapping_collection,
-                      dof_handler,
-                      /*operator_constructor=*/mapping_collection,
-                      quadrature_collection,
-                      *fe_values_collection);
+                      dof_handler);
           }
         else
           {
-            Assert(false,
-                   ExcMessage("GMG is only available with dealii & Trilinos!"));
+            AssertThrow(false,
+                        ExcMessage(
+                          "GMG is only available with dealii & Trilinos!"));
           }
       }
     else
@@ -491,30 +442,12 @@ namespace Poisson
 
           Log::log_hp_diagnostics(triangulation, dof_handler, constraints);
 
-          // TODO: I am not happy with this
-          if (prm.operator_type == "MatrixBased")
-            {
-              operator_matrixbased->reinit(dof_handler,
-                                           constraints,
-                                           system_rhs);
-              Log::log_nonzero_elements(
-                operator_matrixbased->get_system_matrix());
+          poisson_operator->reinit(dof_handler, constraints, system_rhs);
 
-              solve(*operator_matrixbased,
-                    locally_relevant_solution,
-                    system_rhs);
-            }
-          else if (prm.operator_type == "MatrixFree")
-            {
-              operator_matrixfree->reinit(dof_handler, constraints, system_rhs);
-              solve(*operator_matrixfree,
-                    locally_relevant_solution,
-                    system_rhs);
-            }
-          else
-            {
-              Assert(false, ExcInternalError());
-            }
+          if (prm.operator_type == "MatrixBased")
+            Log::log_nonzero_elements(poisson_operator->get_system_matrix());
+
+          solve();
 
           compute_errors();
           adaptation_strategy->estimate_mark();

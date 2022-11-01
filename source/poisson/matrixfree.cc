@@ -32,10 +32,25 @@ namespace Poisson
   template <int dim, typename LinearAlgebra, int spacedim>
   OperatorMatrixFree<dim, LinearAlgebra, spacedim>::OperatorMatrixFree(
     const hp::MappingCollection<dim, spacedim> &mapping_collection,
-    const hp::QCollection<dim>                 &quadrature_collection)
+    const hp::QCollection<dim>                 &quadrature_collection,
+    const hp::FECollection<dim, spacedim>      &fe_collection)
     : mapping_collection(&mapping_collection)
     , quadrature_collection(&quadrature_collection)
-  {}
+  {
+    (void)
+      fe_collection; // unused, only here for matching interface to matrixbased
+  }
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
+  std::unique_ptr<OperatorBase<dim, LinearAlgebra, spacedim>>
+  OperatorMatrixFree<dim, LinearAlgebra, spacedim>::replicate() const
+  {
+    return std::make_unique<OperatorMatrixFree<dim, LinearAlgebra, spacedim>>(
+      *mapping_collection,
+      *quadrature_collection,
+      hp::FECollection<dim, spacedim>());
+  }
 
 
 

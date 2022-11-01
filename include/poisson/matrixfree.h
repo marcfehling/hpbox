@@ -37,7 +37,11 @@ namespace Poisson
 
     OperatorMatrixFree(
       const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
-      const dealii::hp::QCollection<dim> &quadrature_collection);
+      const dealii::hp::QCollection<dim>                 &quadrature_collection,
+      const dealii::hp::FECollection<dim, spacedim>      &fe_collection);
+
+    std::unique_ptr<OperatorBase<dim, LinearAlgebra, spacedim>>
+    replicate() const override;
 
     void
     reinit(const dealii::DoFHandler<dim, spacedim>     &dof_handler,

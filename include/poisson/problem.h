@@ -45,11 +45,8 @@ namespace Poisson
     void
     setup_system();
 
-    template <typename OperatorType>
     void
-    solve(const OperatorType                   &system_matrix,
-          typename LinearAlgebra::Vector       &locally_relevant_solution,
-          const typename LinearAlgebra::Vector &system_rhs);
+    solve();
 
     void
     compute_errors();
@@ -85,13 +82,8 @@ namespace Poisson
 
     dealii::AffineConstraints<double> constraints;
 
-    // TODO: Base class?
-    std::unique_ptr<OperatorMatrixBased<dim, LinearAlgebra, spacedim>>
-      operator_matrixbased;
-
-    // only exists for distributed vector
-    std::unique_ptr<OperatorMatrixFree<dim, LinearAlgebra, spacedim>>
-      operator_matrixfree;
+    std::unique_ptr<OperatorBase<dim, LinearAlgebra, spacedim>>
+      poisson_operator;
 
     typename LinearAlgebra::Vector locally_relevant_solution;
     typename LinearAlgebra::Vector system_rhs;

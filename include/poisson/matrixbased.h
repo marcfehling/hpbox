@@ -36,7 +36,15 @@ namespace Poisson
     OperatorMatrixBased(
       const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
       const dealii::hp::QCollection<dim>                 &quadrature_collection,
-      dealii::hp::FEValues<dim, spacedim>                &fe_values_collection);
+      const dealii::hp::FECollection<dim, spacedim>      &fe_collection);
+
+    OperatorMatrixBased(
+      const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
+      const dealii::hp::QCollection<dim>                 &quadrature_collection,
+      const dealii::hp::FEValues<dim, spacedim>          &fe_values_collection);
+
+    std::unique_ptr<OperatorBase<dim, LinearAlgebra, spacedim>>
+    replicate() const override;
 
     void
     reinit(const dealii::DoFHandler<dim, spacedim>     &dof_handler,
@@ -73,8 +81,7 @@ namespace Poisson
     //       Grab and set as RHS in reinit
     // dealii::Function<dim> rhs_function;
 
-    dealii::SmartPointer<dealii::hp::FEValues<dim, spacedim>>
-      fe_values_collection;
+    dealii::hp::FEValues<dim, spacedim> fe_values_collection;
 
     typename LinearAlgebra::SparseMatrix system_matrix;
 

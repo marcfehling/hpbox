@@ -19,7 +19,12 @@
 
 #include <mg_solver.h>
 
+#include <memory>
 
+
+// TODO: maybe use VectorType, MatrixType instead LinearAlgebra here
+// in the Stokes implementation, it would be helpful when we can distinguish
+// between Vector/BlockVector and SparseMatrix/BlockSparseMatrix
 template <int dim, typename LinearAlgebra, int spacedim = dim>
 class OperatorBase
   : public dealii::MGSolverOperatorBase<dim,
@@ -31,6 +36,9 @@ public:
   using value_type = typename VectorType::value_type;
 
   virtual ~OperatorBase() = default;
+
+  virtual std::unique_ptr<OperatorBase<dim, LinearAlgebra, spacedim>>
+  replicate() const = 0;
 
   virtual void
   reinit(const dealii::DoFHandler<dim, spacedim>     &dof_handler,

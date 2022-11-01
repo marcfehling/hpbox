@@ -30,29 +30,27 @@
 
 namespace Poisson
 {
-  template <typename VectorType,
-            typename OperatorType,
-            int dim,
-            int spacedim,
-            typename... Args>
+  template <int dim, typename LinearAlgebra, int spacedim = dim>
   void
   solve_gmg(
     dealii::SolverControl                             &solver_control,
-    const OperatorType                                &system_matrix,
-    VectorType                                        &dst,
-    const VectorType                                  &src,
+    const OperatorBase<dim, LinearAlgebra, spacedim>  &poisson_operator,
+    typename LinearAlgebra::Vector                    &dst,
+    const typename LinearAlgebra::Vector              &src,
     const dealii::hp::MappingCollection<dim, spacedim> mapping_collection,
-    const dealii::DoFHandler<dim, spacedim>           &dof_handler,
-    Args &&...operator_args)
+    const dealii::DoFHandler<dim, spacedim>           &dof_handler)
   {
     using namespace dealii;
+
+    using VectorType = typename LinearAlgebra::Vector;
 
     const MGSolverParameters mg_data;
 
     // Create a DoFHandler and operator for each multigrid level defined
     // by p-coarsening, as well as, create transfer operators.
-    MGLevelObject<DoFHandler<dim, spacedim>>           dof_handlers;
-    MGLevelObject<std::unique_ptr<OperatorType>>       operators;
+    MGLevelObject<DoFHandler<dim, spacedim>> dof_handlers;
+    MGLevelObject<std::unique_ptr<OperatorBase<dim, LinearAlgebra, spacedim>>>
+                                                       operators;
     MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> transfers;
 
     std::vector<std::shared_ptr<const Triangulation<dim, spacedim>>>
@@ -188,12 +186,10 @@ namespace Poisson
         }
 
         // ... operator (just like on the finest level)
+        operators[level] = poisson_operator.replicate();
+
         {
           VectorType dummy;
-
-          operators[level] = std::make_unique<OperatorType>(
-            std::forward<Args>(operator_args)...);
-
           operators[level]->reinit(dof_handler, constraint, dummy);
         }
       }
@@ -224,7 +220,7 @@ namespace Poisson
              src,
              mg_data,
              dof_handler,
-             system_matrix,
+             poisson_operator,
              operators,
              transfer);
   }

@@ -24,12 +24,12 @@
 
 namespace Poisson
 {
-  template <typename LinearAlgebra, typename OperatorType>
+  template <int dim, typename LinearAlgebra, int spacedim = dim>
   static void
-  solve_amg(dealii::SolverControl                &solver_control,
-            const OperatorType                   &system_matrix,
-            typename LinearAlgebra::Vector       &dst,
-            const typename LinearAlgebra::Vector &src)
+  solve_amg(dealii::SolverControl                            &solver_control,
+            const OperatorBase<dim, LinearAlgebra, spacedim> &poisson_operator,
+            typename LinearAlgebra::Vector                   &dst,
+            const typename LinearAlgebra::Vector             &src)
   {
     typename LinearAlgebra::PreconditionAMG::AdditionalData data;
     if constexpr (std::is_same<LinearAlgebra, PETSc>::value)
@@ -48,24 +48,30 @@ namespace Poisson
       }
 
     typename LinearAlgebra::PreconditionAMG preconditioner;
-    preconditioner.initialize(system_matrix.get_system_matrix(), data);
+    preconditioner.initialize(poisson_operator.get_system_matrix(), data);
 
     if constexpr (std::is_same<LinearAlgebra, PETSc>::value)
       {
         typename LinearAlgebra::SolverCG cg(
           solver_control,
-          system_matrix.get_system_matrix().get_mpi_communicator());
-        cg.solve(system_matrix.get_system_matrix(), dst, src, preconditioner);
+          poisson_operator.get_system_matrix().get_mpi_communicator());
+        cg.solve(poisson_operator.get_system_matrix(),
+                 dst,
+                 src,
+                 preconditioner);
       }
     else if constexpr (std::is_same<LinearAlgebra, Trilinos>::value)
       {
         typename LinearAlgebra::SolverCG cg(solver_control);
-        cg.solve(system_matrix.get_system_matrix(), dst, src, preconditioner);
+        cg.solve(poisson_operator.get_system_matrix(),
+                 dst,
+                 src,
+                 preconditioner);
       }
     else
       {
         typename LinearAlgebra::SolverCG cg(solver_control);
-        cg.solve(system_matrix, dst, src, preconditioner);
+        cg.solve(poisson_operator, dst, src, preconditioner);
       }
   }
 } // namespace Poisson

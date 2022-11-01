@@ -33,11 +33,39 @@ namespace Poisson
   OperatorMatrixBased<dim, LinearAlgebra, spacedim>::OperatorMatrixBased(
     const hp::MappingCollection<dim, spacedim> &mapping_collection,
     const hp::QCollection<dim>                 &quadrature_collection,
-    hp::FEValues<dim, spacedim>                &fe_values_collection)
+    const hp::FECollection<dim, spacedim>      &fe_collection)
     : mapping_collection(&mapping_collection)
     , quadrature_collection(&quadrature_collection)
-    , fe_values_collection(&fe_values_collection)
+    , fe_values_collection(mapping_collection,
+                           fe_collection,
+                           quadrature_collection,
+                           update_values | update_gradients |
+                             update_quadrature_points | update_JxW_values)
+  {
+    TimerOutput::Scope t(getTimer(), "calculate_fevalues");
+
+    fe_values_collection.precalculate_fe_values();
+  }
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
+  OperatorMatrixBased<dim, LinearAlgebra, spacedim>::OperatorMatrixBased(
+    const hp::MappingCollection<dim, spacedim> &mapping_collection,
+    const hp::QCollection<dim>                 &quadrature_collection,
+    const hp::FEValues<dim, spacedim>          &fe_values_collection)
+    : mapping_collection(&mapping_collection)
+    , quadrature_collection(&quadrature_collection)
+    , fe_values_collection(fe_values_collection)
   {}
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
+  std::unique_ptr<OperatorBase<dim, LinearAlgebra, spacedim>>
+  OperatorMatrixBased<dim, LinearAlgebra, spacedim>::replicate() const
+  {
+    return std::make_unique<OperatorMatrixBased<dim, LinearAlgebra, spacedim>>(
+      *mapping_collection, *quadrature_collection, fe_values_collection);
+  }
 
 
 
@@ -141,9 +169,9 @@ namespace Poisson
           cell_rhs.reinit(dofs_per_cell);
           cell_rhs = 0;
 
-          fe_values_collection->reinit(cell);
+          fe_values_collection.reinit(cell);
           const FEValues<dim> &fe_values =
-            fe_values_collection->get_present_fe_values();
+            fe_values_collection.get_present_fe_values();
 
           for (unsigned int q_point = 0;
                q_point < fe_values.n_quadrature_points;
