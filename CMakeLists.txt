@@ -64,7 +64,7 @@ ENDIF()
 
 
 #
-# Setup project
+# Set up project
 #
 
 # Set CXX requirements
