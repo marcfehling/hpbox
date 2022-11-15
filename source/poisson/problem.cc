@@ -218,24 +218,8 @@ namespace Poisson
     typename LinearAlgebra::Vector completely_distributed_solution;
     typename LinearAlgebra::Vector completely_distributed_system_rhs;
 
-    if constexpr (std::is_same<
-                    typename LinearAlgebra::Vector,
-                    dealii::LinearAlgebra::distributed::Vector<double>>::value)
-      {
-        poisson_operator->initialize_dof_vector(
-          completely_distributed_solution);
-        poisson_operator->initialize_dof_vector(
-          completely_distributed_system_rhs);
-
-        completely_distributed_system_rhs.copy_locally_owned_data_from(
-          system_rhs);
-      }
-    else
-      {
-        completely_distributed_solution.reinit(locally_owned_dofs,
-                                               mpi_communicator);
-        completely_distributed_system_rhs = system_rhs;
-      }
+    poisson_operator->initialize_dof_vector(completely_distributed_solution);
+    completely_distributed_system_rhs = system_rhs;
 
     SolverControl solver_control(completely_distributed_system_rhs.size(),
                                  1e-12 *
@@ -275,18 +259,8 @@ namespace Poisson
 
     constraints.distribute(completely_distributed_solution);
 
-    if constexpr (std::is_same<
-                    typename LinearAlgebra::Vector,
-                    dealii::LinearAlgebra::distributed::Vector<double>>::value)
-      {
-        locally_relevant_solution.copy_locally_owned_data_from(
-          completely_distributed_solution);
-        locally_relevant_solution.update_ghost_values();
-      }
-    else
-      {
-        locally_relevant_solution = completely_distributed_solution;
-      }
+    locally_relevant_solution = completely_distributed_solution;
+    locally_relevant_solution.update_ghost_values();
   }
 
 
