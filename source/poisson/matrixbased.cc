@@ -217,18 +217,7 @@ namespace Poisson
   OperatorMatrixBased<dim, LinearAlgebra, spacedim>::initialize_dof_vector(
     VectorType &vec) const
   {
-    if constexpr (std::is_same<
-                    typename LinearAlgebra::Vector,
-                    dealii::LinearAlgebra::distributed::Vector<double>>::value)
-      {
-        vec.reinit(partitioner);
-      }
-    else
-      {
-        vec.reinit(partitioner->locally_owned_range(),
-                   partitioner->ghost_indices(),
-                   partitioner->get_mpi_communicator());
-      }
+    vec.reinit(partitioner);
   }
 
 

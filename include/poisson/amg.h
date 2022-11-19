@@ -50,28 +50,17 @@ namespace Poisson
     typename LinearAlgebra::PreconditionAMG preconditioner;
     preconditioner.initialize(poisson_operator.get_system_matrix(), data);
 
-    if constexpr (std::is_same<LinearAlgebra, PETSc>::value)
+    typename LinearAlgebra::SolverCG cg(solver_control);
+    if constexpr (std::is_same<LinearAlgebra, dealiiTrilinos>::value)
       {
-        typename LinearAlgebra::SolverCG cg(
-          solver_control,
-          poisson_operator.get_system_matrix().get_mpi_communicator());
-        cg.solve(poisson_operator.get_system_matrix(),
-                 dst,
-                 src,
-                 preconditioner);
-      }
-    else if constexpr (std::is_same<LinearAlgebra, Trilinos>::value)
-      {
-        typename LinearAlgebra::SolverCG cg(solver_control);
-        cg.solve(poisson_operator.get_system_matrix(),
-                 dst,
-                 src,
-                 preconditioner);
+        cg.solve(poisson_operator, dst, src, preconditioner);
       }
     else
       {
-        typename LinearAlgebra::SolverCG cg(solver_control);
-        cg.solve(poisson_operator, dst, src, preconditioner);
+        cg.solve(poisson_operator.get_system_matrix(),
+                 dst,
+                 src,
+                 preconditioner);
       }
   }
 } // namespace Poisson
