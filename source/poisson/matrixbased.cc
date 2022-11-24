@@ -81,68 +81,23 @@ namespace Poisson
 
       const MPI_Comm mpi_communicator = dof_handler.get_communicator();
 
-      IndexSet locally_relevant_dofs;
-      DoFTools::extract_locally_relevant_dofs(dof_handler,
-                                              locally_relevant_dofs);
+      const IndexSet locally_relevant_dofs =
+        DoFTools::extract_locally_relevant_dofs(dof_handler);
 
       this->partitioner = std::make_shared<const Utilities::MPI::Partitioner>(
         dof_handler.locally_owned_dofs(),
         locally_relevant_dofs,
         mpi_communicator);
 
-      // constructors differ, so we need this workaround... -- not happy with
-      // this
-      if constexpr (std::is_same<LinearAlgebra, PETSc>::value)
-        {
-          TimerOutput::Scope t(getTimer(), "reinit_matrix");
+      {
+        TimerOutput::Scope t(getTimer(), "reinit_matrix");
 
-          typename LinearAlgebra::SparsityPattern dsp(locally_relevant_dofs);
-
-          {
-            TimerOutput::Scope t(getTimer(), "make_sparsity_pattern");
-
-            DoFTools::make_sparsity_pattern(dof_handler,
-                                            dsp,
-                                            constraints,
-                                            false);
-          }
-
-          SparsityTools::distribute_sparsity_pattern(
-            dsp,
-            dof_handler.locally_owned_dofs(),
-            mpi_communicator,
-            locally_relevant_dofs);
-
-          system_matrix.reinit(dof_handler.locally_owned_dofs(),
-                               dof_handler.locally_owned_dofs(),
-                               dsp,
-                               mpi_communicator);
-        }
-      else if constexpr (std::is_same<LinearAlgebra, Trilinos>::value ||
-                         std::is_same<LinearAlgebra, dealiiTrilinos>::value)
-        {
-          TimerOutput::Scope t(getTimer(), "reinit_matrix");
-
-          typename LinearAlgebra::SparsityPattern dsp(
-            dof_handler.locally_owned_dofs(), mpi_communicator);
-
-          {
-            TimerOutput::Scope t(getTimer(), "make_sparsity_pattern");
-
-            DoFTools::make_sparsity_pattern(dof_handler,
-                                            dsp,
-                                            constraints,
-                                            false);
-          }
-
-          dsp.compress();
-
-          system_matrix.reinit(dsp);
-        }
-      else
-        {
-          Assert(false, ExcNotImplemented());
-        }
+        initialize_sparse_matrix(system_matrix,
+                                 dof_handler,
+                                 constraints,
+                                 dof_handler.locally_owned_dofs(),
+                                 locally_relevant_dofs);
+      }
 
       {
         TimerOutput::Scope(getTimer(), "reinit_vectors");

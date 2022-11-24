@@ -57,9 +57,9 @@ namespace Poisson
   template <int dim, typename LinearAlgebra, int spacedim>
   void
   OperatorMatrixFree<dim, LinearAlgebra, spacedim>::reinit(
-    const dealii::DoFHandler<dim, spacedim>     &dof_handler,
-    const dealii::AffineConstraints<value_type> &constraints,
-    VectorType                                  &system_rhs)
+    const DoFHandler<dim, spacedim>     &dof_handler,
+    const AffineConstraints<value_type> &constraints,
+    VectorType                          &system_rhs)
   {
     TimerOutput::Scope t(getTimer(), "reinit");
 
@@ -172,14 +172,12 @@ namespace Poisson
       {
         const auto &dof_handler = this->matrix_free.get_dof_handler();
 
-        // note: this is the constructor for TrilinosWrappers::SparsityPattern
-        typename LinearAlgebra::SparsityPattern dsp(
-          dof_handler.locally_owned_dofs(), dof_handler.get_communicator());
-
-        DoFTools::make_sparsity_pattern(dof_handler, dsp, *constraints);
-
-        dsp.compress();
-        system_matrix.reinit(dsp);
+        initialize_sparse_matrix(system_matrix,
+                                 dof_handler,
+                                 *constraints,
+                                 dof_handler.locally_owned_dofs(),
+                                 DoFTools::extract_locally_relevant_dofs(
+                                   dof_handler));
 
         MatrixFreeTools::compute_matrix(
           matrix_free,

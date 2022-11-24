@@ -19,10 +19,21 @@
 
 #include <deal.II/base/config.h>
 
+#include <deal.II/base/index_set.h>
+#include <deal.II/base/mpi.h>
+
+#include <deal.II/dofs/dof_handler.h>
+#include <deal.II/dofs/dof_tools.h>
+
+#include <deal.II/lac/affine_constraints.h>
 #include <deal.II/lac/block_sparsity_pattern.h>
 #include <deal.II/lac/dynamic_sparsity_pattern.h>
+// #include <deal.II/lac/la_parallel_block_vector.h>
 #include <deal.II/lac/la_parallel_vector.h>
 #include <deal.II/lac/solver_cg.h>
+#include <deal.II/lac/sparsity_tools.h>
+
+#include <vector>
 
 #ifdef DEAL_II_WITH_TRILINOS
 #  include <deal.II/lac/trilinos_block_sparse_matrix.h>
@@ -42,6 +53,66 @@
 #  include <deal.II/lac/petsc_sparse_matrix.h>
 #  include <deal.II/lac/petsc_vector.h>
 #endif
+
+
+
+template <int dim, typename MatrixType, int spacedim>
+inline void
+initialize_sparse_matrix(MatrixType                              &system_matrix,
+                         const dealii::DoFHandler<dim, spacedim> &dof_handler,
+                         const dealii::AffineConstraints<double> &constraints,
+                         const dealii::IndexSet &owned_partitioning,
+                         const dealii::IndexSet &relevant_partitioning)
+{
+  const MPI_Comm &communicator = dof_handler.get_communicator();
+
+  const unsigned int myid =
+    dealii::Utilities::MPI::this_mpi_process(communicator);
+
+  dealii::DynamicSparsityPattern dsp(relevant_partitioning);
+
+  dealii::DoFTools::make_sparsity_pattern(
+    dof_handler, dsp, constraints, false, myid);
+
+  dealii::SparsityTools::distribute_sparsity_pattern(dsp,
+                                                     owned_partitioning,
+                                                     communicator,
+                                                     relevant_partitioning);
+
+  system_matrix.reinit(owned_partitioning,
+                       owned_partitioning,
+                       dsp,
+                       communicator);
+}
+
+template <int dim, typename BlockMatrixType, int spacedim>
+inline void
+initialize_block_sparse_matrix(
+  BlockMatrixType                                    &system_matrix,
+  const dealii::DoFHandler<dim, spacedim>            &dof_handler,
+  const dealii::AffineConstraints<double>            &constraints,
+  const std::vector<dealii::IndexSet>                &owned_partitioning,
+  const std::vector<dealii::IndexSet>                &relevant_partitioning,
+  const dealii::Table<2, dealii::DoFTools::Coupling> &coupling)
+{
+  const MPI_Comm &communicator = dof_handler.get_communicator();
+
+  const unsigned int myid =
+    dealii::Utilities::MPI::this_mpi_process(communicator);
+
+  dealii::BlockDynamicSparsityPattern bdsp(relevant_partitioning);
+
+  dealii::DoFTools::make_sparsity_pattern(
+    dof_handler, coupling, bdsp, constraints, false, myid);
+
+  dealii::SparsityTools::distribute_sparsity_pattern(
+    bdsp, owned_partitioning[myid], communicator, relevant_partitioning[myid]);
+
+  system_matrix.reinit(owned_partitioning,
+                       owned_partitioning,
+                       bdsp,
+                       communicator);
+}
 
 
 
@@ -81,12 +152,64 @@ struct dealiiTrilinos
   using BlockSparsityPattern = dealii::TrilinosWrappers::BlockSparsityPattern;
   using BlockSparseMatrix    = dealii::TrilinosWrappers::BlockSparseMatrix;
   using BlockVector          = dealii::TrilinosWrappers::MPI::BlockVector;
-  // TODO: is there an equivalent of
-  //       dealii::LinearAlgebra::distributed::Vector<double> for blocks???
+  // using BlockVector =
+  // dealii::LinearAlgebra::distributed::BlockVector<double>;
 
   using PreconditionAMG = dealii::TrilinosWrappers::PreconditionAMG;
   using SolverCG        = dealii::SolverCG<Vector>;
 };
+
+template <int dim, int spacedim>
+inline void
+initialize_sparse_matrix(dealii::TrilinosWrappers::SparseMatrix  &system_matrix,
+                         const dealii::DoFHandler<dim, spacedim> &dof_handler,
+                         const dealii::AffineConstraints<double> &constraints,
+                         const dealii::IndexSet &owned_partitioning,
+                         const dealii::IndexSet &relevant_partitioning)
+{
+  const MPI_Comm &communicator = dof_handler.get_communicator();
+
+  const unsigned int myid =
+    dealii::Utilities::MPI::this_mpi_process(communicator);
+
+  dealii::TrilinosWrappers::SparsityPattern dsp(owned_partitioning,
+                                                owned_partitioning,
+                                                relevant_partitioning,
+                                                communicator);
+
+  dealii::DoFTools::make_sparsity_pattern(
+    dof_handler, dsp, constraints, false, myid);
+
+  dsp.compress();
+  system_matrix.reinit(dsp);
+}
+
+template <int dim, int spacedim>
+inline void
+initialize_block_sparse_matrix(
+  dealii::TrilinosWrappers::BlockSparseMatrix        &system_matrix,
+  const dealii::DoFHandler<dim, spacedim>            &dof_handler,
+  const dealii::AffineConstraints<double>            &constraints,
+  const std::vector<dealii::IndexSet>                &owned_partitioning,
+  const std::vector<dealii::IndexSet>                &relevant_partitioning,
+  const dealii::Table<2, dealii::DoFTools::Coupling> &coupling)
+{
+  const MPI_Comm &communicator = dof_handler.get_communicator();
+
+  const unsigned int myid =
+    dealii::Utilities::MPI::this_mpi_process(communicator);
+
+  dealii::TrilinosWrappers::BlockSparsityPattern bdsp(owned_partitioning,
+                                                      owned_partitioning,
+                                                      relevant_partitioning,
+                                                      communicator);
+
+  dealii::DoFTools::make_sparsity_pattern(
+    dof_handler, coupling, bdsp, constraints, false, myid);
+
+  bdsp.compress();
+  system_matrix.reinit(bdsp);
+}
 
 #else
 
@@ -121,12 +244,10 @@ struct dealiiTrilinos
 struct PETSc
 {
   // petsc has no dedicated sparsitypattern class
-  // TODO: maybe use SparsityPattern instead of DynamicSparsityPattern here?
   using SparsityPattern = dealii::DynamicSparsityPattern;
   using SparseMatrix    = dealii::PETScWrappers::MPI::SparseMatrix;
   using Vector          = dealii::PETScWrappers::MPI::Vector;
 
-  // TODO: maybe use SparsityPattern instead of DynamicSparsityPattern here?
   using BlockSparsityPattern = dealii::BlockDynamicSparsityPattern;
   using BlockSparseMatrix    = dealii::PETScWrappers::MPI::BlockSparseMatrix;
   using BlockVector          = dealii::PETScWrappers::MPI::BlockVector;

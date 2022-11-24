@@ -391,30 +391,12 @@ namespace Stokes
           else
             coupling[c][d] = DoFTools::none;
 
-      // Implement variant for Petsc: use
-      // - BlockDynamicSparsityPattern
-      // - DoFTools::make_sparsity_pattern
-      // - SparsityTools::distribute_sparsity_pattern
-      TrilinosWrappers::BlockSparsityPattern sp(owned_partitioning,
-                                                owned_partitioning,
-                                                relevant_partitioning,
-                                                mpi_communicator);
-
-      {
-        TimerOutput::Scope t(getTimer(), "make_sparsity_patterns");
-
-        DoFTools::make_sparsity_pattern(dof_handler,
-                                        coupling,
-                                        sp,
-                                        constraints,
-                                        false,
-                                        Utilities::MPI::this_mpi_process(
-                                          mpi_communicator));
-      }
-
-      sp.compress();
-
-      system_matrix.reinit(sp);
+      initialize_block_sparse_matrix(system_matrix,
+                                     dof_handler,
+                                     constraints,
+                                     owned_partitioning,
+                                     relevant_partitioning,
+                                     coupling);
     }
 
     {
@@ -430,30 +412,12 @@ namespace Stokes
           else
             coupling[c][d] = DoFTools::none;
 
-      // Implement variant for Petsc: use
-      // - BlockDynamicSparsityPattern
-      // - DoFTools::make_sparsity_pattern
-      // - SparsityTools::distribute_sparsity_pattern
-      TrilinosWrappers::BlockSparsityPattern sp(owned_partitioning,
-                                                owned_partitioning,
-                                                relevant_partitioning,
-                                                mpi_communicator);
-
-      {
-        TimerOutput::Scope t(getTimer(), "make_sparsity_patterns");
-
-        DoFTools::make_sparsity_pattern(dof_handler,
-                                        coupling,
-                                        sp,
-                                        constraints,
-                                        false,
-                                        Utilities::MPI::this_mpi_process(
-                                          mpi_communicator));
-      }
-
-      sp.compress();
-
-      preconditioner_matrix.reinit(sp);
+      initialize_block_sparse_matrix(preconditioner_matrix,
+                                     dof_handler,
+                                     constraints,
+                                     owned_partitioning,
+                                     relevant_partitioning,
+                                     coupling);
     }
   }
 
