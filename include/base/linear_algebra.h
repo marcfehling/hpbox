@@ -28,7 +28,7 @@
 #include <deal.II/lac/affine_constraints.h>
 #include <deal.II/lac/block_sparsity_pattern.h>
 #include <deal.II/lac/dynamic_sparsity_pattern.h>
-// #include <deal.II/lac/la_parallel_block_vector.h>
+#include <deal.II/lac/la_parallel_block_vector.h>
 #include <deal.II/lac/la_parallel_vector.h>
 #include <deal.II/lac/solver_cg.h>
 #include <deal.II/lac/sparsity_tools.h>
@@ -133,8 +133,9 @@ struct Trilinos
   using BlockSparseMatrix    = dealii::TrilinosWrappers::BlockSparseMatrix;
   using BlockVector          = dealii::TrilinosWrappers::MPI::BlockVector;
 
-  using PreconditionAMG = dealii::TrilinosWrappers::PreconditionAMG;
-  using SolverCG        = dealii::TrilinosWrappers::SolverCG;
+  using PreconditionAMG    = dealii::TrilinosWrappers::PreconditionAMG;
+  using PreconditionJacobi = dealii::TrilinosWrappers::PreconditionJacobi;
+  using SolverCG           = dealii::TrilinosWrappers::SolverCG;
 };
 
 /**
@@ -151,12 +152,11 @@ struct dealiiTrilinos
 
   using BlockSparsityPattern = dealii::TrilinosWrappers::BlockSparsityPattern;
   using BlockSparseMatrix    = dealii::TrilinosWrappers::BlockSparseMatrix;
-  using BlockVector          = dealii::TrilinosWrappers::MPI::BlockVector;
-  // using BlockVector =
-  // dealii::LinearAlgebra::distributed::BlockVector<double>;
+  using BlockVector = dealii::LinearAlgebra::distributed::BlockVector<double>;
 
-  using PreconditionAMG = dealii::TrilinosWrappers::PreconditionAMG;
-  using SolverCG        = dealii::SolverCG<Vector>;
+  using PreconditionAMG    = dealii::TrilinosWrappers::PreconditionAMG;
+  using PreconditionJacobi = dealii::TrilinosWrappers::PreconditionJacobi;
+  using SolverCG           = dealii::SolverCG<Vector>;
 };
 
 template <int dim, int spacedim>
@@ -252,8 +252,9 @@ struct PETSc
   using BlockSparseMatrix    = dealii::PETScWrappers::MPI::BlockSparseMatrix;
   using BlockVector          = dealii::PETScWrappers::MPI::BlockVector;
 
-  using PreconditionAMG = dealii::PETScWrappers::PreconditionBoomerAMG;
-  using SolverCG        = dealii::PETScWrappers::SolverCG;
+  using PreconditionAMG    = dealii::PETScWrappers::PreconditionBoomerAMG;
+  using PreconditionJacobi = dealii::PETScWrappers::PreconditionJacobi;
+  using SolverCG           = dealii::PETScWrappers::SolverCG;
 };
 
 #else

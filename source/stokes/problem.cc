@@ -44,15 +44,16 @@ using namespace dealii;
 
 namespace LinearSolvers
 {
-  template <class PreconditionerTypeA, class PreconditionerTypeMp>
+  template <typename LinearAlgebra>
   class BlockSchurPreconditioner : public Subscriptor
   {
   public:
-    BlockSchurPreconditioner(const TrilinosWrappers::BlockSparseMatrix &S,
-                             const TrilinosWrappers::BlockSparseMatrix &Spre,
-                             const PreconditionerTypeMp &Mppreconditioner,
-                             const PreconditionerTypeA  &Apreconditioner,
-                             const bool                  do_solve_A)
+    BlockSchurPreconditioner(
+      const typename LinearAlgebra::BlockSparseMatrix  &S,
+      const typename LinearAlgebra::BlockSparseMatrix  &Spre,
+      const typename LinearAlgebra::PreconditionJacobi &Mppreconditioner,
+      const typename LinearAlgebra::PreconditionAMG    &Apreconditioner,
+      const bool                                        do_solve_A)
       : stokes_matrix(&S)
       , stokes_preconditioner_matrix(&Spre)
       , mp_preconditioner(Mppreconditioner)
@@ -61,15 +62,15 @@ namespace LinearSolvers
     {}
 
     void
-    vmult(TrilinosWrappers::MPI::BlockVector       &dst,
-          const TrilinosWrappers::MPI::BlockVector &src) const
+    vmult(typename LinearAlgebra::BlockVector       &dst,
+          const typename LinearAlgebra::BlockVector &src) const
     {
-      TrilinosWrappers::MPI::Vector utmp(src.block(0));
+      typename LinearAlgebra::Vector utmp(src.block(0));
 
       {
         SolverControl solver_control(5000, 1e-6 * src.block(1).l2_norm());
 
-        SolverCG<TrilinosWrappers::MPI::Vector> solver(solver_control);
+        SolverCG<typename LinearAlgebra::Vector> solver(solver_control);
 
         solver.solve(stokes_preconditioner_matrix->block(1, 1),
                      dst.block(1),
@@ -82,13 +83,13 @@ namespace LinearSolvers
       {
         stokes_matrix->block(0, 1).vmult(utmp, dst.block(1));
         utmp *= -1.0;
-        utmp.add(src.block(0));
+        utmp += src.block(0);
       }
 
       if (do_solve_A == true)
         {
           SolverControl solver_control(5000, utmp.l2_norm() * 1e-2);
-          TrilinosWrappers::SolverCG solver(solver_control);
+          typename LinearAlgebra::SolverCG solver(solver_control);
           solver.solve(stokes_matrix->block(0, 0),
                        dst.block(0),
                        utmp,
@@ -99,12 +100,13 @@ namespace LinearSolvers
     }
 
   private:
-    const SmartPointer<const TrilinosWrappers::BlockSparseMatrix> stokes_matrix;
-    const SmartPointer<const TrilinosWrappers::BlockSparseMatrix>
-                                stokes_preconditioner_matrix;
-    const PreconditionerTypeMp &mp_preconditioner;
-    const PreconditionerTypeA  &a_preconditioner;
-    const bool                  do_solve_A;
+    const SmartPointer<const typename LinearAlgebra::BlockSparseMatrix>
+      stokes_matrix;
+    const SmartPointer<const typename LinearAlgebra::BlockSparseMatrix>
+      stokes_preconditioner_matrix;
+    const typename LinearAlgebra::PreconditionJacobi &mp_preconditioner;
+    const typename LinearAlgebra::PreconditionAMG    &a_preconditioner;
+    const bool                                        do_solve_A;
   };
 } // namespace LinearSolvers
 
@@ -601,15 +603,29 @@ namespace Stokes
                                      constant_modes);
 
 
-    TrilinosWrappers::PreconditionJacobi Mp_preconditioner;
-    TrilinosWrappers::PreconditionAMG    Amg_preconditioner;
+    typename LinearAlgebra::PreconditionJacobi Mp_preconditioner;
+    typename LinearAlgebra::PreconditionAMG    Amg_preconditioner;
 
-    TrilinosWrappers::PreconditionAMG::AdditionalData Amg_data;
-    Amg_data.constant_modes        = constant_modes;
-    Amg_data.elliptic              = true;
-    Amg_data.higher_order_elements = true;
-    Amg_data.smoother_sweeps       = 2;
-    Amg_data.aggregation_threshold = 0.02;
+    typename LinearAlgebra::PreconditionAMG::AdditionalData Amg_data;
+    if constexpr (std::is_same<LinearAlgebra, PETSc>::value)
+      {
+        Amg_data.symmetric_operator = true;
+        Amg_data.n_sweeps_coarse    = 2;
+        Amg_data.strong_threshold   = 0.02;
+      }
+    else if constexpr (std::is_same<LinearAlgebra, Trilinos>::value ||
+                       std::is_same<LinearAlgebra, dealiiTrilinos>::value)
+      {
+        Amg_data.constant_modes        = constant_modes;
+        Amg_data.elliptic              = true;
+        Amg_data.higher_order_elements = true;
+        Amg_data.smoother_sweeps       = 2;
+        Amg_data.aggregation_threshold = 0.02;
+      }
+    else
+      {
+        Assert(false, dealii::ExcNotImplemented());
+      }
 
 
     Mp_preconditioner.initialize(preconditioner_matrix.block(1, 1));
@@ -623,9 +639,7 @@ namespace Stokes
 
 
     {
-      const LinearSolvers::BlockSchurPreconditioner<
-        TrilinosWrappers::PreconditionAMG,
-        TrilinosWrappers::PreconditionJacobi>
+      const LinearSolvers::BlockSchurPreconditioner<LinearAlgebra>
         preconditioner(system_matrix,
                        preconditioner_matrix,
                        Mp_preconditioner,
@@ -635,12 +649,12 @@ namespace Stokes
       SolverControl solver_control_refined(system_matrix.m(),
                                            1e-8 * system_rhs.l2_norm());
 
-      PrimitiveVectorMemory<TrilinosWrappers::MPI::BlockVector> mem;
+      PrimitiveVectorMemory<typename LinearAlgebra::BlockVector> mem;
 
-      SolverFGMRES<TrilinosWrappers::MPI::BlockVector> solver(
-        solver_control_refined,
-        mem,
-        SolverFGMRES<TrilinosWrappers::MPI::BlockVector>::AdditionalData(50));
+      typename SolverFGMRES<typename LinearAlgebra::BlockVector>::AdditionalData
+                                                        fgmres_data(50);
+      SolverFGMRES<typename LinearAlgebra::BlockVector> solver(
+        solver_control_refined, mem, fgmres_data);
 
       solver.solve(system_matrix,
                    completely_distributed_solution,

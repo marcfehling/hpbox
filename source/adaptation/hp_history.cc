@@ -276,6 +276,9 @@ namespace Adaptation
 
 
   // explicit instantiations
+  // clang-format off
+  template class hpHistory<2, LinearAlgebra::distributed::BlockVector<double>, 2>;
+  template class hpHistory<3, LinearAlgebra::distributed::BlockVector<double>, 3>;
   template class hpHistory<2, LinearAlgebra::distributed::Vector<double>, 2>;
   template class hpHistory<3, LinearAlgebra::distributed::Vector<double>, 3>;
 
@@ -292,5 +295,6 @@ namespace Adaptation
   template class hpHistory<2, PETScWrappers::MPI::Vector, 2>;
   template class hpHistory<3, PETScWrappers::MPI::Vector, 3>;
 #endif
+  // clang-format on
 
 } // namespace Adaptation
