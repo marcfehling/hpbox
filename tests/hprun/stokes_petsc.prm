@@ -1,0 +1,27 @@
+subsection adaptation
+  set max degree                           = 5
+  set max difference of polynomial degrees = 1
+  set max level                            = 8
+  set min degree                           = 3
+  set min level                            = 5
+  set n cycles                             = 3
+  set p-coarsen fraction                   = 0.5
+  set p-refine fraction                    = 0.5
+  set total coarsen fraction               = 0.03
+  set total refine fraction                = 0.3
+  set weighting exponent                   = 1
+  set weighting factor                     = 1
+end
+subsection problem
+  set adaptation type         = hp Legendre
+  set checkpoint each n steps = 0
+  set dimension               = 2
+  set file stem               = stokes_trilinos
+  set grid type               = kovasznay
+  set linear algebra          = PETSc
+  set operator type           = MatrixBased
+  set output each n steps     = 0
+  set problem type            = Stokes
+  set resume from filename    = 
+  set solver type             = AMG
+end
