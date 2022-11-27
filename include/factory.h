@@ -55,8 +55,7 @@ namespace Factory
       return std::make_unique<Adaptation::hpHistory<dim, VectorType, spacedim>>(
         std::forward<Args>(args)...);
     else if (type == "hp Legendre")
-      return std::make_unique<
-        Adaptation::hpLegendre<dim, VectorType, spacedim>>(
+      return std::make_unique<Adaptation::hpLegendre<dim, VectorType, spacedim>>(
         std::forward<Args>(args)...);
 
     AssertThrow(false, dealii::ExcNotImplemented());
@@ -70,17 +69,13 @@ namespace Factory
   create_function(const std::string &type, Args &&...args)
   {
     if (type == "zero")
-      return std::make_unique<dealii::Functions::ZeroFunction<dim>>(
-        std::forward<Args>(args)...);
+      return std::make_unique<dealii::Functions::ZeroFunction<dim>>(std::forward<Args>(args)...);
     else if (type == "reentrant corner")
-      return std::make_unique<Function::ReentrantCorner<dim>>(
-        std::forward<Args>(args)...);
+      return std::make_unique<Function::ReentrantCorner<dim>>(std::forward<Args>(args)...);
     else if (type == "kovasznay exact")
-      return std::make_unique<Function::KovasznayExact<dim>>(
-        std::forward<Args>(args)...);
+      return std::make_unique<Function::KovasznayExact<dim>>(std::forward<Args>(args)...);
     else if (type == "kovasznay rhs")
-      return std::make_unique<Function::KovasznayRHS<dim>>(
-        std::forward<Args>(args)...);
+      return std::make_unique<Function::KovasznayRHS<dim>>(std::forward<Args>(args)...);
 
     AssertThrow(false, dealii::ExcNotImplemented());
     return std::unique_ptr<dealii::Function<dim>>();
@@ -104,20 +99,14 @@ namespace Factory
 
 
 
-  template <int dim,
-            typename LinearAlgebra,
-            int spacedim = dim,
-            typename... Args>
+  template <int dim, typename LinearAlgebra, int spacedim = dim, typename... Args>
   std::unique_ptr<OperatorBase<dim, LinearAlgebra, spacedim>>
-  create_operator(const std::string type,
-                  const std::string problem_type,
-                  Args &&...args)
+  create_operator(const std::string type, const std::string problem_type, Args &&...args)
   {
     if (type == "MatrixBased")
       {
         if (problem_type == "Poisson")
-          return std::make_unique<
-            Poisson::OperatorMatrixBased<dim, LinearAlgebra, spacedim>>(
+          return std::make_unique<Poisson::OperatorMatrixBased<dim, LinearAlgebra, spacedim>>(
             std::forward<Args>(args)...);
         else if (problem_type == "Stokes")
           AssertThrow(false, dealii::ExcNotImplemented());
@@ -127,8 +116,7 @@ namespace Factory
         if constexpr (std::is_same<LinearAlgebra, dealiiTrilinos>::value)
           {
             if (problem_type == "Poisson")
-              return std::make_unique<
-                Poisson::OperatorMatrixFree<dim, LinearAlgebra, spacedim>>(
+              return std::make_unique<Poisson::OperatorMatrixFree<dim, LinearAlgebra, spacedim>>(
                 std::forward<Args>(args)...);
             else if (problem_type == "Stokes")
               AssertThrow(false, dealii::ExcNotImplemented());
@@ -136,8 +124,7 @@ namespace Factory
         else
           {
             AssertThrow(false,
-                        dealii::ExcMessage(
-                          "MatrixFree only available with dealii & Trilinos!"));
+                        dealii::ExcMessage("MatrixFree only available with dealii & Trilinos!"));
           }
       }
 
@@ -147,10 +134,7 @@ namespace Factory
 
 
 
-  template <int dim,
-            typename LinearAlgebra,
-            int spacedim = dim,
-            typename... Args>
+  template <int dim, typename LinearAlgebra, int spacedim = dim, typename... Args>
   std::unique_ptr<ProblemBase>
   create_problem(const std::string &type, Args &&...args)
   {
@@ -178,34 +162,26 @@ namespace Factory
       {
 #ifdef DEAL_II_WITH_TRILINOS
         if (dimension == 2)
-          return create_problem<2, dealiiTrilinos, 2>(
-            type, std::forward<Args>(args)...);
+          return create_problem<2, dealiiTrilinos, 2>(type, std::forward<Args>(args)...);
         else if (dimension == 3)
-          return create_problem<3, dealiiTrilinos, 3>(
-            type, std::forward<Args>(args)...);
+          return create_problem<3, dealiiTrilinos, 3>(type, std::forward<Args>(args)...);
         else
           AssertThrow(false, dealii::ExcNotImplemented());
 #else
-        AssertThrow(false,
-                    dealii::ExcMessage(
-                      "deal.II has not been configured with Trilinos!"));
+        AssertThrow(false, dealii::ExcMessage("deal.II has not been configured with Trilinos!"));
 #endif
       }
     else if (linear_algebra == "Trilinos")
       {
 #ifdef DEAL_II_WITH_TRILINOS
         if (dimension == 2)
-          return create_problem<2, Trilinos, 2>(type,
-                                                std::forward<Args>(args)...);
+          return create_problem<2, Trilinos, 2>(type, std::forward<Args>(args)...);
         else if (dimension == 3)
-          return create_problem<3, Trilinos, 3>(type,
-                                                std::forward<Args>(args)...);
+          return create_problem<3, Trilinos, 3>(type, std::forward<Args>(args)...);
         else
           AssertThrow(false, dealii::ExcNotImplemented());
 #else
-        AssertThrow(false,
-                    dealii::ExcMessage(
-                      "deal.II has not been configured with Trilinos!"));
+        AssertThrow(false, dealii::ExcMessage("deal.II has not been configured with Trilinos!"));
 #endif
       }
     else if (linear_algebra == "PETSc")
@@ -218,9 +194,7 @@ namespace Factory
         else
           AssertThrow(false, dealii::ExcNotImplemented());
 #else
-        AssertThrow(false,
-                    dealii::ExcMessage(
-                      "deal.II has not been configured with PETSc!"));
+        AssertThrow(false, dealii::ExcMessage("deal.II has not been configured with PETSc!"));
 #endif
       }
 

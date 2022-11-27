@@ -37,8 +37,7 @@ namespace Poisson
     : mapping_collection(&mapping_collection)
     , quadrature_collection(&quadrature_collection)
   {
-    (void)
-      fe_collection; // unused, only here for matching interface to matrixbased
+    (void)fe_collection; // unused, only here for matching interface to matrixbased
   }
 
 
@@ -47,9 +46,7 @@ namespace Poisson
   OperatorMatrixFree<dim, LinearAlgebra, spacedim>::replicate() const
   {
     return std::make_unique<OperatorMatrixFree<dim, LinearAlgebra, spacedim>>(
-      *mapping_collection,
-      *quadrature_collection,
-      hp::FECollection<dim, spacedim>());
+      *mapping_collection, *quadrature_collection, hp::FECollection<dim, spacedim>());
   }
 
 
@@ -70,43 +67,31 @@ namespace Poisson
     typename MatrixFree<dim, value_type>::AdditionalData data;
     data.mapping_update_flags = update_gradients;
 
-    matrix_free.reinit(*mapping_collection,
-                       dof_handler,
-                       constraints,
-                       *quadrature_collection,
-                       data);
+    matrix_free.reinit(*mapping_collection, dof_handler, constraints, *quadrature_collection, data);
     this->initialize_dof_vector(system_rhs);
 
     {
       AffineConstraints<value_type> constraints_without_dbc;
 
       IndexSet locally_relevant_dofs;
-      DoFTools::extract_locally_relevant_dofs(dof_handler,
-                                              locally_relevant_dofs);
+      DoFTools::extract_locally_relevant_dofs(dof_handler, locally_relevant_dofs);
       constraints_without_dbc.reinit(locally_relevant_dofs);
 
-      DoFTools::make_hanging_node_constraints(dof_handler,
-                                              constraints_without_dbc);
+      DoFTools::make_hanging_node_constraints(dof_handler, constraints_without_dbc);
       constraints_without_dbc.close();
 
       VectorType b, x;
 
       MatrixFree<dim, value_type> matrix_free;
-      matrix_free.reinit(*mapping_collection,
-                         dof_handler,
-                         constraints_without_dbc,
-                         *quadrature_collection,
-                         data);
+      matrix_free.reinit(
+        *mapping_collection, dof_handler, constraints_without_dbc, *quadrature_collection, data);
 
       matrix_free.initialize_dof_vector(b);
       matrix_free.initialize_dof_vector(x);
 
       constraints.distribute(x);
 
-      matrix_free.cell_loop(&OperatorMatrixFree::do_cell_integral_range,
-                            this,
-                            b,
-                            x);
+      matrix_free.cell_loop(&OperatorMatrixFree::do_cell_integral_range, this, b, x);
 
       constraints.set_zero(b);
 
@@ -118,20 +103,17 @@ namespace Poisson
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  OperatorMatrixFree<dim, LinearAlgebra, spacedim>::vmult(
-    VectorType       &dst,
-    const VectorType &src) const
+  OperatorMatrixFree<dim, LinearAlgebra, spacedim>::vmult(VectorType       &dst,
+                                                          const VectorType &src) const
   {
-    this->matrix_free.cell_loop(
-      &OperatorMatrixFree::do_cell_integral_range, this, dst, src, true);
+    this->matrix_free.cell_loop(&OperatorMatrixFree::do_cell_integral_range, this, dst, src, true);
   }
 
 
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  OperatorMatrixFree<dim, LinearAlgebra, spacedim>::initialize_dof_vector(
-    VectorType &vec) const
+  OperatorMatrixFree<dim, LinearAlgebra, spacedim>::initialize_dof_vector(VectorType &vec) const
   {
     matrix_free.initialize_dof_vector(vec);
   }
@@ -153,8 +135,10 @@ namespace Poisson
     VectorType &diagonal) const
   {
     matrix_free.initialize_dof_vector(diagonal);
-    MatrixFreeTools::compute_diagonal(
-      matrix_free, diagonal, &OperatorMatrixFree::do_cell_integral_local, this);
+    MatrixFreeTools::compute_diagonal(matrix_free,
+                                      diagonal,
+                                      &OperatorMatrixFree::do_cell_integral_local,
+                                      this);
 
     // invert diagonal
     for (auto &i : diagonal)
@@ -176,15 +160,13 @@ namespace Poisson
                                  dof_handler,
                                  *constraints,
                                  dof_handler.locally_owned_dofs(),
-                                 DoFTools::extract_locally_relevant_dofs(
-                                   dof_handler));
+                                 DoFTools::extract_locally_relevant_dofs(dof_handler));
 
-        MatrixFreeTools::compute_matrix(
-          matrix_free,
-          *constraints,
-          system_matrix,
-          &OperatorMatrixFree::do_cell_integral_local,
-          this);
+        MatrixFreeTools::compute_matrix(matrix_free,
+                                        *constraints,
+                                        system_matrix,
+                                        &OperatorMatrixFree::do_cell_integral_local,
+                                        this);
       }
 
     return this->system_matrix;
@@ -194,9 +176,8 @@ namespace Poisson
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  OperatorMatrixFree<dim, LinearAlgebra, spacedim>::Tvmult(
-    VectorType       &dst,
-    const VectorType &src) const
+  OperatorMatrixFree<dim, LinearAlgebra, spacedim>::Tvmult(VectorType       &dst,
+                                                           const VectorType &src) const
   {
     this->vmult(dst, src);
   }

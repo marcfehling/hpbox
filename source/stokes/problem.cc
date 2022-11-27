@@ -48,12 +48,11 @@ namespace LinearSolvers
   class BlockSchurPreconditioner : public Subscriptor
   {
   public:
-    BlockSchurPreconditioner(
-      const typename LinearAlgebra::BlockSparseMatrix  &S,
-      const typename LinearAlgebra::BlockSparseMatrix  &Spre,
-      const typename LinearAlgebra::PreconditionJacobi &Mppreconditioner,
-      const typename LinearAlgebra::PreconditionAMG    &Apreconditioner,
-      const bool                                        do_solve_A)
+    BlockSchurPreconditioner(const typename LinearAlgebra::BlockSparseMatrix  &S,
+                             const typename LinearAlgebra::BlockSparseMatrix  &Spre,
+                             const typename LinearAlgebra::PreconditionJacobi &Mppreconditioner,
+                             const typename LinearAlgebra::PreconditionAMG    &Apreconditioner,
+                             const bool                                        do_solve_A)
       : stokes_matrix(&S)
       , stokes_preconditioner_matrix(&Spre)
       , mp_preconditioner(Mppreconditioner)
@@ -88,22 +87,18 @@ namespace LinearSolvers
 
       if (do_solve_A == true)
         {
-          SolverControl solver_control(5000, utmp.l2_norm() * 1e-2);
+          SolverControl                    solver_control(5000, utmp.l2_norm() * 1e-2);
           typename LinearAlgebra::SolverCG solver(solver_control);
-          solver.solve(stokes_matrix->block(0, 0),
-                       dst.block(0),
-                       utmp,
-                       a_preconditioner);
+          solver.solve(stokes_matrix->block(0, 0), dst.block(0), utmp, a_preconditioner);
         }
       else
         a_preconditioner.vmult(dst.block(0), utmp);
     }
 
   private:
+    const SmartPointer<const typename LinearAlgebra::BlockSparseMatrix> stokes_matrix;
     const SmartPointer<const typename LinearAlgebra::BlockSparseMatrix>
-      stokes_matrix;
-    const SmartPointer<const typename LinearAlgebra::BlockSparseMatrix>
-      stokes_preconditioner_matrix;
+                                                      stokes_preconditioner_matrix;
     const typename LinearAlgebra::PreconditionJacobi &mp_preconditioner;
     const typename LinearAlgebra::PreconditionAMG    &a_preconditioner;
     const bool                                        do_solve_A;
@@ -139,8 +134,7 @@ namespace Stokes
       time_t             now = time(nullptr);
       tm                *ltm = localtime(&now);
       std::ostringstream oss;
-      oss << prm.file_stem << "-" << std::put_time(ltm, "%Y%m%d-%H%M%S")
-          << ".log";
+      oss << prm.file_stem << "-" << std::put_time(ltm, "%Y%m%d-%H%M%S") << ".log";
       filename_log = oss.str();
     }
 
@@ -151,14 +145,10 @@ namespace Stokes
     Assert(prm.prm_adaptation.min_p_degree > 1,
            ExcMessage("The minimal polynomial degree must be at least 2!"));
 
-    for (unsigned int degree = 2; degree <= prm.prm_adaptation.max_p_degree;
-         ++degree)
+    for (unsigned int degree = 2; degree <= prm.prm_adaptation.max_p_degree; ++degree)
       {
-        fe_collection.push_back(
-          FESystem<dim, spacedim>(FE_Q<dim, spacedim>(degree),
-                                  dim,
-                                  FE_Q<dim, spacedim>(degree - 1),
-                                  1));
+        fe_collection.push_back(FESystem<dim, spacedim>(
+          FE_Q<dim, spacedim>(degree), dim, FE_Q<dim, spacedim>(degree - 1), 1));
         quadrature_collection.push_back(QGauss<dim>(degree + 1));
         quadrature_collection_for_errors.push_back(QGauss<dim>(degree + 2));
       }
@@ -168,14 +158,12 @@ namespace Stokes
       /*next_index=*/
       [](const typename hp::FECollection<dim> &fe_collection,
          const unsigned int                    fe_index) -> unsigned int {
-        return ((fe_index + 1) < fe_collection.size()) ? fe_index + 1 :
-                                                         fe_index;
+        return ((fe_index + 1) < fe_collection.size()) ? fe_index + 1 : fe_index;
       },
       /*previous_index=*/
       [min_fe_index](const typename hp::FECollection<dim> &,
                      const unsigned int fe_index) -> unsigned int {
-        Assert(fe_index >= min_fe_index,
-               ExcMessage("Finite element is not part of hierarchy!"));
+        Assert(fe_index >= min_fe_index, ExcMessage("Finite element is not part of hierarchy!"));
         return (fe_index > min_fe_index) ? fe_index - 1 : fe_index;
       });
 
@@ -185,12 +173,13 @@ namespace Stokes
         {
           TimerOutput::Scope t(getTimer(), "calculate_fevalues");
 
-          fe_values_collection = std::make_unique<hp::FEValues<dim, spacedim>>(
-            mapping_collection,
-            fe_collection,
-            quadrature_collection,
-            update_values | update_gradients | update_quadrature_points |
-              update_JxW_values);
+          fe_values_collection =
+            std::make_unique<hp::FEValues<dim, spacedim>>(mapping_collection,
+                                                          fe_collection,
+                                                          quadrature_collection,
+                                                          update_values | update_gradients |
+                                                            update_quadrature_points |
+                                                            update_JxW_values);
           fe_values_collection->precalculate_fe_values();
         }
 
@@ -215,9 +204,8 @@ namespace Stokes
         // solution_function = Factory::create_function<dim>("zero");
         // rhs_function      = Factory::create_function<dim>("zero");
 
-        solution_function =
-          std::make_unique<dealii::Functions::ZeroFunction<dim>>(
-            /*n_components=*/dim + 1);
+        solution_function = std::make_unique<dealii::Functions::ZeroFunction<dim>>(
+          /*n_components=*/dim + 1);
         rhs_function = std::make_unique<dealii::Functions::ZeroFunction<dim>>(
           /*n_components=*/dim + 1);
       }
@@ -228,16 +216,14 @@ namespace Stokes
 
     // choose adaptation strategy
     adaptation_strategy =
-      Factory::create_adaptation<dim,
-                                 typename LinearAlgebra::BlockVector,
-                                 spacedim>(prm.adaptation_type,
-                                           prm.prm_adaptation,
-                                           locally_relevant_solution,
-                                           fe_collection,
-                                           dof_handler,
-                                           triangulation,
-                                           fe_collection.component_mask(
-                                             pressure));
+      Factory::create_adaptation<dim, typename LinearAlgebra::BlockVector, spacedim>(
+        prm.adaptation_type,
+        prm.prm_adaptation,
+        locally_relevant_solution,
+        fe_collection,
+        dof_handler,
+        triangulation,
+        fe_collection.component_mask(pressure));
   }
 
 
@@ -268,8 +254,7 @@ namespace Stokes
 
         dof_handler.distribute_dofs(fe_collection);
 
-        triangulation.refine_global(
-          adaptation_strategy->get_n_initial_refinements());
+        triangulation.refine_global(adaptation_strategy->get_n_initial_refinements());
       }
   }
 
@@ -299,8 +284,7 @@ namespace Stokes
 
     owned_partitioning.resize(2);
     owned_partitioning[0] = dof_handler.locally_owned_dofs().get_view(0, n_u);
-    owned_partitioning[1] =
-      dof_handler.locally_owned_dofs().get_view(n_u, n_u + n_p);
+    owned_partitioning[1] = dof_handler.locally_owned_dofs().get_view(n_u, n_u + n_p);
 
     IndexSet locally_relevant_dofs;
     DoFTools::extract_locally_relevant_dofs(dof_handler, locally_relevant_dofs);
@@ -311,9 +295,7 @@ namespace Stokes
     {
       TimerOutput::Scope(getTimer(), "reinit_vectors");
 
-      locally_relevant_solution.reinit(owned_partitioning,
-                                       relevant_partitioning,
-                                       mpi_communicator);
+      locally_relevant_solution.reinit(owned_partitioning, relevant_partitioning, mpi_communicator);
       system_rhs.reinit(owned_partitioning, mpi_communicator);
     }
 
@@ -333,8 +315,7 @@ namespace Stokes
                                                    /*boundary_component=*/0,
                                                    *solution_function,
                                                    constraints,
-                                                   fe_collection.component_mask(
-                                                     velocities));
+                                                   fe_collection.component_mask(velocities));
         }
       else if (prm.grid_type == "y-pipe")
         {
@@ -344,12 +325,11 @@ namespace Stokes
 
           // flow at inlet opening 0
           // no slip on walls
-          VectorTools::interpolate_boundary_values(
-            mapping_collection,
-            dof_handler,
-            /*function_map=*/{{0, &inflow}, {3, &zero}},
-            constraints,
-            fe_collection.component_mask(velocities));
+          VectorTools::interpolate_boundary_values(mapping_collection,
+                                                   dof_handler,
+                                                   /*function_map=*/{{0, &inflow}, {3, &zero}},
+                                                   constraints,
+                                                   fe_collection.component_mask(velocities));
         }
       else
         {
@@ -506,15 +486,14 @@ namespace Stokes
     std::vector<types::global_dof_index> local_dof_indices;
     const FEValuesExtractors::Vector     velocities(0);
     const FEValuesExtractors::Scalar     pressure(dim);
-    for (const auto &cell : dof_handler.active_cell_iterators() |
-                              IteratorFilters::LocallyOwnedCell())
+    for (const auto &cell :
+         dof_handler.active_cell_iterators() | IteratorFilters::LocallyOwnedCell())
       {
         fe_values_collection->reinit(cell);
 
-        const FEValues<dim> &fe_values =
-          fe_values_collection->get_present_fe_values();
-        const unsigned int n_q_points    = fe_values.n_quadrature_points;
-        const unsigned int dofs_per_cell = fe_values.dofs_per_cell;
+        const FEValues<dim> &fe_values     = fe_values_collection->get_present_fe_values();
+        const unsigned int   n_q_points    = fe_values.n_quadrature_points;
+        const unsigned int   dofs_per_cell = fe_values.dofs_per_cell;
 
         cell_matrix.reinit(dofs_per_cell, dofs_per_cell);
         cell_matrix = 0;
@@ -532,14 +511,12 @@ namespace Stokes
         // TODO: Move this part to the problem class???
         //       Not possible...
         rhs_values.resize(n_q_points, Vector<double>(dim + 1));
-        rhs_function->vector_value_list(fe_values.get_quadrature_points(),
-                                        rhs_values);
+        rhs_function->vector_value_list(fe_values.get_quadrature_points(), rhs_values);
 
         // TODO: move to parameter
         const double viscosity = 0.1;
 
-        for (unsigned int q_point = 0; q_point < fe_values.n_quadrature_points;
-             ++q_point)
+        for (unsigned int q_point = 0; q_point < fe_values.n_quadrature_points; ++q_point)
           {
             for (unsigned int k = 0; k < dofs_per_cell; ++k)
               {
@@ -552,23 +529,18 @@ namespace Stokes
               {
                 for (unsigned int j = 0; j < dofs_per_cell; ++j)
                   {
-                    const double tmp =
-                      viscosity * scalar_product(grad_phi_u[i], grad_phi_u[j]);
+                    const double tmp = viscosity * scalar_product(grad_phi_u[i], grad_phi_u[j]);
 
-                    cell_matrix(i, j) += (tmp - div_phi_u[i] * phi_p[j] -
-                                          phi_p[i] * div_phi_u[j]) *
+                    cell_matrix(i, j) += (tmp - div_phi_u[i] * phi_p[j] - phi_p[i] * div_phi_u[j]) *
                                          fe_values.JxW(q_point);
 
                     cell_matrix2(i, j) +=
-                      (tmp + 1.0 / viscosity * phi_p[i] * phi_p[j]) *
-                      fe_values.JxW(q_point);
+                      (tmp + 1.0 / viscosity * phi_p[i] * phi_p[j]) * fe_values.JxW(q_point);
                   }
 
-                const unsigned int component_i =
-                  cell->get_fe().system_to_component_index(i).first;
+                const unsigned int component_i = cell->get_fe().system_to_component_index(i).first;
                 cell_rhs(i) += fe_values.shape_value(i, q_point) *
-                               rhs_values[q_point](component_i) *
-                               fe_values.JxW(q_point);
+                               rhs_values[q_point](component_i) * fe_values.JxW(q_point);
               }
           }
         local_dof_indices.resize(dofs_per_cell);
@@ -633,33 +605,25 @@ namespace Stokes
 
 
 
-    typename LinearAlgebra::BlockVector completely_distributed_solution(
-      owned_partitioning, mpi_communicator);
+    typename LinearAlgebra::BlockVector completely_distributed_solution(owned_partitioning,
+                                                                        mpi_communicator);
     constraints.set_zero(completely_distributed_solution);
 
 
     {
-      const LinearSolvers::BlockSchurPreconditioner<LinearAlgebra>
-        preconditioner(system_matrix,
-                       preconditioner_matrix,
-                       Mp_preconditioner,
-                       Amg_preconditioner,
-                       true);
+      const LinearSolvers::BlockSchurPreconditioner<LinearAlgebra> preconditioner(
+        system_matrix, preconditioner_matrix, Mp_preconditioner, Amg_preconditioner, true);
 
-      SolverControl solver_control_refined(system_matrix.m(),
-                                           1e-8 * system_rhs.l2_norm());
+      SolverControl solver_control_refined(system_matrix.m(), 1e-8 * system_rhs.l2_norm());
 
       PrimitiveVectorMemory<typename LinearAlgebra::BlockVector> mem;
 
-      typename SolverFGMRES<typename LinearAlgebra::BlockVector>::AdditionalData
-                                                        fgmres_data(50);
-      SolverFGMRES<typename LinearAlgebra::BlockVector> solver(
-        solver_control_refined, mem, fgmres_data);
+      typename SolverFGMRES<typename LinearAlgebra::BlockVector>::AdditionalData fgmres_data(50);
+      SolverFGMRES<typename LinearAlgebra::BlockVector> solver(solver_control_refined,
+                                                               mem,
+                                                               fgmres_data);
 
-      solver.solve(system_matrix,
-                   completely_distributed_solution,
-                   system_rhs,
-                   preconditioner);
+      solver.solve(system_matrix, completely_distributed_solution, system_rhs, preconditioner);
 
       Log::log_iterations(solver_control_refined);
     }
@@ -684,8 +648,7 @@ namespace Stokes
                                           locally_relevant_solution,
                                           dim);
         completely_distributed_solution.block(1).add(-mean_pressure);
-        locally_relevant_solution.block(1) =
-          completely_distributed_solution.block(1);
+        locally_relevant_solution.block(1) = completely_distributed_solution.block(1);
       }
   }
 
@@ -704,8 +667,7 @@ namespace Stokes
     //       because it is pressure degree + 1 and they re-use these?
 
     // velocity
-    const ComponentSelectFunction<dim> velocity_mask(std::make_pair(0, dim),
-                                                     dim + 1);
+    const ComponentSelectFunction<dim> velocity_mask(std::make_pair(0, dim), dim + 1);
     VectorTools::integrate_difference(dof_handler,
                                       locally_relevant_solution,
                                       *solution_function,
@@ -714,9 +676,7 @@ namespace Stokes
                                       VectorTools::L2_norm,
                                       &velocity_mask);
     const double L2_error_u =
-      VectorTools::compute_global_error(triangulation,
-                                        difference_per_cell,
-                                        VectorTools::L2_norm);
+      VectorTools::compute_global_error(triangulation, difference_per_cell, VectorTools::L2_norm);
 
     /*
     VectorTools::integrate_difference(dof_handler,
@@ -742,9 +702,7 @@ namespace Stokes
                                       VectorTools::L2_norm,
                                       &pressure_mask);
     const double L2_error_p =
-      VectorTools::compute_global_error(triangulation,
-                                        difference_per_cell,
-                                        VectorTools::L2_norm);
+      VectorTools::compute_global_error(triangulation, difference_per_cell, VectorTools::L2_norm);
 
     /*
     VectorTools::integrate_difference(dof_handler,
@@ -760,11 +718,10 @@ namespace Stokes
                                         VectorTools::H1_norm);
     */
 
-    getPCOut()
-      << "   L2 error velocity:            " << L2_error_u
-      << std::endl
-      // << "   H1 error velocity:            " << H1_error_u << std::endl
-      << "   L2 error pressure:            " << L2_error_p << std::endl;
+    getPCOut() << "   L2 error velocity:            " << L2_error_u
+               << std::endl
+               // << "   H1 error velocity:            " << H1_error_u << std::endl
+               << "   L2 error pressure:            " << L2_error_p << std::endl;
     // << "   H1 error pressure:            " << H1_error_p << std::endl;
 
     TableHandler &table = getTable();
@@ -800,10 +757,8 @@ namespace Stokes
     solution_names.emplace_back("pressure");
 
     std::vector<DataComponentInterpretation::DataComponentInterpretation>
-      data_component_interpretation(
-        dim, DataComponentInterpretation::component_is_part_of_vector);
-    data_component_interpretation.push_back(
-      DataComponentInterpretation::component_is_scalar);
+      data_component_interpretation(dim, DataComponentInterpretation::component_is_part_of_vector);
+    data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
 
     DataOut<dim> data_out;
     data_out.attach_dof_handler(dof_handler);
@@ -816,11 +771,9 @@ namespace Stokes
     data_out.add_data_vector(subdomain, "subdomain");
 
     if (adaptation_strategy->get_error_estimates().size() > 0)
-      data_out.add_data_vector(adaptation_strategy->get_error_estimates(),
-                               "error");
+      data_out.add_data_vector(adaptation_strategy->get_error_estimates(), "error");
     if (adaptation_strategy->get_hp_indicators().size() > 0)
-      data_out.add_data_vector(adaptation_strategy->get_hp_indicators(),
-                               "hp_indicator");
+      data_out.add_data_vector(adaptation_strategy->get_hp_indicators(), "hp_indicator");
 
     // TODO: Placeholder for interpolation of correct solution?
     //       Is this necessary???
@@ -844,8 +797,7 @@ namespace Stokes
 
     data_out.build_patches(mapping_collection);
 
-    data_out.write_vtu_with_pvtu_record(
-      "./", prm.file_stem, cycle, mpi_communicator, 2, 1);
+    data_out.write_vtu_with_pvtu_record("./", prm.file_stem, cycle, mpi_communicator, 2, 1);
   }
 
 
@@ -867,7 +819,7 @@ namespace Stokes
     adaptation_strategy->unpack_after_serialization();
 
     // load metadata
-    std::ifstream file(prm.resume_filename + ".metadata", std::ios::binary);
+    std::ifstream                   file(prm.resume_filename + ".metadata", std::ios::binary);
     boost::archive::binary_iarchive ia(file);
     ia >> cycle;
   }
@@ -888,7 +840,7 @@ namespace Stokes
     triangulation.save(filename);
 
     // write metadata
-    std::ofstream file(filename + ".metadata", std::ios::binary);
+    std::ofstream                   file(filename + ".metadata", std::ios::binary);
     boost::archive::binary_oarchive oa(file);
     oa << cycle;
 
@@ -916,8 +868,7 @@ namespace Stokes
             {
               adaptation_strategy->refine();
 
-              if ((prm.checkpoint_frequency > 0) &&
-                  (cycle % prm.checkpoint_frequency == 0))
+              if ((prm.checkpoint_frequency > 0) && (cycle % prm.checkpoint_frequency == 0))
                 write_to_checkpoint();
             }
 

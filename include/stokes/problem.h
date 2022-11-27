@@ -81,7 +81,7 @@ namespace Stokes
     dealii::hp::MappingCollection<dim, spacedim> mapping_collection;
     dealii::hp::FECollection<dim, spacedim>      fe_collection;
     dealii::hp::QCollection<dim>                 quadrature_collection;
-    dealii::hp::QCollection<dim> quadrature_collection_for_errors;
+    dealii::hp::QCollection<dim>                 quadrature_collection_for_errors;
 
     std::unique_ptr<dealii::hp::FEValues<dim, spacedim>> fe_values_collection;
     std::unique_ptr<Adaptation::Base>                    adaptation_strategy;

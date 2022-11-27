@@ -32,13 +32,12 @@ namespace Poisson
 {
   template <int dim, typename LinearAlgebra, int spacedim = dim>
   void
-  solve_gmg(
-    dealii::SolverControl                             &solver_control,
-    const OperatorBase<dim, LinearAlgebra, spacedim>  &poisson_operator,
-    typename LinearAlgebra::Vector                    &dst,
-    const typename LinearAlgebra::Vector              &src,
-    const dealii::hp::MappingCollection<dim, spacedim> mapping_collection,
-    const dealii::DoFHandler<dim, spacedim>           &dof_handler)
+  solve_gmg(dealii::SolverControl                             &solver_control,
+            const OperatorBase<dim, LinearAlgebra, spacedim>  &poisson_operator,
+            typename LinearAlgebra::Vector                    &dst,
+            const typename LinearAlgebra::Vector              &src,
+            const dealii::hp::MappingCollection<dim, spacedim> mapping_collection,
+            const dealii::DoFHandler<dim, spacedim>           &dof_handler)
   {
     using namespace dealii;
 
@@ -48,22 +47,18 @@ namespace Poisson
 
     // Create a DoFHandler and operator for each multigrid level defined
     // by p-coarsening, as well as, create transfer operators.
-    MGLevelObject<DoFHandler<dim, spacedim>> dof_handlers;
-    MGLevelObject<std::unique_ptr<OperatorBase<dim, LinearAlgebra, spacedim>>>
-                                                       operators;
-    MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> transfers;
+    MGLevelObject<DoFHandler<dim, spacedim>>                                   dof_handlers;
+    MGLevelObject<std::unique_ptr<OperatorBase<dim, LinearAlgebra, spacedim>>> operators;
+    MGLevelObject<MGTwoLevelTransfer<dim, VectorType>>                         transfers;
 
-    std::vector<std::shared_ptr<const Triangulation<dim, spacedim>>>
-      coarse_grid_triangulations;
+    std::vector<std::shared_ptr<const Triangulation<dim, spacedim>>> coarse_grid_triangulations;
     if (mg_data.transfer.perform_h_transfer)
       coarse_grid_triangulations =
         MGTransferGlobalCoarseningTools::create_geometric_coarsening_sequence(
           dof_handler.get_triangulation());
     else
       coarse_grid_triangulations.emplace_back(
-        const_cast<Triangulation<dim, spacedim> *>(
-          &(dof_handler.get_triangulation())),
-        [](auto &) {
+        const_cast<Triangulation<dim, spacedim> *>(&(dof_handler.get_triangulation())), [](auto &) {
           // empty deleter, since fine_triangulation_in is an external field
           // and its destructor is called somewhere else
         });
@@ -76,8 +71,7 @@ namespace Poisson
 
       for (auto &cell : dof_handler.active_cell_iterators())
         if (cell->is_locally_owned())
-          max =
-            std::max(max, dof_handler.get_fe(cell->active_fe_index()).degree);
+          max = std::max(max, dof_handler.get_fe(cell->active_fe_index()).degree);
 
       return Utilities::MPI::max(max, MPI_COMM_WORLD);
     };
@@ -140,12 +134,9 @@ namespace Poisson
                 if (cell->is_locally_owned())
                   {
                     const unsigned int next_degree =
-                      MGTransferGlobalCoarseningTools::
-                        create_next_polynomial_coarsening_degree(
-                          cell_other->get_fe().degree,
-                          mg_data.transfer.p_sequence);
-                    Assert(fe_index_for_degree.find(next_degree) !=
-                             fe_index_for_degree.end(),
+                      MGTransferGlobalCoarseningTools::create_next_polynomial_coarsening_degree(
+                        cell_other->get_fe().degree, mg_data.transfer.p_sequence);
+                    Assert(fe_index_for_degree.find(next_degree) != fe_index_for_degree.end(),
                            ExcMessage("Next polynomial degree in sequence "
                                       "does not exist in FECollection."));
 
@@ -159,8 +150,8 @@ namespace Poisson
       }
 
     // Create data structures on each multigrid level.
-    MGLevelObject<AffineConstraints<typename VectorType::value_type>>
-      constraints(minlevel, maxlevel);
+    MGLevelObject<AffineConstraints<typename VectorType::value_type>> constraints(minlevel,
+                                                                                  maxlevel);
 
     for (unsigned int level = minlevel; level <= maxlevel; level++)
       {
@@ -170,18 +161,13 @@ namespace Poisson
         // ... constraints (with homogenous Dirichlet BC)
         {
           IndexSet locally_relevant_dofs;
-          DoFTools::extract_locally_relevant_dofs(dof_handler,
-                                                  locally_relevant_dofs);
+          DoFTools::extract_locally_relevant_dofs(dof_handler, locally_relevant_dofs);
           constraint.reinit(locally_relevant_dofs);
 
 
           DoFTools::make_hanging_node_constraints(dof_handler, constraint);
           VectorTools::interpolate_boundary_values(
-            mapping_collection,
-            dof_handler,
-            0,
-            Functions::ZeroFunction<dim>(),
-            constraint);
+            mapping_collection, dof_handler, 0, Functions::ZeroFunction<dim>(), constraint);
           constraint.close();
         }
 
@@ -209,20 +195,12 @@ namespace Poisson
 
     // Collect transfer operators within a single operator as needed by
     // the Multigrid solver class.
-    MGTransferGlobalCoarsening<dim, VectorType> transfer(
-      transfers, [&](const auto l, auto &vec) {
-        operators[l]->initialize_dof_vector(vec);
-      });
+    MGTransferGlobalCoarsening<dim, VectorType> transfer(transfers, [&](const auto l, auto &vec) {
+      operators[l]->initialize_dof_vector(vec);
+    });
 
     // Proceed to solve the problem with multigrid.
-    mg_solve(solver_control,
-             dst,
-             src,
-             mg_data,
-             dof_handler,
-             poisson_operator,
-             operators,
-             transfer);
+    mg_solve(solver_control, dst, src, mg_data, dof_handler, poisson_operator, operators, transfer);
   }
 } // namespace Poisson
 

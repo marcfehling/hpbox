@@ -40,14 +40,12 @@ namespace Adaptation
   class hpHistory : public Base
   {
   public:
-    hpHistory(
-      const Parameter                               &prm,
-      const VectorType                              &locally_relevant_solution,
-      const dealii::hp::FECollection<dim, spacedim> &fe_collection,
-      dealii::DoFHandler<dim, spacedim>             &dof_handler,
-      dealii::parallel::distributed::Triangulation<dim, spacedim>
-                                  &triangulation,
-      const dealii::ComponentMask &component_mask = dealii::ComponentMask());
+    hpHistory(const Parameter                               &prm,
+              const VectorType                              &locally_relevant_solution,
+              const dealii::hp::FECollection<dim, spacedim> &fe_collection,
+              dealii::DoFHandler<dim, spacedim>             &dof_handler,
+              dealii::parallel::distributed::Triangulation<dim, spacedim> &triangulation,
+              const dealii::ComponentMask &component_mask = dealii::ComponentMask());
 
     virtual void
     estimate_mark() override;
@@ -72,18 +70,16 @@ namespace Adaptation
   protected:
     const Parameter &prm;
 
-    const dealii::SmartPointer<const VectorType> locally_relevant_solution;
+    const dealii::SmartPointer<const VectorType>                  locally_relevant_solution;
     const dealii::SmartPointer<dealii::DoFHandler<dim, spacedim>> dof_handler;
-    const dealii::SmartPointer<
-      dealii::parallel::distributed::Triangulation<dim, spacedim>>
+    const dealii::SmartPointer<dealii::parallel::distributed::Triangulation<dim, spacedim>>
       triangulation;
 
     const dealii::ComponentMask component_mask;
 
     dealii::parallel::CellWeights<dim, spacedim> cell_weights;
 
-    dealii::parallel::distributed::
-      CellDataTransfer<dim, spacedim, dealii::Vector<float>>
+    dealii::parallel::distributed::CellDataTransfer<dim, spacedim, dealii::Vector<float>>
          data_transfer;
     bool init_step;
 

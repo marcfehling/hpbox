@@ -26,10 +26,9 @@
 // in the Stokes implementation, it would be helpful when we can distinguish
 // between Vector/BlockVector and SparseMatrix/BlockSparseMatrix
 template <int dim, typename LinearAlgebra, int spacedim = dim>
-class OperatorBase
-  : public dealii::MGSolverOperatorBase<dim,
-                                        typename LinearAlgebra::Vector,
-                                        typename LinearAlgebra::SparseMatrix>
+class OperatorBase : public dealii::MGSolverOperatorBase<dim,
+                                                         typename LinearAlgebra::Vector,
+                                                         typename LinearAlgebra::SparseMatrix>
 {
 public:
   using VectorType = typename LinearAlgebra::Vector;

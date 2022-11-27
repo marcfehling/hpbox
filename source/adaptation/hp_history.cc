@@ -49,18 +49,15 @@ namespace Adaptation
     , cell_weights(dof_handler,
                    parallel::CellWeights<dim>::ndofs_weighting(
                      {prm.weighting_factor, prm.weighting_exponent}))
-    , data_transfer(
-        triangulation,
-        /*transfer_variable_size_data=*/false,
-        &AdaptationStrategies::Refinement::l2_norm<dim, spacedim, float>,
-        &AdaptationStrategies::Coarsening::l2_norm<dim, spacedim, float>)
+    , data_transfer(triangulation,
+                    /*transfer_variable_size_data=*/false,
+                    &AdaptationStrategies::Refinement::l2_norm<dim, spacedim, float>,
+                    &AdaptationStrategies::Coarsening::l2_norm<dim, spacedim, float>)
     , init_step(true)
   {
-    Assert(prm.min_h_level > 0,
-           ExcMessage("This strategy requires an initial h-refinement."));
+    Assert(prm.min_h_level > 0, ExcMessage("This strategy requires an initial h-refinement."));
     Assert(prm.min_h_level <= prm.max_h_level,
-           ExcMessage(
-             "Triangulation level limits have been incorrectly set up."));
+           ExcMessage("Triangulation level limits have been incorrectly set up."));
     Assert(prm.min_p_degree <= prm.max_p_degree,
            ExcMessage("FECollection degrees have been incorrectly set up."));
 
@@ -71,31 +68,28 @@ namespace Adaptation
     if (prm.max_p_level_difference > 0)
       {
         const unsigned int min_fe_index = prm.min_p_degree - 1;
-        triangulation.signals.post_p4est_refinement.connect(
-          [&, min_fe_index]() {
-            const parallel::distributed::TemporarilyMatchRefineFlags<dim,
-                                                                     spacedim>
-              refine_modifier(triangulation);
+        triangulation.signals.post_p4est_refinement.connect([&, min_fe_index]() {
+          const parallel::distributed::TemporarilyMatchRefineFlags<dim, spacedim> refine_modifier(
+            triangulation);
 
-            hp::Refinement::limit_p_level_difference(dof_handler,
-                                                     prm.max_p_level_difference,
-                                                     /*contains=*/min_fe_index);
+          hp::Refinement::limit_p_level_difference(dof_handler,
+                                                   prm.max_p_level_difference,
+                                                   /*contains=*/min_fe_index);
 
-            error_predictions.grow_or_shrink(triangulation.n_active_cells());
-            hp::Refinement::predict_error(dof_handler,
-                                          error_estimates,
-                                          error_predictions,
-                                          /*gamma_p=*/std::sqrt(0.4),
-                                          /*gamma_h=*/2.,
-                                          /*gamma_n=*/1.);
-          });
+          error_predictions.grow_or_shrink(triangulation.n_active_cells());
+          hp::Refinement::predict_error(dof_handler,
+                                        error_estimates,
+                                        error_predictions,
+                                        /*gamma_p=*/std::sqrt(0.4),
+                                        /*gamma_h=*/2.,
+                                        /*gamma_n=*/1.);
+        });
       }
     else
       {
         triangulation.signals.post_p4est_refinement.connect([&]() {
-          const parallel::distributed::TemporarilyMatchRefineFlags<dim,
-                                                                   spacedim>
-            refine_modifier(triangulation);
+          const parallel::distributed::TemporarilyMatchRefineFlags<dim, spacedim> refine_modifier(
+            triangulation);
 
           error_predictions.grow_or_shrink(triangulation.n_active_cells());
           hp::Refinement::predict_error(dof_handler,
@@ -146,10 +140,7 @@ namespace Adaptation
       {
         // flag cells
         parallel::distributed::GridRefinement::refine_and_coarsen_fixed_number(
-          *triangulation,
-          error_estimates,
-          prm.total_refine_fraction,
-          prm.total_coarsen_fraction);
+          *triangulation, error_estimates, prm.total_refine_fraction, prm.total_coarsen_fraction);
 
         // hp-indicators
         hp_indicators.grow_or_shrink(triangulation->n_active_cells());
@@ -158,8 +149,7 @@ namespace Adaptation
           hp_indicators(i) = error_predictions(i) - error_estimates(i);
 
         const float global_minimum =
-          Utilities::MPI::min(*std::min_element(hp_indicators.begin(),
-                                                hp_indicators.end()),
+          Utilities::MPI::min(*std::min_element(hp_indicators.begin(), hp_indicators.end()),
                               triangulation->get_communicator());
         if (global_minimum <= 0)
           {
@@ -182,12 +172,10 @@ namespace Adaptation
                ExcInternalError());
 
         if (triangulation->n_levels() > prm.max_h_level)
-          for (const auto &cell :
-               triangulation->active_cell_iterators_on_level(prm.max_h_level))
+          for (const auto &cell : triangulation->active_cell_iterators_on_level(prm.max_h_level))
             cell->clear_refine_flag();
 
-        for (const auto &cell :
-             triangulation->active_cell_iterators_on_level(prm.min_h_level))
+        for (const auto &cell : triangulation->active_cell_iterators_on_level(prm.min_h_level))
           cell->clear_coarsen_flag();
       }
   }
@@ -220,8 +208,7 @@ namespace Adaptation
   hpHistory<dim, VectorType, spacedim>::prepare_for_serialization()
   {
     Assert(init_step == false,
-           ExcMessage(
-             "Initialization step must be completed before serialization!"));
+           ExcMessage("Initialization step must be completed before serialization!"));
     data_transfer.prepare_for_serialization(error_predictions);
   }
 
@@ -276,7 +263,6 @@ namespace Adaptation
 
 
   // explicit instantiations
-  // clang-format off
   template class hpHistory<2, LinearAlgebra::distributed::BlockVector<double>, 2>;
   template class hpHistory<3, LinearAlgebra::distributed::BlockVector<double>, 3>;
   template class hpHistory<2, LinearAlgebra::distributed::Vector<double>, 2>;
@@ -295,6 +281,5 @@ namespace Adaptation
   template class hpHistory<2, PETScWrappers::MPI::Vector, 2>;
   template class hpHistory<3, PETScWrappers::MPI::Vector, 3>;
 #endif
-  // clang-format on
 
 } // namespace Adaptation

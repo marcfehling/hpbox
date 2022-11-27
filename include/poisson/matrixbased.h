@@ -33,15 +33,13 @@ namespace Poisson
     using VectorType = typename LinearAlgebra::Vector;
     using value_type = typename VectorType::value_type;
 
-    OperatorMatrixBased(
-      const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
-      const dealii::hp::QCollection<dim>                 &quadrature_collection,
-      const dealii::hp::FECollection<dim, spacedim>      &fe_collection);
+    OperatorMatrixBased(const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
+                        const dealii::hp::QCollection<dim>                 &quadrature_collection,
+                        const dealii::hp::FECollection<dim, spacedim>      &fe_collection);
 
-    OperatorMatrixBased(
-      const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
-      const dealii::hp::QCollection<dim>                 &quadrature_collection,
-      const dealii::hp::FEValues<dim, spacedim>          &fe_values_collection);
+    OperatorMatrixBased(const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
+                        const dealii::hp::QCollection<dim>                 &quadrature_collection,
+                        const dealii::hp::FEValues<dim, spacedim>          &fe_values_collection);
 
     std::unique_ptr<OperatorBase<dim, LinearAlgebra, spacedim>>
     replicate() const override;
@@ -72,10 +70,8 @@ namespace Poisson
   private:
     // const Parameters &prm;
 
-    dealii::SmartPointer<const dealii::hp::MappingCollection<dim, spacedim>>
-      mapping_collection;
-    dealii::SmartPointer<const dealii::hp::QCollection<dim>>
-      quadrature_collection;
+    dealii::SmartPointer<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
+    dealii::SmartPointer<const dealii::hp::QCollection<dim>>                 quadrature_collection;
 
     // TODO: Add RHS function to constructor
     //       Grab and set as RHS in reinit

@@ -50,8 +50,7 @@ namespace Adaptation
                      {prm.weighting_factor, prm.weighting_exponent}))
   {
     Assert(prm.min_h_level <= prm.max_h_level,
-           ExcMessage(
-             "Triangulation level limits have been incorrectly set up."));
+           ExcMessage("Triangulation level limits have been incorrectly set up."));
     Assert(prm.min_p_degree <= prm.max_p_degree,
            ExcMessage("FECollection degrees have been incorrectly set up."));
 
@@ -62,15 +61,13 @@ namespace Adaptation
     if (prm.max_p_level_difference > 0)
       {
         const unsigned int min_fe_index = prm.min_p_degree - 1;
-        triangulation.signals.post_p4est_refinement.connect(
-          [&, min_fe_index]() {
-            const parallel::distributed::TemporarilyMatchRefineFlags<dim,
-                                                                     spacedim>
-              refine_modifier(triangulation);
-            hp::Refinement::limit_p_level_difference(dof_handler,
-                                                     prm.max_p_level_difference,
-                                                     /*contains=*/min_fe_index);
-          });
+        triangulation.signals.post_p4est_refinement.connect([&, min_fe_index]() {
+          const parallel::distributed::TemporarilyMatchRefineFlags<dim, spacedim> refine_modifier(
+            triangulation);
+          hp::Refinement::limit_p_level_difference(dof_handler,
+                                                   prm.max_p_level_difference,
+                                                   /*contains=*/min_fe_index);
+        });
       }
   }
 
@@ -101,10 +98,7 @@ namespace Adaptation
 
     // flag cells
     parallel::distributed::GridRefinement::refine_and_coarsen_fixed_number(
-      *triangulation,
-      error_estimates,
-      prm.total_refine_fraction,
-      prm.total_coarsen_fraction);
+      *triangulation, error_estimates, prm.total_refine_fraction, prm.total_coarsen_fraction);
 
     hp::Refinement::full_p_adaptivity(*dof_handler);
 
@@ -180,7 +174,6 @@ namespace Adaptation
 
 
   // explicit instantiations
-  // clang-format off
   template class p<2, LinearAlgebra::distributed::BlockVector<double>, 2>;
   template class p<3, LinearAlgebra::distributed::BlockVector<double>, 3>;
   template class p<2, LinearAlgebra::distributed::Vector<double>, 2>;
@@ -199,6 +192,5 @@ namespace Adaptation
   template class p<2, PETScWrappers::MPI::Vector, 2>;
   template class p<3, PETScWrappers::MPI::Vector, 3>;
 #endif
-  // clang-format on
 
 } // namespace Adaptation

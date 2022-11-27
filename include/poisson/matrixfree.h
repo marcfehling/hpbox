@@ -35,10 +35,9 @@ namespace Poisson
 
     using FECellIntegrator = dealii::FEEvaluation<dim, -1, 0, 1, value_type>;
 
-    OperatorMatrixFree(
-      const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
-      const dealii::hp::QCollection<dim>                 &quadrature_collection,
-      const dealii::hp::FECollection<dim, spacedim>      &fe_collection);
+    OperatorMatrixFree(const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
+                       const dealii::hp::QCollection<dim>                 &quadrature_collection,
+                       const dealii::hp::FECollection<dim, spacedim>      &fe_collection);
 
     std::unique_ptr<OperatorBase<dim, LinearAlgebra, spacedim>>
     replicate() const override;
@@ -69,12 +68,9 @@ namespace Poisson
   private:
     // const Parameters &prm;
 
-    dealii::SmartPointer<const dealii::hp::MappingCollection<dim, spacedim>>
-      mapping_collection;
-    dealii::SmartPointer<const dealii::hp::QCollection<dim>>
-      quadrature_collection;
-    dealii::SmartPointer<const dealii::AffineConstraints<value_type>>
-      constraints;
+    dealii::SmartPointer<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
+    dealii::SmartPointer<const dealii::hp::QCollection<dim>>                 quadrature_collection;
+    dealii::SmartPointer<const dealii::AffineConstraints<value_type>>        constraints;
 
     // TODO: Add RHS function to constructor
     //       Grab and set as RHS in reinit
@@ -89,11 +85,10 @@ namespace Poisson
                             const VectorType &src) const;
 
     void
-    do_cell_integral_range(
-      const dealii::MatrixFree<dim, value_type>   &matrix_free,
-      VectorType                                  &dst,
-      const VectorType                            &src,
-      const std::pair<unsigned int, unsigned int> &range) const;
+    do_cell_integral_range(const dealii::MatrixFree<dim, value_type>   &matrix_free,
+                           VectorType                                  &dst,
+                           const VectorType                            &src,
+                           const std::pair<unsigned int, unsigned int> &range) const;
 
     dealii::MatrixFree<dim, value_type> matrix_free;
 

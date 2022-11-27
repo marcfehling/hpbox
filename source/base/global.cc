@@ -26,8 +26,8 @@ using namespace dealii;
 ConditionalOStream &
 getPCOut()
 {
-  static ConditionalOStream pcout(
-    std::cout, (Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0));
+  static ConditionalOStream pcout(std::cout,
+                                  (Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0));
   return pcout;
 }
 

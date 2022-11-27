@@ -100,9 +100,8 @@ struct MGSolverParameters
 
   struct
   {
-    MGTransferGlobalCoarseningTools::PolynomialCoarseningSequenceType
-      p_sequence = MGTransferGlobalCoarseningTools::
-        PolynomialCoarseningSequenceType::decrease_by_one;
+    MGTransferGlobalCoarseningTools::PolynomialCoarseningSequenceType p_sequence =
+      MGTransferGlobalCoarseningTools::PolynomialCoarseningSequenceType::decrease_by_one;
     bool perform_h_transfer = true;
   } transfer;
 };
@@ -181,8 +180,7 @@ MGSolverOperatorBase<dim, VectorType, MatrixType>::m() const
 // MGSolverOperatorBase<dim_, number>::el(unsigned int, unsigned int) const
 template <int dim, typename VectorType, typename MatrixType>
 typename MGSolverOperatorBase<dim, VectorType, MatrixType>::value_type
-MGSolverOperatorBase<dim, VectorType, MatrixType>::el(unsigned int,
-                                                      unsigned int) const
+MGSolverOperatorBase<dim, VectorType, MatrixType>::el(unsigned int, unsigned int) const
 {
   Assert(false, ExcNotImplemented());
   return 0;
@@ -196,8 +194,7 @@ MGSolverOperatorBase<dim, VectorType, MatrixType>::el(unsigned int,
 // const
 template <int dim, typename VectorType, typename MatrixType>
 void
-MGSolverOperatorBase<dim, VectorType, MatrixType>::initialize_dof_vector(
-  VectorType &vec) const
+MGSolverOperatorBase<dim, VectorType, MatrixType>::initialize_dof_vector(VectorType &vec) const
 {
   Assert(false, ExcNotImplemented());
   (void)vec;
@@ -211,9 +208,8 @@ MGSolverOperatorBase<dim, VectorType, MatrixType>::initialize_dof_vector(
 //                                          const VectorType &src) const
 template <int dim, typename VectorType, typename MatrixType>
 void
-MGSolverOperatorBase<dim, VectorType, MatrixType>::vmult(
-  VectorType       &dst,
-  const VectorType &src) const
+MGSolverOperatorBase<dim, VectorType, MatrixType>::vmult(VectorType       &dst,
+                                                         const VectorType &src) const
 {
   Assert(false, ExcNotImplemented());
   (void)dst;
@@ -228,9 +224,8 @@ MGSolverOperatorBase<dim, VectorType, MatrixType>::vmult(
 //                                           const VectorType &src) const
 template <int dim, typename VectorType, typename MatrixType>
 void
-MGSolverOperatorBase<dim, VectorType, MatrixType>::Tvmult(
-  VectorType       &dst,
-  const VectorType &src) const
+MGSolverOperatorBase<dim, VectorType, MatrixType>::Tvmult(VectorType       &dst,
+                                                          const VectorType &src) const
 {
   Assert(false, ExcNotImplemented());
   (void)dst;
@@ -291,28 +286,24 @@ mg_solve(SolverControl                                         &solver_control,
 
   // using value_type                 = typename VectorType::value_type;
   using SmootherPreconditionerType = DiagonalMatrix<VectorType>;
-  using SmootherType               = PreconditionChebyshev<LevelMatrixType,
-                                             VectorType,
-                                             SmootherPreconditionerType>;
+  using SmootherType =
+    PreconditionChebyshev<LevelMatrixType, VectorType, SmootherPreconditionerType>;
   using PreconditionerType = PreconditionMG<dim, VectorType, MGTransferType>;
 
   // Initialize level operators.
   mg::Matrix<VectorType> mg_matrix(mg_matrices);
 
   // Initialize smoothers.
-  MGLevelObject<typename SmootherType::AdditionalData> smoother_data(min_level,
-                                                                     max_level);
+  MGLevelObject<typename SmootherType::AdditionalData> smoother_data(min_level, max_level);
 
   for (unsigned int level = min_level; level <= max_level; level++)
     {
-      smoother_data[level].preconditioner =
-        std::make_shared<SmootherPreconditionerType>();
+      smoother_data[level].preconditioner = std::make_shared<SmootherPreconditionerType>();
       mg_matrices[level]->compute_inverse_diagonal(
         smoother_data[level].preconditioner->get_vector());
-      smoother_data[level].smoothing_range = mg_data.smoother.smoothing_range;
-      smoother_data[level].degree          = mg_data.smoother.degree;
-      smoother_data[level].eig_cg_n_iterations =
-        mg_data.smoother.eig_cg_n_iterations;
+      smoother_data[level].smoothing_range     = mg_data.smoother.smoothing_range;
+      smoother_data[level].degree              = mg_data.smoother.degree;
+      smoother_data[level].eig_cg_n_iterations = mg_data.smoother.eig_cg_n_iterations;
     }
 
   MGSmootherPrecondition<LevelMatrixType, SmootherType, VectorType> mg_smoother;
@@ -344,8 +335,9 @@ mg_solve(SolverControl                                         &solver_control,
         std::make_unique<MGCoarseGridIterativeSolver<VectorType,
                                                      SolverCG<VectorType>,
                                                      LevelMatrixType,
-                                                     PreconditionIdentity>>(
-          coarse_grid_solver, *mg_matrices[min_level], precondition_identity);
+                                                     PreconditionIdentity>>(coarse_grid_solver,
+                                                                            *mg_matrices[min_level],
+                                                                            precondition_identity);
     }
   else if (mg_data.coarse_solver.type == "cg_with_chebyshev")
     {
@@ -353,21 +345,18 @@ mg_solve(SolverControl                                         &solver_control,
 
       typename SmootherType::AdditionalData smoother_data;
 
-      smoother_data.preconditioner =
-        std::make_shared<DiagonalMatrix<VectorType>>();
-      mg_matrices[min_level]->compute_inverse_diagonal(
-        smoother_data.preconditioner->get_vector());
+      smoother_data.preconditioner = std::make_shared<DiagonalMatrix<VectorType>>();
+      mg_matrices[min_level]->compute_inverse_diagonal(smoother_data.preconditioner->get_vector());
       smoother_data.smoothing_range     = mg_data.smoother.smoothing_range;
       smoother_data.degree              = mg_data.smoother.degree;
       smoother_data.eig_cg_n_iterations = mg_data.smoother.eig_cg_n_iterations;
 
       precondition_chebyshev.initialize(*mg_matrices[min_level], smoother_data);
 
-      mg_coarse = std::make_unique<
-        MGCoarseGridIterativeSolver<VectorType,
-                                    SolverCG<VectorType>,
-                                    LevelMatrixType,
-                                    decltype(precondition_chebyshev)>>(
+      mg_coarse = std::make_unique<MGCoarseGridIterativeSolver<VectorType,
+                                                               SolverCG<VectorType>,
+                                                               LevelMatrixType,
+                                                               decltype(precondition_chebyshev)>>(
         coarse_grid_solver, *mg_matrices[min_level], precondition_chebyshev);
     }
   else if (mg_data.coarse_solver.type == "cg_with_amg")
@@ -381,14 +370,12 @@ mg_solve(SolverControl                                         &solver_control,
       amg_data.smoother_type   = mg_data.coarse_solver.smoother_type.c_str();
 
       // CG with AMG as preconditioner
-      precondition_amg.initialize(mg_matrices[min_level]->get_system_matrix(),
-                                  amg_data);
+      precondition_amg.initialize(mg_matrices[min_level]->get_system_matrix(), amg_data);
 
-      mg_coarse = std::make_unique<
-        MGCoarseGridIterativeSolver<VectorType,
-                                    SolverCG<VectorType>,
-                                    LevelMatrixType,
-                                    decltype(precondition_amg)>>(
+      mg_coarse = std::make_unique<MGCoarseGridIterativeSolver<VectorType,
+                                                               SolverCG<VectorType>,
+                                                               LevelMatrixType,
+                                                               decltype(precondition_amg)>>(
         coarse_grid_solver, *mg_matrices[min_level], precondition_amg);
 #else
       AssertThrow(false, ExcNotImplemented());
@@ -400,15 +387,13 @@ mg_solve(SolverControl                                         &solver_control,
     }
 
   // Create multigrid object.
-  Multigrid<VectorType> mg(
-    mg_matrix, *mg_coarse, mg_transfer, mg_smoother, mg_smoother);
+  Multigrid<VectorType> mg(mg_matrix, *mg_coarse, mg_transfer, mg_smoother, mg_smoother);
 
   // Convert it to a preconditioner.
   PreconditionerType preconditioner(dof, mg, mg_transfer);
 
   // Finally, solve.
-  SolverCG<VectorType>(solver_control)
-    .solve(fine_matrix, dst, src, preconditioner);
+  SolverCG<VectorType>(solver_control).solve(fine_matrix, dst, src, preconditioner);
 }
 
 #ifndef DOXYGEN

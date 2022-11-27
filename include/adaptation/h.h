@@ -38,12 +38,11 @@ namespace Adaptation
   class h : public Base
   {
   public:
-    h(const Parameter                               &prm,
-      const VectorType                              &locally_relevant_solution,
-      const dealii::hp::FECollection<dim, spacedim> &fe_collection,
-      dealii::DoFHandler<dim, spacedim>             &dof_handler,
-      dealii::parallel::distributed::Triangulation<dim, spacedim>
-                                  &triangulation,
+    h(const Parameter                                             &prm,
+      const VectorType                                            &locally_relevant_solution,
+      const dealii::hp::FECollection<dim, spacedim>               &fe_collection,
+      dealii::DoFHandler<dim, spacedim>                           &dof_handler,
+      dealii::parallel::distributed::Triangulation<dim, spacedim> &triangulation,
       const dealii::ComponentMask &component_mask = dealii::ComponentMask());
 
     virtual void
@@ -69,10 +68,9 @@ namespace Adaptation
   private:
     const Parameter &prm;
 
-    const dealii::SmartPointer<const VectorType> locally_relevant_solution;
+    const dealii::SmartPointer<const VectorType>                  locally_relevant_solution;
     const dealii::SmartPointer<dealii::DoFHandler<dim, spacedim>> dof_handler;
-    const dealii::SmartPointer<
-      dealii::parallel::distributed::Triangulation<dim, spacedim>>
+    const dealii::SmartPointer<dealii::parallel::distributed::Triangulation<dim, spacedim>>
       triangulation;
 
     const dealii::ComponentMask component_mask;

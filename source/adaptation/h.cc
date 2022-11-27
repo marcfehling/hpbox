@@ -45,8 +45,7 @@ namespace Adaptation
     , component_mask(component_mask)
   {
     Assert(prm.min_h_level <= prm.max_h_level,
-           ExcMessage(
-             "Triangulation level limits have been incorrectly set up."));
+           ExcMessage("Triangulation level limits have been incorrectly set up."));
     Assert(prm.min_p_degree <= prm.max_p_degree,
            ExcMessage("FECollection degrees have been incorrectly set up."));
 
@@ -81,10 +80,7 @@ namespace Adaptation
 
     // flag cells
     parallel::distributed::GridRefinement::refine_and_coarsen_fixed_number(
-      *triangulation,
-      error_estimates,
-      prm.total_refine_fraction,
-      prm.total_coarsen_fraction);
+      *triangulation, error_estimates, prm.total_refine_fraction, prm.total_coarsen_fraction);
 
     // limit levels
     Assert(triangulation->n_levels() >= prm.min_h_level + 1 &&
@@ -92,12 +88,10 @@ namespace Adaptation
            ExcInternalError());
 
     if (triangulation->n_levels() > prm.max_h_level)
-      for (const auto &cell :
-           triangulation->active_cell_iterators_on_level(prm.max_h_level))
+      for (const auto &cell : triangulation->active_cell_iterators_on_level(prm.max_h_level))
         cell->clear_refine_flag();
 
-    for (const auto &cell :
-         triangulation->active_cell_iterators_on_level(prm.min_h_level))
+    for (const auto &cell : triangulation->active_cell_iterators_on_level(prm.min_h_level))
       cell->clear_coarsen_flag();
   }
 
@@ -164,7 +158,6 @@ namespace Adaptation
 
 
   // explicit instantiations
-  // clang-format off
   template class h<2, LinearAlgebra::distributed::BlockVector<double>, 2>;
   template class h<3, LinearAlgebra::distributed::BlockVector<double>, 3>;
   template class h<2, LinearAlgebra::distributed::Vector<double>, 2>;
@@ -183,6 +176,5 @@ namespace Adaptation
   template class h<2, PETScWrappers::MPI::Vector, 2>;
   template class h<3, PETScWrappers::MPI::Vector, 3>;
 #endif
-  // clang-format on
 
 } // namespace Adaptation

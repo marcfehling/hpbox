@@ -40,44 +40,38 @@ namespace Log
     getPCOut() << "Cycle " << cycle << ':' << std::endl;
     table.add_value("cycle", cycle);
 
-    table.add_value("processes",
-                    Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD));
+    table.add_value("processes", Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD));
     table.add_value("stem", prm.file_stem);
-    table.add_value("weighting_exponent",
-                    prm.prm_adaptation.weighting_exponent);
+    table.add_value("weighting_exponent", prm.prm_adaptation.weighting_exponent);
   }
 
 
 
   template <int dim, typename T, int spacedim>
   void
-  log_hp_diagnostics(
-    const parallel::distributed::Triangulation<dim, spacedim> &triangulation,
-    const DoFHandler<dim, spacedim>                           &dof_handler,
-    const AffineConstraints<T>                                &constraints)
+  log_hp_diagnostics(const parallel::distributed::Triangulation<dim, spacedim> &triangulation,
+                     const DoFHandler<dim, spacedim>                           &dof_handler,
+                     const AffineConstraints<T>                                &constraints)
   {
     ConditionalOStream &pcout = getPCOut();
     TableHandler       &table = getTable();
 
-    const MPI_Comm &mpi_communicator = dof_handler.get_communicator();
-    const hp::FECollection<dim, spacedim> &fe_collection =
-      dof_handler.get_fe_collection();
+    const MPI_Comm                        &mpi_communicator = dof_handler.get_communicator();
+    const hp::FECollection<dim, spacedim> &fe_collection    = dof_handler.get_fe_collection();
 
     const unsigned int first_n_processes =
-      std::min<unsigned int>(8,
-                             Utilities::MPI::n_mpi_processes(mpi_communicator));
+      std::min<unsigned int>(8, Utilities::MPI::n_mpi_processes(mpi_communicator));
     const bool output_cropped =
       first_n_processes < Utilities::MPI::n_mpi_processes(mpi_communicator);
 
     {
-      pcout << "   Number of active cells:       "
-            << triangulation.n_global_active_cells() << std::endl;
+      pcout << "   Number of active cells:       " << triangulation.n_global_active_cells()
+            << std::endl;
       table.add_value("active_cells", triangulation.n_global_active_cells());
 
       pcout << "     by partition:              ";
       std::vector<unsigned int> n_active_cells_per_subdomain =
-        Utilities::MPI::gather(mpi_communicator,
-                               triangulation.n_locally_owned_active_cells());
+        Utilities::MPI::gather(mpi_communicator, triangulation.n_locally_owned_active_cells());
       for (unsigned int i = 0; i < first_n_processes; ++i)
         pcout << ' ' << n_active_cells_per_subdomain[i];
       if (output_cropped)
@@ -101,14 +95,12 @@ namespace Log
     }
 
     {
-      pcout << "   Number of degrees of freedom: " << dof_handler.n_dofs()
-            << std::endl;
+      pcout << "   Number of degrees of freedom: " << dof_handler.n_dofs() << std::endl;
       table.add_value("dofs", dof_handler.n_dofs());
 
       pcout << "     by partition:              ";
       std::vector<types::global_dof_index> n_dofs_per_subdomain =
-        Utilities::MPI::gather(mpi_communicator,
-                               dof_handler.n_locally_owned_dofs());
+        Utilities::MPI::gather(mpi_communicator, dof_handler.n_locally_owned_dofs());
       for (unsigned int i = 0; i < first_n_processes; ++i)
         pcout << ' ' << n_dofs_per_subdomain[i];
       if (output_cropped)
@@ -120,12 +112,9 @@ namespace Log
       std::vector<types::global_dof_index> n_constraints_per_subdomain =
         Utilities::MPI::gather(mpi_communicator, constraints.n_constraints());
       const unsigned int n_constraints =
-        std::accumulate(n_constraints_per_subdomain.begin(),
-                        n_constraints_per_subdomain.end(),
-                        0);
+        std::accumulate(n_constraints_per_subdomain.begin(), n_constraints_per_subdomain.end(), 0);
 
-      pcout << "   Number of constraints:        " << n_constraints
-            << std::endl;
+      pcout << "   Number of constraints:        " << n_constraints << std::endl;
       table.add_value("constraints", n_constraints);
 
       pcout << "     by partition:              ";
@@ -140,9 +129,7 @@ namespace Log
       std::vector<types::global_dof_index> n_identities_per_subdomain =
         Utilities::MPI::gather(mpi_communicator, constraints.n_identities());
       const unsigned int n_identities =
-        std::accumulate(n_identities_per_subdomain.begin(),
-                        n_identities_per_subdomain.end(),
-                        0);
+        std::accumulate(n_identities_per_subdomain.begin(), n_identities_per_subdomain.end(), 0);
 
       pcout << "   Number of identities:         " << n_identities << std::endl;
       table.add_value("identities", n_identities);
@@ -154,10 +141,8 @@ namespace Log
         pcout << " ...";
       pcout << std::endl;
 
-      const float fraction =
-        static_cast<float>(n_identities) / dof_handler.n_dofs();
-      pcout << "   Fraction of identities:       " << 100 * fraction << "%"
-            << std::endl;
+      const float fraction = static_cast<float>(n_identities) / dof_handler.n_dofs();
+      pcout << "   Fraction of identities:       " << 100 * fraction << "%" << std::endl;
     }
   }
 
@@ -166,8 +151,7 @@ namespace Log
   void
   log_iterations(const SolverControl &control)
   {
-    getPCOut() << "   Solved in " << control.last_step() << " iterations."
-               << std::endl;
+    getPCOut() << "   Solved in " << control.last_step() << " iterations." << std::endl;
     getTable().add_value("iterations", control.last_step());
   }
 
@@ -177,8 +161,7 @@ namespace Log
   void
   log_nonzero_elements(const MatrixType &matrix)
   {
-    getPCOut() << "   Number of nonzero elements:   "
-               << matrix.n_nonzero_elements() << std::endl;
+    getPCOut() << "   Number of nonzero elements:   " << matrix.n_nonzero_elements() << std::endl;
     getTable().add_value("nonzero_elements", matrix.n_nonzero_elements());
   }
 
@@ -190,8 +173,7 @@ namespace Log
     getTimer().print_summary();
     getPCOut() << std::endl;
 
-    for (const auto &summary :
-         getTimer().get_summary_data(TimerOutput::total_wall_time))
+    for (const auto &summary : getTimer().get_summary_data(TimerOutput::total_wall_time))
       {
         getTable().add_value(summary.first, summary.second);
         getTable().set_scientific(summary.first, true);
@@ -202,20 +184,17 @@ namespace Log
 
   // explicit instantiations
   template void
-  log_hp_diagnostics<2, double, 2>(
-    const parallel::distributed::Triangulation<2, 2> &,
-    const DoFHandler<2, 2> &,
-    const AffineConstraints<double> &);
+  log_hp_diagnostics<2, double, 2>(const parallel::distributed::Triangulation<2, 2> &,
+                                   const DoFHandler<2, 2> &,
+                                   const AffineConstraints<double> &);
   template void
-  log_hp_diagnostics<3, double, 3>(
-    const parallel::distributed::Triangulation<3, 3> &,
-    const DoFHandler<3, 3> &,
-    const AffineConstraints<double> &);
+  log_hp_diagnostics<3, double, 3>(const parallel::distributed::Triangulation<3, 3> &,
+                                   const DoFHandler<3, 3> &,
+                                   const AffineConstraints<double> &);
 
 #ifdef DEAL_II_WITH_TRILINOS
   template void
-  log_nonzero_elements<TrilinosWrappers::SparseMatrix>(
-    const TrilinosWrappers::SparseMatrix &);
+  log_nonzero_elements<TrilinosWrappers::SparseMatrix>(const TrilinosWrappers::SparseMatrix &);
   template void
   log_nonzero_elements<TrilinosWrappers::BlockSparseMatrix>(
     const TrilinosWrappers::BlockSparseMatrix &);
@@ -223,8 +202,7 @@ namespace Log
 
 #ifdef DEAL_II_WITH_PETSC
   template void
-  log_nonzero_elements<PETScWrappers::MPI::SparseMatrix>(
-    const PETScWrappers::MPI::SparseMatrix &);
+  log_nonzero_elements<PETScWrappers::MPI::SparseMatrix>(const PETScWrappers::MPI::SparseMatrix &);
   template void
   log_nonzero_elements<PETScWrappers::MPI::BlockSparseMatrix>(
     const PETScWrappers::MPI::BlockSparseMatrix &);

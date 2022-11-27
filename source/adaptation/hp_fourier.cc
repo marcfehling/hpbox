@@ -35,10 +35,10 @@ namespace Adaptation
 {
   template <int dim, typename VectorType, int spacedim>
   hpFourier<dim, VectorType, spacedim>::hpFourier(
-    const Parameter                       &prm,
-    const VectorType                      &locally_relevant_solution,
-    const hp::FECollection<dim, spacedim> &fe_collection,
-    DoFHandler<dim, spacedim>             &dof_handler,
+    const Parameter                                     &prm,
+    const VectorType                                    &locally_relevant_solution,
+    const hp::FECollection<dim, spacedim>               &fe_collection,
+    DoFHandler<dim, spacedim>                           &dof_handler,
     parallel::distributed::Triangulation<dim, spacedim> &triangulation,
     const ComponentMask                                 &component_mask)
     : prm(prm)
@@ -51,8 +51,7 @@ namespace Adaptation
                      {prm.weighting_factor, prm.weighting_exponent}))
   {
     Assert(prm.min_h_level <= prm.max_h_level,
-           ExcMessage(
-             "Triangulation level limits have been incorrectly set up."));
+           ExcMessage("Triangulation level limits have been incorrectly set up."));
     Assert(prm.min_p_degree <= prm.max_p_degree,
            ExcMessage("FECollection degrees have been incorrectly set up."));
     if (fe_collection[0].n_components() > 1)
@@ -93,15 +92,13 @@ namespace Adaptation
     if (prm.max_p_level_difference > 0)
       {
         const unsigned int min_fe_index = prm.min_p_degree - 1;
-        triangulation.signals.post_p4est_refinement.connect(
-          [&, min_fe_index]() {
-            const parallel::distributed::TemporarilyMatchRefineFlags<dim,
-                                                                     spacedim>
-              refine_modifier(triangulation);
-            hp::Refinement::limit_p_level_difference(dof_handler,
-                                                     prm.max_p_level_difference,
-                                                     /*contains=*/min_fe_index);
-          });
+        triangulation.signals.post_p4est_refinement.connect([&, min_fe_index]() {
+          const parallel::distributed::TemporarilyMatchRefineFlags<dim, spacedim> refine_modifier(
+            triangulation);
+          hp::Refinement::limit_p_level_difference(dof_handler,
+                                                   prm.max_p_level_difference,
+                                                   /*contains=*/min_fe_index);
+        });
       }
 
     {
@@ -137,10 +134,7 @@ namespace Adaptation
 
     // flag cells
     parallel::distributed::GridRefinement::refine_and_coarsen_fixed_number(
-      *triangulation,
-      error_estimates,
-      prm.total_refine_fraction,
-      prm.total_coarsen_fraction);
+      *triangulation, error_estimates, prm.total_refine_fraction, prm.total_coarsen_fraction);
 
     // hp-indicators
     hp_indicators.grow_or_shrink(triangulation->n_active_cells());
@@ -167,12 +161,10 @@ namespace Adaptation
            ExcInternalError());
 
     if (triangulation->n_levels() > prm.max_h_level)
-      for (const auto &cell :
-           triangulation->active_cell_iterators_on_level(prm.max_h_level))
+      for (const auto &cell : triangulation->active_cell_iterators_on_level(prm.max_h_level))
         cell->clear_refine_flag();
 
-    for (const auto &cell :
-         triangulation->active_cell_iterators_on_level(prm.min_h_level))
+    for (const auto &cell : triangulation->active_cell_iterators_on_level(prm.min_h_level))
       cell->clear_coarsen_flag();
   }
 
@@ -239,7 +231,6 @@ namespace Adaptation
 
 
   // explicit instantiations
-  // clang-format off
   template class hpFourier<2, LinearAlgebra::distributed::BlockVector<double>, 2>;
   template class hpFourier<3, LinearAlgebra::distributed::BlockVector<double>, 3>;
   template class hpFourier<2, LinearAlgebra::distributed::Vector<double>, 2>;
@@ -258,6 +249,5 @@ namespace Adaptation
   template class hpFourier<2, PETScWrappers::MPI::Vector, 2>;
   template class hpFourier<3, PETScWrappers::MPI::Vector, 3>;
 #endif
-  // clang-format on
 
 } // namespace Adaptation

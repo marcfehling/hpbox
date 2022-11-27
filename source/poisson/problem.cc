@@ -50,16 +50,14 @@ namespace Poisson
       time_t             now = time(nullptr);
       tm                *ltm = localtime(&now);
       std::ostringstream oss;
-      oss << prm.file_stem << "-" << std::put_time(ltm, "%Y%m%d-%H%M%S")
-          << ".log";
+      oss << prm.file_stem << "-" << std::put_time(ltm, "%Y%m%d-%H%M%S") << ".log";
       filename_log = oss.str();
     }
 
     // prepare collections
     mapping_collection.push_back(MappingQ1<dim, spacedim>());
 
-    for (unsigned int degree = 1; degree <= prm.prm_adaptation.max_p_degree;
-         ++degree)
+    for (unsigned int degree = 1; degree <= prm.prm_adaptation.max_p_degree; ++degree)
       {
         fe_collection.push_back(FE_Q<dim, spacedim>(degree));
         quadrature_collection.push_back(QGauss<dim>(degree + 1));
@@ -70,24 +68,18 @@ namespace Poisson
       /*next_index=*/
       [](const typename hp::FECollection<dim> &fe_collection,
          const unsigned int                    fe_index) -> unsigned int {
-        return ((fe_index + 1) < fe_collection.size()) ? fe_index + 1 :
-                                                         fe_index;
+        return ((fe_index + 1) < fe_collection.size()) ? fe_index + 1 : fe_index;
       },
       /*previous_index=*/
       [min_fe_index](const typename hp::FECollection<dim> &,
                      const unsigned int fe_index) -> unsigned int {
-        Assert(fe_index >= min_fe_index,
-               ExcMessage("Finite element is not part of hierarchy!"));
+        Assert(fe_index >= min_fe_index, ExcMessage("Finite element is not part of hierarchy!"));
         return (fe_index > min_fe_index) ? fe_index - 1 : fe_index;
       });
 
     // prepare operator
     poisson_operator = Factory::create_operator<dim, LinearAlgebra, spacedim>(
-      prm.operator_type,
-      "Poisson",
-      mapping_collection,
-      quadrature_collection,
-      fe_collection);
+      prm.operator_type, "Poisson", mapping_collection, quadrature_collection, fe_collection);
 
     // choose functions
     if (prm.grid_type == "reentrant corner")
@@ -102,14 +94,13 @@ namespace Poisson
       }
 
     // choose adaptation strategy
-    adaptation_strategy =
-      Factory::create_adaptation<dim, typename LinearAlgebra::Vector, spacedim>(
-        prm.adaptation_type,
-        prm.prm_adaptation,
-        locally_relevant_solution,
-        fe_collection,
-        dof_handler,
-        triangulation);
+    adaptation_strategy = Factory::create_adaptation<dim, typename LinearAlgebra::Vector, spacedim>(
+      prm.adaptation_type,
+      prm.prm_adaptation,
+      locally_relevant_solution,
+      fe_collection,
+      dof_handler,
+      triangulation);
   }
 
 
@@ -135,8 +126,7 @@ namespace Poisson
 
         dof_handler.distribute_dofs(fe_collection);
 
-        triangulation.refine_global(
-          adaptation_strategy->get_n_initial_refinements());
+        triangulation.refine_global(adaptation_strategy->get_n_initial_refinements());
       }
   }
 
@@ -160,9 +150,7 @@ namespace Poisson
     {
       TimerOutput::Scope(getTimer(), "reinit_vectors");
 
-      locally_relevant_solution.reinit(locally_owned_dofs,
-                                       locally_relevant_dofs,
-                                       mpi_communicator);
+      locally_relevant_solution.reinit(locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
     }
 
     {
@@ -175,11 +163,8 @@ namespace Poisson
 
       if (prm.grid_type == "reentrant corner")
         {
-          VectorTools::interpolate_boundary_values(mapping_collection,
-                                                   dof_handler,
-                                                   0,
-                                                   *boundary_function,
-                                                   constraints);
+          VectorTools::interpolate_boundary_values(
+            mapping_collection, dof_handler, 0, *boundary_function, constraints);
         }
       else
         {
@@ -190,18 +175,16 @@ namespace Poisson
       // We have not dealt with chains of constraints on ghost cells yet.
       // Thus, we are content with verifying their consistency for now.
       const std::vector<IndexSet> locally_owned_dofs_per_processor =
-        Utilities::MPI::all_gather(mpi_communicator,
-                                   dof_handler.locally_owned_dofs());
+        Utilities::MPI::all_gather(mpi_communicator, dof_handler.locally_owned_dofs());
 
       IndexSet locally_active_dofs;
       DoFTools::extract_locally_active_dofs(dof_handler, locally_active_dofs);
 
-      AssertThrow(
-        constraints.is_consistent_in_parallel(locally_owned_dofs_per_processor,
-                                              locally_active_dofs,
-                                              mpi_communicator,
-                                              /*verbose=*/true),
-        ExcMessage("AffineConstraints object contains inconsistencies!"));
+      AssertThrow(constraints.is_consistent_in_parallel(locally_owned_dofs_per_processor,
+                                                        locally_active_dofs,
+                                                        mpi_communicator,
+                                                        /*verbose=*/true),
+                  ExcMessage("AffineConstraints object contains inconsistencies!"));
 #endif
       constraints.close();
     }
@@ -222,8 +205,7 @@ namespace Poisson
     completely_distributed_system_rhs = system_rhs;
 
     SolverControl solver_control(completely_distributed_system_rhs.size(),
-                                 1e-12 *
-                                   completely_distributed_system_rhs.l2_norm());
+                                 1e-12 * completely_distributed_system_rhs.l2_norm());
 
     if (prm.solver_type == "AMG")
       {
@@ -245,9 +227,7 @@ namespace Poisson
           }
         else
           {
-            AssertThrow(false,
-                        ExcMessage(
-                          "GMG is only available with dealii & Trilinos!"));
+            AssertThrow(false, ExcMessage("GMG is only available with dealii & Trilinos!"));
           }
       }
     else
@@ -279,9 +259,7 @@ namespace Poisson
                                       quadrature_collection,
                                       VectorTools::L2_norm);
     const double L2_error =
-      VectorTools::compute_global_error(triangulation,
-                                        difference_per_cell,
-                                        VectorTools::L2_norm);
+      VectorTools::compute_global_error(triangulation, difference_per_cell, VectorTools::L2_norm);
 
     VectorTools::integrate_difference(dof_handler,
                                       locally_relevant_solution,
@@ -290,9 +268,7 @@ namespace Poisson
                                       quadrature_collection,
                                       VectorTools::H1_norm);
     const double H1_error =
-      VectorTools::compute_global_error(triangulation,
-                                        difference_per_cell,
-                                        VectorTools::H1_norm);
+      VectorTools::compute_global_error(triangulation, difference_per_cell, VectorTools::H1_norm);
 
     getPCOut() << "   L2 error:                     " << L2_error << std::endl
                << "   H1 error:                     " << H1_error << std::endl;
@@ -329,16 +305,13 @@ namespace Poisson
     data_out.add_data_vector(subdomain, "subdomain");
 
     if (adaptation_strategy->get_error_estimates().size() > 0)
-      data_out.add_data_vector(adaptation_strategy->get_error_estimates(),
-                               "error");
+      data_out.add_data_vector(adaptation_strategy->get_error_estimates(), "error");
     if (adaptation_strategy->get_hp_indicators().size() > 0)
-      data_out.add_data_vector(adaptation_strategy->get_hp_indicators(),
-                               "hp_indicator");
+      data_out.add_data_vector(adaptation_strategy->get_hp_indicators(), "hp_indicator");
 
     data_out.build_patches(mapping_collection);
 
-    data_out.write_vtu_with_pvtu_record(
-      "./", prm.file_stem, cycle, mpi_communicator, 2, 1);
+    data_out.write_vtu_with_pvtu_record("./", prm.file_stem, cycle, mpi_communicator, 2, 1);
   }
 
 
@@ -358,7 +331,7 @@ namespace Poisson
     adaptation_strategy->unpack_after_serialization();
 
     // load metadata
-    std::ifstream file(prm.resume_filename + ".metadata", std::ios::binary);
+    std::ifstream                   file(prm.resume_filename + ".metadata", std::ios::binary);
     boost::archive::binary_iarchive ia(file);
     ia >> cycle;
   }
@@ -377,7 +350,7 @@ namespace Poisson
     triangulation.save(filename);
 
     // write metadata
-    std::ofstream file(filename + ".metadata", std::ios::binary);
+    std::ofstream                   file(filename + ".metadata", std::ios::binary);
     boost::archive::binary_oarchive oa(file);
     oa << cycle;
 
@@ -405,8 +378,7 @@ namespace Poisson
             {
               adaptation_strategy->refine();
 
-              if ((prm.checkpoint_frequency > 0) &&
-                  (cycle % prm.checkpoint_frequency == 0))
+              if ((prm.checkpoint_frequency > 0) && (cycle % prm.checkpoint_frequency == 0))
                 write_to_checkpoint();
             }
 

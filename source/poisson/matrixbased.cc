@@ -39,8 +39,8 @@ namespace Poisson
     , fe_values_collection(mapping_collection,
                            fe_collection,
                            quadrature_collection,
-                           update_values | update_gradients |
-                             update_quadrature_points | update_JxW_values)
+                           update_values | update_gradients | update_quadrature_points |
+                             update_JxW_values)
   {
     TimerOutput::Scope t(getTimer(), "calculate_fevalues");
 
@@ -81,13 +81,12 @@ namespace Poisson
 
       const MPI_Comm mpi_communicator = dof_handler.get_communicator();
 
-      const IndexSet locally_relevant_dofs =
-        DoFTools::extract_locally_relevant_dofs(dof_handler);
+      const IndexSet locally_relevant_dofs = DoFTools::extract_locally_relevant_dofs(dof_handler);
 
-      this->partitioner = std::make_shared<const Utilities::MPI::Partitioner>(
-        dof_handler.locally_owned_dofs(),
-        locally_relevant_dofs,
-        mpi_communicator);
+      this->partitioner =
+        std::make_shared<const Utilities::MPI::Partitioner>(dof_handler.locally_owned_dofs(),
+                                                            locally_relevant_dofs,
+                                                            mpi_communicator);
 
       {
         TimerOutput::Scope t(getTimer(), "reinit_matrix");
@@ -102,8 +101,7 @@ namespace Poisson
       {
         TimerOutput::Scope(getTimer(), "reinit_vectors");
 
-        system_rhs.reinit(partitioner->locally_owned_range(),
-                          partitioner->get_mpi_communicator());
+        system_rhs.reinit(partitioner->locally_owned_range(), partitioner->get_mpi_communicator());
       }
     }
 
@@ -125,28 +123,21 @@ namespace Poisson
           cell_rhs = 0;
 
           fe_values_collection.reinit(cell);
-          const FEValues<dim> &fe_values =
-            fe_values_collection.get_present_fe_values();
+          const FEValues<dim> &fe_values = fe_values_collection.get_present_fe_values();
 
-          for (unsigned int q_point = 0;
-               q_point < fe_values.n_quadrature_points;
-               ++q_point)
+          for (unsigned int q_point = 0; q_point < fe_values.n_quadrature_points; ++q_point)
             for (unsigned int i = 0; i < dofs_per_cell; ++i)
               {
                 for (unsigned int j = 0; j < dofs_per_cell; ++j)
-                  cell_matrix(i, j) +=
-                    (fe_values.shape_grad(i, q_point) * // grad phi_i(x_q)
-                     fe_values.shape_grad(j, q_point) * // grad phi_j(x_q)
-                     fe_values.JxW(q_point));           // dx
+                  cell_matrix(i, j) += (fe_values.shape_grad(i, q_point) * // grad phi_i(x_q)
+                                        fe_values.shape_grad(j, q_point) * // grad phi_j(x_q)
+                                        fe_values.JxW(q_point));           // dx
               }
           local_dof_indices.resize(dofs_per_cell);
           cell->get_dof_indices(local_dof_indices);
 
-          constraints.distribute_local_to_global(cell_matrix,
-                                                 cell_rhs,
-                                                 local_dof_indices,
-                                                 system_matrix,
-                                                 system_rhs);
+          constraints.distribute_local_to_global(
+            cell_matrix, cell_rhs, local_dof_indices, system_matrix, system_rhs);
         }
 
       system_rhs.compress(VectorOperation::values::add);
@@ -158,9 +149,8 @@ namespace Poisson
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  OperatorMatrixBased<dim, LinearAlgebra, spacedim>::vmult(
-    VectorType       &dst,
-    const VectorType &src) const
+  OperatorMatrixBased<dim, LinearAlgebra, spacedim>::vmult(VectorType       &dst,
+                                                           const VectorType &src) const
   {
     system_matrix.vmult(dst, src);
   }
@@ -169,8 +159,7 @@ namespace Poisson
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  OperatorMatrixBased<dim, LinearAlgebra, spacedim>::initialize_dof_vector(
-    VectorType &vec) const
+  OperatorMatrixBased<dim, LinearAlgebra, spacedim>::initialize_dof_vector(VectorType &vec) const
   {
     vec.reinit(partitioner);
   }
@@ -211,9 +200,8 @@ namespace Poisson
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  OperatorMatrixBased<dim, LinearAlgebra, spacedim>::Tvmult(
-    VectorType       &dst,
-    const VectorType &src) const
+  OperatorMatrixBased<dim, LinearAlgebra, spacedim>::Tvmult(VectorType       &dst,
+                                                            const VectorType &src) const
   {
     vmult(dst, src);
   }

@@ -57,10 +57,7 @@ namespace Poisson
       }
     else
       {
-        cg.solve(poisson_operator.get_system_matrix(),
-                 dst,
-                 src,
-                 preconditioner);
+        cg.solve(poisson_operator.get_system_matrix(), dst, src, preconditioner);
       }
   }
 } // namespace Poisson

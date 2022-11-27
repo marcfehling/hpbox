@@ -61,57 +61,48 @@ inline void
 initialize_sparse_matrix(MatrixType                              &system_matrix,
                          const dealii::DoFHandler<dim, spacedim> &dof_handler,
                          const dealii::AffineConstraints<double> &constraints,
-                         const dealii::IndexSet &owned_partitioning,
-                         const dealii::IndexSet &relevant_partitioning)
+                         const dealii::IndexSet                  &owned_partitioning,
+                         const dealii::IndexSet                  &relevant_partitioning)
 {
   const MPI_Comm &communicator = dof_handler.get_communicator();
 
-  const unsigned int myid =
-    dealii::Utilities::MPI::this_mpi_process(communicator);
+  const unsigned int myid = dealii::Utilities::MPI::this_mpi_process(communicator);
 
   dealii::DynamicSparsityPattern dsp(relevant_partitioning);
 
-  dealii::DoFTools::make_sparsity_pattern(
-    dof_handler, dsp, constraints, false, myid);
+  dealii::DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false, myid);
 
   dealii::SparsityTools::distribute_sparsity_pattern(dsp,
                                                      owned_partitioning,
                                                      communicator,
                                                      relevant_partitioning);
 
-  system_matrix.reinit(owned_partitioning,
-                       owned_partitioning,
-                       dsp,
-                       communicator);
+  system_matrix.reinit(owned_partitioning, owned_partitioning, dsp, communicator);
 }
 
 template <int dim, typename BlockMatrixType, int spacedim>
 inline void
-initialize_block_sparse_matrix(
-  BlockMatrixType                                    &system_matrix,
-  const dealii::DoFHandler<dim, spacedim>            &dof_handler,
-  const dealii::AffineConstraints<double>            &constraints,
-  const std::vector<dealii::IndexSet>                &owned_partitioning,
-  const std::vector<dealii::IndexSet>                &relevant_partitioning,
-  const dealii::Table<2, dealii::DoFTools::Coupling> &coupling)
+initialize_block_sparse_matrix(BlockMatrixType                         &system_matrix,
+                               const dealii::DoFHandler<dim, spacedim> &dof_handler,
+                               const dealii::AffineConstraints<double> &constraints,
+                               const std::vector<dealii::IndexSet>     &owned_partitioning,
+                               const std::vector<dealii::IndexSet>     &relevant_partitioning,
+                               const dealii::Table<2, dealii::DoFTools::Coupling> &coupling)
 {
   const MPI_Comm &communicator = dof_handler.get_communicator();
 
-  const unsigned int myid =
-    dealii::Utilities::MPI::this_mpi_process(communicator);
+  const unsigned int myid = dealii::Utilities::MPI::this_mpi_process(communicator);
 
   dealii::BlockDynamicSparsityPattern bdsp(relevant_partitioning);
 
-  dealii::DoFTools::make_sparsity_pattern(
-    dof_handler, coupling, bdsp, constraints, false, myid);
+  dealii::DoFTools::make_sparsity_pattern(dof_handler, coupling, bdsp, constraints, false, myid);
 
-  dealii::SparsityTools::distribute_sparsity_pattern(
-    bdsp, owned_partitioning[myid], communicator, relevant_partitioning[myid]);
+  dealii::SparsityTools::distribute_sparsity_pattern(bdsp,
+                                                     owned_partitioning[myid],
+                                                     communicator,
+                                                     relevant_partitioning[myid]);
 
-  system_matrix.reinit(owned_partitioning,
-                       owned_partitioning,
-                       bdsp,
-                       communicator);
+  system_matrix.reinit(owned_partitioning, owned_partitioning, bdsp, communicator);
 }
 
 
@@ -152,7 +143,7 @@ struct dealiiTrilinos
 
   using BlockSparsityPattern = dealii::TrilinosWrappers::BlockSparsityPattern;
   using BlockSparseMatrix    = dealii::TrilinosWrappers::BlockSparseMatrix;
-  using BlockVector = dealii::LinearAlgebra::distributed::BlockVector<double>;
+  using BlockVector          = dealii::LinearAlgebra::distributed::BlockVector<double>;
 
   using PreconditionAMG    = dealii::TrilinosWrappers::PreconditionAMG;
   using PreconditionJacobi = dealii::TrilinosWrappers::PreconditionJacobi;
@@ -164,21 +155,19 @@ inline void
 initialize_sparse_matrix(dealii::TrilinosWrappers::SparseMatrix  &system_matrix,
                          const dealii::DoFHandler<dim, spacedim> &dof_handler,
                          const dealii::AffineConstraints<double> &constraints,
-                         const dealii::IndexSet &owned_partitioning,
-                         const dealii::IndexSet &relevant_partitioning)
+                         const dealii::IndexSet                  &owned_partitioning,
+                         const dealii::IndexSet                  &relevant_partitioning)
 {
   const MPI_Comm &communicator = dof_handler.get_communicator();
 
-  const unsigned int myid =
-    dealii::Utilities::MPI::this_mpi_process(communicator);
+  const unsigned int myid = dealii::Utilities::MPI::this_mpi_process(communicator);
 
   dealii::TrilinosWrappers::SparsityPattern dsp(owned_partitioning,
                                                 owned_partitioning,
                                                 relevant_partitioning,
                                                 communicator);
 
-  dealii::DoFTools::make_sparsity_pattern(
-    dof_handler, dsp, constraints, false, myid);
+  dealii::DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false, myid);
 
   dsp.compress();
   system_matrix.reinit(dsp);
@@ -186,26 +175,23 @@ initialize_sparse_matrix(dealii::TrilinosWrappers::SparseMatrix  &system_matrix,
 
 template <int dim, int spacedim>
 inline void
-initialize_block_sparse_matrix(
-  dealii::TrilinosWrappers::BlockSparseMatrix        &system_matrix,
-  const dealii::DoFHandler<dim, spacedim>            &dof_handler,
-  const dealii::AffineConstraints<double>            &constraints,
-  const std::vector<dealii::IndexSet>                &owned_partitioning,
-  const std::vector<dealii::IndexSet>                &relevant_partitioning,
-  const dealii::Table<2, dealii::DoFTools::Coupling> &coupling)
+initialize_block_sparse_matrix(dealii::TrilinosWrappers::BlockSparseMatrix &system_matrix,
+                               const dealii::DoFHandler<dim, spacedim>     &dof_handler,
+                               const dealii::AffineConstraints<double>     &constraints,
+                               const std::vector<dealii::IndexSet>         &owned_partitioning,
+                               const std::vector<dealii::IndexSet>         &relevant_partitioning,
+                               const dealii::Table<2, dealii::DoFTools::Coupling> &coupling)
 {
   const MPI_Comm &communicator = dof_handler.get_communicator();
 
-  const unsigned int myid =
-    dealii::Utilities::MPI::this_mpi_process(communicator);
+  const unsigned int myid = dealii::Utilities::MPI::this_mpi_process(communicator);
 
   dealii::TrilinosWrappers::BlockSparsityPattern bdsp(owned_partitioning,
                                                       owned_partitioning,
                                                       relevant_partitioning,
                                                       communicator);
 
-  dealii::DoFTools::make_sparsity_pattern(
-    dof_handler, coupling, bdsp, constraints, false, myid);
+  dealii::DoFTools::make_sparsity_pattern(dof_handler, coupling, bdsp, constraints, false, myid);
 
   bdsp.compress();
   system_matrix.reinit(bdsp);

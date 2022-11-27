@@ -43,8 +43,7 @@ namespace Adaptation
       add_parameter("max degree", max_p_degree);
 
       max_p_level_difference = 1;
-      add_parameter("max difference of polynomial degrees",
-                    max_p_level_difference);
+      add_parameter("max difference of polynomial degrees", max_p_level_difference);
 
       total_refine_fraction = 0.3;
       add_parameter("total refine fraction", total_refine_fraction);

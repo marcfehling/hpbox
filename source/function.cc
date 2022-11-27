@@ -40,11 +40,9 @@ namespace Function
 
   template <int dim>
   double
-  ReentrantCorner<dim>::value(const Point<dim> &p,
-                              const unsigned int /*component*/) const
+  ReentrantCorner<dim>::value(const Point<dim> &p, const unsigned int /*component*/) const
   {
-    const std::array<double, dim> p_sphere =
-      GeometricUtilities::Coordinates::to_spherical(p);
+    const std::array<double, dim> p_sphere = GeometricUtilities::Coordinates::to_spherical(p);
 
     return std::pow(p_sphere[0], alpha) * std::sin(alpha * p_sphere[1]);
   }
@@ -53,11 +51,9 @@ namespace Function
 
   template <int dim>
   Tensor<1, dim>
-  ReentrantCorner<dim>::gradient(const Point<dim> &p,
-                                 const unsigned int /*component*/) const
+  ReentrantCorner<dim>::gradient(const Point<dim> &p, const unsigned int /*component*/) const
   {
-    const std::array<double, dim> p_sphere =
-      GeometricUtilities::Coordinates::to_spherical(p);
+    const std::array<double, dim> p_sphere = GeometricUtilities::Coordinates::to_spherical(p);
 
     std::array<double, dim> ret_sphere;
     // only for polar coordinates
@@ -68,10 +64,8 @@ namespace Function
     // transform back to cartesian coordinates
     // by considering polar unit vectors
     Tensor<1, dim> ret;
-    ret[0] = ret_sphere[0] * std::cos(p_sphere[1]) -
-             ret_sphere[1] * std::sin(p_sphere[1]);
-    ret[1] = ret_sphere[0] * std::sin(p_sphere[1]) +
-             ret_sphere[1] * std::cos(p_sphere[1]);
+    ret[0] = ret_sphere[0] * std::cos(p_sphere[1]) - ret_sphere[1] * std::sin(p_sphere[1]);
+    ret[1] = ret_sphere[0] * std::sin(p_sphere[1]) + ret_sphere[1] * std::cos(p_sphere[1]);
     return ret;
   }
 
@@ -88,8 +82,7 @@ namespace Function
 
   template <int dim>
   void
-  KovasznayExact<dim>::vector_value(const Point<dim> &p,
-                                    Vector<double>   &values) const
+  KovasznayExact<dim>::vector_value(const Point<dim> &p, Vector<double> &values) const
   {
     const double R_x = p[0];
     const double R_y = p[1];
@@ -97,20 +90,14 @@ namespace Function
     constexpr double pi  = numbers::PI;
     constexpr double pi2 = numbers::PI * numbers::PI;
 
-    values[0] = -std::exp(R_x * (-std::sqrt(25.0 + 4 * pi2) + 5.0)) *
-                  std::cos(2 * R_y * pi) +
-                1;
+    values[0] = -std::exp(R_x * (-std::sqrt(25.0 + 4 * pi2) + 5.0)) * std::cos(2 * R_y * pi) + 1;
     values[1] = (1.0L / 2.0L) * (-std::sqrt(25.0 + 4 * pi2) + 5.0) *
-                std::exp(R_x * (-std::sqrt(25.0 + 4 * pi2) + 5.0)) *
-                std::sin(2 * R_y * pi) / pi;
+                std::exp(R_x * (-std::sqrt(25.0 + 4 * pi2) + 5.0)) * std::sin(2 * R_y * pi) / pi;
     values[2] =
       -1.0L / 2.0L * std::exp(R_x * (-2 * std::sqrt(25.0 + 4 * pi2) + 10.0)) -
-      2.0 *
-        (-6538034.74494422 +
-         0.0134758939981709 * std::exp(4 * std::sqrt(25.0 + 4 * pi2))) /
+      2.0 * (-6538034.74494422 + 0.0134758939981709 * std::exp(4 * std::sqrt(25.0 + 4 * pi2))) /
         (-80.0 * std::exp(3 * std::sqrt(25.0 + 4 * pi2)) +
-         16.0 * std::sqrt(25.0 + 4 * pi2) *
-           std::exp(3 * std::sqrt(25.0 + 4 * pi2))) -
+         16.0 * std::sqrt(25.0 + 4 * pi2) * std::exp(3 * std::sqrt(25.0 + 4 * pi2))) -
       1634508.68623606 * std::exp(-3.0 * std::sqrt(25.0 + 4 * pi2)) /
         (-10.0 + 2.0 * std::sqrt(25.0 + 4 * pi2)) +
       (-0.00673794699908547 * std::exp(std::sqrt(25.0 + 4 * pi2)) +
@@ -133,8 +120,7 @@ namespace Function
 
   template <int dim>
   void
-  KovasznayRHS<dim>::vector_value(const Point<dim> &p,
-                                  Vector<double>   &values) const
+  KovasznayRHS<dim>::vector_value(const Point<dim> &p, Vector<double> &values) const
   {
     const double R_x = p[0];
     const double R_y = p[1];
@@ -142,19 +128,16 @@ namespace Function
     constexpr double pi  = numbers::PI;
     constexpr double pi2 = numbers::PI * numbers::PI;
 
-    values[0] = -1.0L / 2.0L * (-2 * std::sqrt(25.0 + 4 * pi2) + 10.0) *
-                  std::exp(R_x * (-2 * std::sqrt(25.0 + 4 * pi2) + 10.0)) -
-                0.4 * pi2 * std::exp(R_x * (-std::sqrt(25.0 + 4 * pi2) + 5.0)) *
-                  std::cos(2 * R_y * pi) +
-                0.1 * std::pow(-std::sqrt(25.0 + 4 * pi2) + 5.0, 2) *
-                  std::exp(R_x * (-std::sqrt(25.0 + 4 * pi2) + 5.0)) *
-                  std::cos(2 * R_y * pi);
+    values[0] =
+      -1.0L / 2.0L * (-2 * std::sqrt(25.0 + 4 * pi2) + 10.0) *
+        std::exp(R_x * (-2 * std::sqrt(25.0 + 4 * pi2) + 10.0)) -
+      0.4 * pi2 * std::exp(R_x * (-std::sqrt(25.0 + 4 * pi2) + 5.0)) * std::cos(2 * R_y * pi) +
+      0.1 * std::pow(-std::sqrt(25.0 + 4 * pi2) + 5.0, 2) *
+        std::exp(R_x * (-std::sqrt(25.0 + 4 * pi2) + 5.0)) * std::cos(2 * R_y * pi);
     values[1] = 0.2 * pi * (-std::sqrt(25.0 + 4 * pi2) + 5.0) *
-                  std::exp(R_x * (-std::sqrt(25.0 + 4 * pi2) + 5.0)) *
-                  std::sin(2 * R_y * pi) -
+                  std::exp(R_x * (-std::sqrt(25.0 + 4 * pi2) + 5.0)) * std::sin(2 * R_y * pi) -
                 0.05 * std::pow(-std::sqrt(25.0 + 4 * pi2) + 5.0, 3) *
-                  std::exp(R_x * (-std::sqrt(25.0 + 4 * pi2) + 5.0)) *
-                  std::sin(2 * R_y * pi) / pi;
+                  std::exp(R_x * (-std::sqrt(25.0 + 4 * pi2) + 5.0)) * std::sin(2 * R_y * pi) / pi;
     values[2] = 0;
   }
 
