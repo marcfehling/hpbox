@@ -211,14 +211,12 @@ namespace Factory
     else if (linear_algebra == "PETSc")
       {
 #ifdef DEAL_II_WITH_PETSC
-        /*
         if (dimension == 2)
           return create_problem<2, PETSc, 2>(type, std::forward<Args>(args)...);
         else if (dimension == 3)
           return create_problem<3, PETSc, 3>(type, std::forward<Args>(args)...);
         else
-        */
-        AssertThrow(false, dealii::ExcNotImplemented());
+          AssertThrow(false, dealii::ExcNotImplemented());
 #else
         AssertThrow(false,
                     dealii::ExcMessage(

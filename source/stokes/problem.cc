@@ -969,10 +969,8 @@ namespace Stokes
 #endif
 
 #ifdef DEAL_II_WITH_PETSC
-  /*
   template class Problem<2, PETSc, 2>;
   template class Problem<3, PETSc, 3>;
-  */
 #endif
 
 } // namespace Stokes
