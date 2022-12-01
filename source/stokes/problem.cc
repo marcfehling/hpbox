@@ -567,14 +567,6 @@ namespace Stokes
   {
     TimerOutput::Scope t(getTimer(), "solve");
 
-
-    std::vector<std::vector<bool>>   constant_modes;
-    const FEValuesExtractors::Vector velocity_components(0);
-    DoFTools::extract_constant_modes(dof_handler,
-                                     fe_collection.component_mask(velocities),
-                                     constant_modes);
-
-
     typename LinearAlgebra::PreconditionJacobi Mp_preconditioner;
     typename LinearAlgebra::PreconditionAMG    Amg_preconditioner;
 
@@ -588,6 +580,11 @@ namespace Stokes
     else if constexpr (std::is_same<LinearAlgebra, Trilinos>::value ||
                        std::is_same<LinearAlgebra, dealiiTrilinos>::value)
       {
+        std::vector<std::vector<bool>>   constant_modes;
+        DoFTools::extract_constant_modes(dof_handler,
+                                         fe_collection.component_mask(velocities),
+                                         constant_modes);
+
         Amg_data.constant_modes        = constant_modes;
         Amg_data.elliptic              = true;
         Amg_data.higher_order_elements = true;
