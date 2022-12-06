@@ -90,8 +90,7 @@ namespace Stokes
     std::unique_ptr<dealii::Function<dim>> solution_function;
     std::unique_ptr<dealii::Function<dim>> rhs_function;
 
-    std::vector<dealii::IndexSet> owned_partitioning;
-    std::vector<dealii::IndexSet> relevant_partitioning;
+    Partitioning partitioning;
 
     dealii::AffineConstraints<double> constraints;
 

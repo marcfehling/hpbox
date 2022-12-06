@@ -90,6 +90,7 @@ namespace Poisson
                            const VectorType                            &src,
                            const std::pair<unsigned int, unsigned int> &range) const;
 
+    Partitioning                        partitioning;
     dealii::MatrixFree<dim, value_type> matrix_free;
 
     mutable typename LinearAlgebra::SparseMatrix system_matrix;

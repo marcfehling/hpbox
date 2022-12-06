@@ -14,10 +14,7 @@
 // ---------------------------------------------------------------------
 
 
-#include <deal.II/dofs/dof_tools.h>
-
 #include <deal.II/lac/full_matrix.h>
-#include <deal.II/lac/sparsity_tools.h>
 #include <deal.II/lac/vector.h>
 
 #include <base/global.h>
@@ -79,29 +76,27 @@ namespace Poisson
     {
       TimerOutput::Scope t(getTimer(), "setup_system");
 
-      const MPI_Comm mpi_communicator = dof_handler.get_communicator();
+      partitioning.reinit(dof_handler);
 
-      const IndexSet locally_relevant_dofs = DoFTools::extract_locally_relevant_dofs(dof_handler);
-
-      this->partitioner =
-        std::make_shared<const Utilities::MPI::Partitioner>(dof_handler.locally_owned_dofs(),
-                                                            locally_relevant_dofs,
-                                                            mpi_communicator);
+      //if constexpr (std::is_same<typename LinearAlgebra::Vector,
+      //                           dealii::LinearAlgebra::distributed::Vector<double>>::value)
+      //  {
+          dealii_partitioner =
+            std::make_shared<const Utilities::MPI::Partitioner>(partitioning.get_owned_dofs(),
+                                                                partitioning.get_relevant_dofs(),
+                                                                dof_handler.get_communicator());
+      //  }
 
       {
         TimerOutput::Scope t(getTimer(), "reinit_matrix");
 
-        initialize_sparse_matrix(system_matrix,
-                                 dof_handler,
-                                 constraints,
-                                 dof_handler.locally_owned_dofs(),
-                                 locally_relevant_dofs);
+        initialize_sparse_matrix(system_matrix, dof_handler, constraints, partitioning);
       }
 
       {
         TimerOutput::Scope(getTimer(), "reinit_vectors");
 
-        system_rhs.reinit(partitioner->locally_owned_range(), partitioner->get_mpi_communicator());
+        system_rhs.reinit(dealii_partitioner->locally_owned_range(), dealii_partitioner->get_mpi_communicator());
       }
     }
 
@@ -161,7 +156,7 @@ namespace Poisson
   void
   OperatorMatrixBased<dim, LinearAlgebra, spacedim>::initialize_dof_vector(VectorType &vec) const
   {
-    vec.reinit(partitioner);
+    vec.reinit(dealii_partitioner);
   }
 
 

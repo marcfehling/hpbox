@@ -14,10 +14,7 @@
 // ---------------------------------------------------------------------
 
 
-#include <deal.II/dofs/dof_tools.h>
-
 #include <deal.II/lac/full_matrix.h>
-#include <deal.II/lac/la_parallel_vector.h>
 #include <deal.II/lac/vector.h>
 
 #include <base/global.h>
@@ -67,15 +64,15 @@ namespace Poisson
     typename MatrixFree<dim, value_type>::AdditionalData data;
     data.mapping_update_flags = update_gradients;
 
+    partitioning.reinit(dof_handler);
+
     matrix_free.reinit(*mapping_collection, dof_handler, constraints, *quadrature_collection, data);
     this->initialize_dof_vector(system_rhs);
 
     {
       AffineConstraints<value_type> constraints_without_dbc;
 
-      IndexSet locally_relevant_dofs;
-      DoFTools::extract_locally_relevant_dofs(dof_handler, locally_relevant_dofs);
-      constraints_without_dbc.reinit(locally_relevant_dofs);
+      constraints_without_dbc.reinit(partitioning.get_relevant_dofs());
 
       DoFTools::make_hanging_node_constraints(dof_handler, constraints_without_dbc);
       constraints_without_dbc.close();
@@ -156,11 +153,7 @@ namespace Poisson
       {
         const auto &dof_handler = this->matrix_free.get_dof_handler();
 
-        initialize_sparse_matrix(system_matrix,
-                                 dof_handler,
-                                 *constraints,
-                                 dof_handler.locally_owned_dofs(),
-                                 DoFTools::extract_locally_relevant_dofs(dof_handler));
+        initialize_sparse_matrix(system_matrix, dof_handler, *constraints, partitioning);
 
         MatrixFreeTools::compute_matrix(matrix_free,
                                         *constraints,

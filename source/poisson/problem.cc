@@ -144,20 +144,22 @@ namespace Poisson
       dof_handler.distribute_dofs(fe_collection);
     }
 
-    locally_owned_dofs = dof_handler.locally_owned_dofs();
-    DoFTools::extract_locally_relevant_dofs(dof_handler, locally_relevant_dofs);
+    // TODO: Move this part into operator?
+    partitioning.reinit(dof_handler);
 
     {
       TimerOutput::Scope(getTimer(), "reinit_vectors");
 
-      locally_relevant_solution.reinit(locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
+      locally_relevant_solution.reinit(partitioning.get_owned_dofs(),
+                                       partitioning.get_relevant_dofs(),
+                                       mpi_communicator);
     }
 
     {
       TimerOutput::Scope t(getTimer(), "make_constraints");
 
       constraints.clear();
-      constraints.reinit(locally_relevant_dofs);
+      constraints.reinit(partitioning.get_relevant_dofs());
 
       DoFTools::make_hanging_node_constraints(dof_handler, constraints);
 

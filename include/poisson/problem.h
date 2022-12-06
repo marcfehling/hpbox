@@ -77,8 +77,7 @@ namespace Poisson
     std::unique_ptr<dealii::Function<dim>> solution_function;
     std::unique_ptr<dealii::Function<dim>> rhs_function;
 
-    dealii::IndexSet locally_owned_dofs;
-    dealii::IndexSet locally_relevant_dofs;
+    Partitioning partitioning;
 
     dealii::AffineConstraints<double> constraints;
 

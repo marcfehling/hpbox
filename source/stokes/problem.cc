@@ -276,34 +276,22 @@ namespace Stokes
     stokes_sub_blocks[dim] = 1;
     DoFRenumbering::component_wise(dof_handler, stokes_sub_blocks);
 
-    const std::vector<types::global_dof_index> dofs_per_block =
-      DoFTools::count_dofs_per_fe_block(dof_handler, stokes_sub_blocks);
-
-    const unsigned int n_u = dofs_per_block[0];
-    const unsigned int n_p = dofs_per_block[1];
-
-    owned_partitioning.resize(2);
-    owned_partitioning[0] = dof_handler.locally_owned_dofs().get_view(0, n_u);
-    owned_partitioning[1] = dof_handler.locally_owned_dofs().get_view(n_u, n_u + n_p);
-
-    IndexSet locally_relevant_dofs;
-    DoFTools::extract_locally_relevant_dofs(dof_handler, locally_relevant_dofs);
-    relevant_partitioning.resize(2);
-    relevant_partitioning[0] = locally_relevant_dofs.get_view(0, n_u);
-    relevant_partitioning[1] = locally_relevant_dofs.get_view(n_u, n_u + n_p);
+    partitioning.reinit(dof_handler, stokes_sub_blocks);
 
     {
       TimerOutput::Scope(getTimer(), "reinit_vectors");
 
-      locally_relevant_solution.reinit(owned_partitioning, relevant_partitioning, mpi_communicator);
-      system_rhs.reinit(owned_partitioning, mpi_communicator);
+      locally_relevant_solution.reinit(partitioning.get_owned_dofs_per_block(),
+                                       partitioning.get_relevant_dofs_per_block(),
+                                       mpi_communicator);
+      system_rhs.reinit(partitioning.get_owned_dofs_per_block(), mpi_communicator);
     }
 
     {
       TimerOutput::Scope t(getTimer(), "make_constraints");
 
       constraints.clear();
-      constraints.reinit(locally_relevant_dofs);
+      constraints.reinit(partitioning.get_relevant_dofs());
 
       DoFTools::make_hanging_node_constraints(dof_handler, constraints);
 
@@ -373,12 +361,8 @@ namespace Stokes
           else
             coupling[c][d] = DoFTools::none;
 
-      initialize_block_sparse_matrix(system_matrix,
-                                     dof_handler,
-                                     constraints,
-                                     owned_partitioning,
-                                     relevant_partitioning,
-                                     coupling);
+      initialize_block_sparse_matrix(
+        system_matrix, dof_handler, constraints, partitioning, coupling);
     }
 
     {
@@ -394,12 +378,8 @@ namespace Stokes
           else
             coupling[c][d] = DoFTools::none;
 
-      initialize_block_sparse_matrix(preconditioner_matrix,
-                                     dof_handler,
-                                     constraints,
-                                     owned_partitioning,
-                                     relevant_partitioning,
-                                     coupling);
+      initialize_block_sparse_matrix(
+        preconditioner_matrix, dof_handler, constraints, partitioning, coupling);
     }
   }
 
@@ -580,7 +560,7 @@ namespace Stokes
     else if constexpr (std::is_same<LinearAlgebra, Trilinos>::value ||
                        std::is_same<LinearAlgebra, dealiiTrilinos>::value)
       {
-        std::vector<std::vector<bool>>   constant_modes;
+        std::vector<std::vector<bool>> constant_modes;
         DoFTools::extract_constant_modes(dof_handler,
                                          fe_collection.component_mask(velocities),
                                          constant_modes);
@@ -602,8 +582,8 @@ namespace Stokes
 
 
 
-    typename LinearAlgebra::BlockVector completely_distributed_solution(owned_partitioning,
-                                                                        mpi_communicator);
+    typename LinearAlgebra::BlockVector completely_distributed_solution(
+      partitioning.get_owned_dofs_per_block(), mpi_communicator);
     constraints.set_zero(completely_distributed_solution);
 
 

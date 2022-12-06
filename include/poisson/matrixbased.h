@@ -81,7 +81,8 @@ namespace Poisson
 
     typename LinearAlgebra::SparseMatrix system_matrix;
 
-    std::shared_ptr<const dealii::Utilities::MPI::Partitioner> partitioner;
+    Partitioning                                               partitioning;
+    std::shared_ptr<const dealii::Utilities::MPI::Partitioner> dealii_partitioner;
   };
 } // namespace Poisson
 
