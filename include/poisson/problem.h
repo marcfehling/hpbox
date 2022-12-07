@@ -44,6 +44,8 @@ namespace Poisson
     initialize_grid();
     void
     setup_system();
+    void
+    initialize_system();
 
     void
     solve();

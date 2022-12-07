@@ -44,6 +44,8 @@ namespace Stokes
     initialize_grid();
     void
     setup_system();
+    void
+    initialize_system();
 
     // TODO: we go with the classical matrix based way for now
     // template <typename OperatorType>

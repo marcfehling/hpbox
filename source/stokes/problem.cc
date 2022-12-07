@@ -266,26 +266,17 @@ namespace Stokes
   {
     TimerOutput::Scope t(getTimer(), "setup_system");
 
+    std::vector<unsigned int> stokes_sub_blocks(dim + 1, 0);
+        stokes_sub_blocks[dim] = 1;
+
     {
       TimerOutput::Scope t(getTimer(), "distribute_dofs");
 
       dof_handler.distribute_dofs(fe_collection);
+      DoFRenumbering::component_wise(dof_handler, stokes_sub_blocks);
     }
-
-    std::vector<unsigned int> stokes_sub_blocks(dim + 1, 0);
-    stokes_sub_blocks[dim] = 1;
-    DoFRenumbering::component_wise(dof_handler, stokes_sub_blocks);
 
     partitioning.reinit(dof_handler, stokes_sub_blocks);
-
-    {
-      TimerOutput::Scope(getTimer(), "reinit_vectors");
-
-      locally_relevant_solution.reinit(partitioning.get_owned_dofs_per_block(),
-                                       partitioning.get_relevant_dofs_per_block(),
-                                       mpi_communicator);
-      system_rhs.reinit(partitioning.get_owned_dofs_per_block(), mpi_communicator);
-    }
 
     {
       TimerOutput::Scope t(getTimer(), "make_constraints");
@@ -348,6 +339,17 @@ namespace Stokes
       constraints.close();
     }
 
+    Log::log_hp_diagnostics(triangulation, dof_handler, constraints);
+  }
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
+  void
+  Problem<dim, LinearAlgebra, spacedim>::initialize_system()
+  {
+    TimerOutput::Scope t(getTimer(), "initialize_system");
+
     {
       TimerOutput::Scope t(getTimer(), "reinit_matrices");
 
@@ -363,14 +365,9 @@ namespace Stokes
 
       initialize_block_sparse_matrix(
         system_matrix, dof_handler, constraints, partitioning, coupling);
-    }
-
-    {
-      TimerOutput::Scope t(getTimer(), "reinit_matrices");
 
       preconditioner_matrix.clear();
 
-      Table<2, DoFTools::Coupling> coupling(dim + 1, dim + 1);
       for (unsigned int c = 0; c < dim + 1; ++c)
         for (unsigned int d = 0; d < dim + 1; ++d)
           if (c == d)
@@ -381,6 +378,18 @@ namespace Stokes
       initialize_block_sparse_matrix(
         preconditioner_matrix, dof_handler, constraints, partitioning, coupling);
     }
+
+    {
+      TimerOutput::Scope(getTimer(), "reinit_vectors");
+
+      locally_relevant_solution.reinit(partitioning.get_owned_dofs_per_block(),
+                                       partitioning.get_relevant_dofs_per_block(),
+                                       mpi_communicator);
+      system_rhs.reinit(partitioning.get_owned_dofs_per_block(), mpi_communicator);
+    }
+
+    if (prm.operator_type == "MatrixBased")
+      Log::log_nonzero_elements(system_matrix);
   }
 
 
@@ -852,9 +861,7 @@ namespace Stokes
           Log::log_cycle(cycle, prm);
 
           setup_system();
-
-          Log::log_hp_diagnostics(triangulation, dof_handler, constraints);
-          Log::log_nonzero_elements(system_matrix);
+          initialize_system();
 
           // TODO: I am not happy with this
           if (prm.operator_type == "MatrixBased")
