@@ -279,9 +279,8 @@ namespace Stokes
 
       dof_handler.distribute_dofs(fe_collection);
       DoFRenumbering::component_wise(dof_handler, stokes_sub_blocks);
+      partitioning.reinit(dof_handler, stokes_sub_blocks);
     }
-
-    partitioning.reinit(dof_handler, stokes_sub_blocks);
 
     {
       TimerOutput::Scope t(getTimer(), "make_constraints");
