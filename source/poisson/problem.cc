@@ -198,21 +198,15 @@ namespace Poisson
   {
     TimerOutput::Scope t(getTimer(), "solve");
 
+    // We need to introduce a vector that does not contain all ghost elements.
     typename LinearAlgebra::Vector completely_distributed_solution;
-    typename LinearAlgebra::Vector completely_distributed_system_rhs;
-
     poisson_operator->initialize_dof_vector(completely_distributed_solution);
-    completely_distributed_system_rhs = system_rhs;
 
-    SolverControl solver_control(completely_distributed_system_rhs.size(),
-                                 1e-12 * completely_distributed_system_rhs.l2_norm());
+    SolverControl solver_control(system_rhs.size(), 1e-12 * system_rhs.l2_norm());
 
     if (prm.solver_type == "AMG")
       {
-        solve_amg(solver_control,
-                  *poisson_operator,
-                  completely_distributed_solution,
-                  completely_distributed_system_rhs);
+        solve_amg(solver_control, *poisson_operator, completely_distributed_solution, system_rhs);
       }
     else if (prm.solver_type == "GMG")
       {
@@ -221,7 +215,7 @@ namespace Poisson
             solve_gmg(solver_control,
                       *poisson_operator,
                       completely_distributed_solution,
-                      completely_distributed_system_rhs,
+                      system_rhs,
                       /*boundary_values=*/mapping_collection,
                       dof_handler);
           }
