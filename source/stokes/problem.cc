@@ -64,7 +64,10 @@ namespace LinearSolvers
     vmult(typename LinearAlgebra::BlockVector       &dst,
           const typename LinearAlgebra::BlockVector &src) const
     {
-      typename LinearAlgebra::Vector utmp(src.block(0));
+      // This needs to be done explicitly, as GMRES does not initialize the data of the vector dst
+      // before calling us. Otherwise we might use random data as our initial guess.
+      // See also: https://github.com/geodynamics/aspect/pull/4973
+      dst = 0.;
 
       {
         SolverControl solver_control(5000, 1e-6 * src.block(1).l2_norm());
@@ -78,6 +81,8 @@ namespace LinearSolvers
 
         dst.block(1) *= -1.0;
       }
+
+      typename LinearAlgebra::Vector utmp(src.block(0));
 
       {
         stokes_matrix->block(0, 1).vmult(utmp, dst.block(1));
@@ -267,7 +272,7 @@ namespace Stokes
     TimerOutput::Scope t(getTimer(), "setup_system");
 
     std::vector<unsigned int> stokes_sub_blocks(dim + 1, 0);
-        stokes_sub_blocks[dim] = 1;
+    stokes_sub_blocks[dim] = 1;
 
     {
       TimerOutput::Scope t(getTimer(), "distribute_dofs");
