@@ -385,7 +385,19 @@ namespace Stokes
       locally_relevant_solution.reinit(partitioning.get_owned_dofs_per_block(),
                                        partitioning.get_relevant_dofs_per_block(),
                                        mpi_communicator);
-      system_rhs.reinit(partitioning.get_owned_dofs_per_block(), mpi_communicator);
+
+      // TODO: Outsource to Operator as in Poisson
+      if constexpr (std::is_same_v<typename LinearAlgebra::BlockVector,
+                                   dealii::LinearAlgebra::distributed::BlockVector<double>>)
+        {
+          system_rhs.reinit(partitioning.get_owned_dofs_per_block(),
+                            partitioning.get_relevant_dofs_per_block(),
+                            mpi_communicator);
+        }
+      else
+        {
+          system_rhs.reinit(partitioning.get_owned_dofs_per_block(), mpi_communicator);
+        }
     }
 
     if (prm.operator_type == "MatrixBased")
@@ -590,9 +602,20 @@ namespace Stokes
     Amg_preconditioner.initialize(preconditioner_matrix.block(0, 0), Amg_data);
 
 
+    typename LinearAlgebra::BlockVector completely_distributed_solution;
+    if constexpr (std::is_same_v<typename LinearAlgebra::BlockVector,
+                                 dealii::LinearAlgebra::distributed::BlockVector<double>>)
+      {
+        completely_distributed_solution.reinit(partitioning.get_owned_dofs_per_block(),
+                                               partitioning.get_relevant_dofs_per_block(),
+                                               mpi_communicator);
+      }
+    else
+      {
+        completely_distributed_solution.reinit(partitioning.get_owned_dofs_per_block(),
+                                               mpi_communicator);
+      }
 
-    typename LinearAlgebra::BlockVector completely_distributed_solution(
-      partitioning.get_owned_dofs_per_block(), mpi_communicator);
     constraints.set_zero(completely_distributed_solution);
 
 

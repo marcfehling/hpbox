@@ -89,9 +89,9 @@ namespace Poisson
       }
 
       {
-        TimerOutput::Scope(getTimer(), "reinit_vectors");
+        TimerOutput::Scope t(getTimer(), "reinit_vectors");
 
-        system_rhs.reinit(dealii_partitioner->locally_owned_range(), dealii_partitioner->get_mpi_communicator());
+        initialize_dof_vector(system_rhs);
       }
     }
 
@@ -151,7 +151,7 @@ namespace Poisson
   void
   OperatorMatrixBased<dim, LinearAlgebra, spacedim>::initialize_dof_vector(VectorType &vec) const
   {
-    vec.reinit(dealii_partitioner);
+    vec.reinit(dealii_partitioner, /*make_ghosted*/ false);
   }
 
 
