@@ -142,10 +142,16 @@ namespace Poisson
       TimerOutput::Scope t(getTimer(), "distribute_dofs");
 
       dof_handler.distribute_dofs(fe_collection);
+      partitioning.reinit(dof_handler);
     }
 
-    // TODO: Move this part into operator?
-    partitioning.reinit(dof_handler);
+    {
+      TimerOutput::Scope t(getTimer(), "reinit_vectors");
+
+      locally_relevant_solution.reinit(partitioning.get_owned_dofs(),
+                                       partitioning.get_relevant_dofs(),
+                                       mpi_communicator);
+    }
 
     {
       TimerOutput::Scope t(getTimer(), "make_constraints");
@@ -182,31 +188,6 @@ namespace Poisson
 #endif
       constraints.close();
     }
-
-    Log::log_hp_diagnostics(triangulation, dof_handler, constraints);
-  }
-
-
-
-  template <int dim, typename LinearAlgebra, int spacedim>
-  void
-  Problem<dim, LinearAlgebra, spacedim>::initialize_system()
-  {
-    TimerOutput::Scope t(getTimer(), "initialize_system");
-
-    poisson_operator->reinit(dof_handler, constraints, system_rhs);
-
-    {
-      TimerOutput::Scope(getTimer(), "reinit_vectors");
-
-      // poisson_operator->init_dof_vector();
-      locally_relevant_solution.reinit(partitioning.get_owned_dofs(),
-                                       partitioning.get_relevant_dofs(),
-                                       mpi_communicator);
-    }
-
-    if (prm.operator_type == "MatrixBased")
-      Log::log_nonzero_elements(poisson_operator->get_system_matrix());
   }
 
 
@@ -404,7 +385,13 @@ namespace Poisson
           Log::log_cycle(cycle, prm);
 
           setup_system();
-          initialize_system();
+
+          Log::log_hp_diagnostics(triangulation, dof_handler, constraints);
+
+          poisson_operator->reinit(partitioning, dof_handler, constraints, system_rhs);
+
+          if (prm.operator_type == "MatrixBased")
+            Log::log_nonzero_elements(poisson_operator->get_system_matrix());
 
           solve();
 

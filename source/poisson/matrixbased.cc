@@ -69,23 +69,18 @@ namespace Poisson
   template <int dim, typename LinearAlgebra, int spacedim>
   void
   OperatorMatrixBased<dim, LinearAlgebra, spacedim>::reinit(
-    const dealii::DoFHandler<dim, spacedim>     &dof_handler,
-    const dealii::AffineConstraints<value_type> &constraints,
-    VectorType                                  &system_rhs)
+    const Partitioning                  &partitioning,
+    const DoFHandler<dim, spacedim>     &dof_handler,
+    const AffineConstraints<value_type> &constraints,
+    VectorType                          &system_rhs)
   {
     {
       TimerOutput::Scope t(getTimer(), "setup_system");
 
-      partitioning.reinit(dof_handler);
-
-      //if constexpr (std::is_same<typename LinearAlgebra::Vector,
-      //                           dealii::LinearAlgebra::distributed::Vector<double>>::value)
-      //  {
-          dealii_partitioner =
-            std::make_shared<const Utilities::MPI::Partitioner>(partitioning.get_owned_dofs(),
-                                                                partitioning.get_relevant_dofs(),
-                                                                dof_handler.get_communicator());
-      //  }
+      this->dealii_partitioner =
+        std::make_shared<const Utilities::MPI::Partitioner>(partitioning.get_owned_dofs(),
+                                                            partitioning.get_relevant_dofs(),
+                                                            dof_handler.get_communicator());
 
       {
         TimerOutput::Scope t(getTimer(), "reinit_matrix");

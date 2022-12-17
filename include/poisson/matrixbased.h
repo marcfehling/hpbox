@@ -45,7 +45,8 @@ namespace Poisson
     replicate() const override;
 
     void
-    reinit(const dealii::DoFHandler<dim, spacedim>     &dof_handler,
+    reinit(const Partitioning                          &partitioning,
+           const dealii::DoFHandler<dim, spacedim>     &dof_handler,
            const dealii::AffineConstraints<value_type> &constraints,
            VectorType                                  &system_rhs) override;
 
@@ -81,7 +82,6 @@ namespace Poisson
 
     typename LinearAlgebra::SparseMatrix system_matrix;
 
-    Partitioning                                               partitioning;
     std::shared_ptr<const dealii::Utilities::MPI::Partitioner> dealii_partitioner;
   };
 } // namespace Poisson

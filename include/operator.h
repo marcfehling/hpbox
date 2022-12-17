@@ -40,7 +40,8 @@ public:
   replicate() const = 0;
 
   virtual void
-  reinit(const dealii::DoFHandler<dim, spacedim>     &dof_handler,
+  reinit(const Partitioning                          &partitioning,
+         const dealii::DoFHandler<dim, spacedim>     &dof_handler,
          const dealii::AffineConstraints<value_type> &constraints,
          VectorType                                  &system_rhs) = 0;
 };

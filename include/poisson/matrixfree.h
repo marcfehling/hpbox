@@ -17,8 +17,6 @@
 #define poisson_matrixfree_h
 
 
-#include <deal.II/lac/trilinos_sparse_matrix.h>
-
 #include <deal.II/matrix_free/tools.h>
 
 #include <operator.h>
@@ -43,7 +41,8 @@ namespace Poisson
     replicate() const override;
 
     void
-    reinit(const dealii::DoFHandler<dim, spacedim>     &dof_handler,
+    reinit(const Partitioning                          &partitioning,
+           const dealii::DoFHandler<dim, spacedim>     &dof_handler,
            const dealii::AffineConstraints<value_type> &constraints,
            VectorType                                  &system_rhs) override;
 
@@ -90,6 +89,7 @@ namespace Poisson
                            const VectorType                            &src,
                            const std::pair<unsigned int, unsigned int> &range) const;
 
+    // TODO: Make partitioning a pointer? Or leave it like this?
     Partitioning                        partitioning;
     dealii::MatrixFree<dim, value_type> matrix_free;
 

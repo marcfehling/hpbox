@@ -158,25 +158,23 @@ namespace Poisson
         const auto &dof_handler = dof_handlers[level];
         auto       &constraint  = constraints[level];
 
+        Partitioning partitioning;
+        partitioning.reinit(dof_handler);
+
         // ... constraints (with homogenous Dirichlet BC)
-        {
-          IndexSet locally_relevant_dofs;
-          DoFTools::extract_locally_relevant_dofs(dof_handler, locally_relevant_dofs);
-          constraint.reinit(locally_relevant_dofs);
+        constraint.reinit(partitioning.get_relevant_dofs());
 
-
-          DoFTools::make_hanging_node_constraints(dof_handler, constraint);
-          VectorTools::interpolate_boundary_values(
-            mapping_collection, dof_handler, 0, Functions::ZeroFunction<dim>(), constraint);
-          constraint.close();
-        }
+        DoFTools::make_hanging_node_constraints(dof_handler, constraint);
+        VectorTools::interpolate_boundary_values(
+          mapping_collection, dof_handler, 0, Functions::ZeroFunction<dim>(), constraint);
+        constraint.close();
 
         // ... operator (just like on the finest level)
         operators[level] = poisson_operator.replicate();
 
         {
           VectorType dummy;
-          operators[level]->reinit(dof_handler, constraint, dummy);
+          operators[level]->reinit(partitioning, dof_handler, constraint, dummy);
         }
       }
 

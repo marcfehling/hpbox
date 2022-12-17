@@ -51,6 +51,7 @@ namespace Poisson
   template <int dim, typename LinearAlgebra, int spacedim>
   void
   OperatorMatrixFree<dim, LinearAlgebra, spacedim>::reinit(
+    const Partitioning                  &partitioning,
     const DoFHandler<dim, spacedim>     &dof_handler,
     const AffineConstraints<value_type> &constraints,
     VectorType                          &system_rhs)
@@ -59,12 +60,11 @@ namespace Poisson
 
     this->system_matrix.clear();
 
-    this->constraints = &constraints;
+    this->partitioning = partitioning;
+    this->constraints  = &constraints;
 
     typename MatrixFree<dim, value_type>::AdditionalData data;
     data.mapping_update_flags = update_gradients;
-
-    partitioning.reinit(dof_handler);
 
     matrix_free.reinit(*mapping_collection, dof_handler, constraints, *quadrature_collection, data);
     this->initialize_dof_vector(system_rhs);
