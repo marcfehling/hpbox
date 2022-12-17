@@ -70,9 +70,8 @@ namespace LinearSolvers
       dst = 0.;
 
       {
-        SolverControl solver_control(5000, 1e-6 * src.block(1).l2_norm());
-
-        SolverCG<typename LinearAlgebra::Vector> solver(solver_control);
+        SolverControl                    solver_control(5000, 1e-6 * src.block(1).l2_norm());
+        typename LinearAlgebra::SolverCG solver(solver_control);
 
         solver.solve(stokes_preconditioner_matrix->block(1, 1),
                      dst.block(1),
@@ -92,8 +91,9 @@ namespace LinearSolvers
 
       if (do_solve_A == true)
         {
-          SolverControl                    solver_control(5000, utmp.l2_norm() * 1e-2);
+          SolverControl                    solver_control(5000, 1e-2 * utmp.l2_norm());
           typename LinearAlgebra::SolverCG solver(solver_control);
+
           solver.solve(stokes_matrix->block(0, 0), dst.block(0), utmp, a_preconditioner);
         }
       else
