@@ -151,6 +151,9 @@ namespace Poisson
   void
   OperatorMatrixBased<dim, LinearAlgebra, spacedim>::initialize_dof_vector(VectorType &vec) const
   {
+    // LA::distributed::Vector needs to know about ghost indices,
+    // but Trilinos/PETSc::MPI::Vector must remain non-ghosted.
+    Assert(dealii_partitioner->ghost_indices_initialized(), ExcInternalError());
     vec.reinit(dealii_partitioner, /*make_ghosted*/ false);
   }
 
