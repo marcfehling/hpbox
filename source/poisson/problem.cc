@@ -235,7 +235,7 @@ namespace Poisson
       }
     else if (prm.solver_type == "GMG")
       {
-        if constexpr (std::is_same<LinearAlgebra, dealiiTrilinos>::value)
+        if constexpr (std::is_same_v<LinearAlgebra, dealiiTrilinos>)
           {
             solve_gmg(solver_control,
                       *poisson_operator,

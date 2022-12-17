@@ -32,12 +32,12 @@ namespace Poisson
             const typename LinearAlgebra::Vector             &src)
   {
     typename LinearAlgebra::PreconditionAMG::AdditionalData data;
-    if constexpr (std::is_same<LinearAlgebra, PETSc>::value)
+    if constexpr (std::is_same_v<LinearAlgebra, PETSc>)
       {
         data.symmetric_operator = true;
       }
-    else if constexpr (std::is_same<LinearAlgebra, Trilinos>::value ||
-                       std::is_same<LinearAlgebra, dealiiTrilinos>::value)
+    else if constexpr (std::is_same_v<LinearAlgebra, Trilinos> ||
+                       std::is_same_v<LinearAlgebra, dealiiTrilinos>)
       {
         data.elliptic              = true;
         data.higher_order_elements = true;
@@ -51,7 +51,7 @@ namespace Poisson
     preconditioner.initialize(poisson_operator.get_system_matrix(), data);
 
     typename LinearAlgebra::SolverCG cg(solver_control);
-    if constexpr (std::is_same<LinearAlgebra, dealiiTrilinos>::value)
+    if constexpr (std::is_same_v<LinearAlgebra, dealiiTrilinos>)
       {
         cg.solve(poisson_operator, dst, src, preconditioner);
       }
