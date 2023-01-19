@@ -36,7 +36,7 @@
 
 #ifdef DEAL_II_WITH_TRILINOS
 #  include <deal.II/lac/trilinos_precondition.h>
-//#  include <deal.II/lac/trilinos_sparse_matrix.h>
+// #  include <deal.II/lac/trilinos_sparse_matrix.h>
 #endif
 
 #include <deal.II/multigrid/mg_coarse.h>

@@ -27,9 +27,6 @@
 #include <base/linear_algebra.h>
 #include <function.h>
 #include <grid.h>
-#include <operator.h>
-#include <poisson/matrixbased.h>
-#include <poisson/matrixfree.h>
 #include <poisson/problem.h>
 #include <stokes/problem.h>
 
@@ -95,41 +92,6 @@ namespace Factory
       Grid::y_pipe(std::forward<Args>(args)...);
     else
       AssertThrow(false, dealii::ExcNotImplemented());
-  }
-
-
-
-  template <int dim, typename LinearAlgebra, int spacedim = dim, typename... Args>
-  std::unique_ptr<OperatorBase<dim, LinearAlgebra, spacedim>>
-  create_operator(const std::string type, const std::string problem_type, Args &&...args)
-  {
-    if (type == "MatrixBased")
-      {
-        if (problem_type == "Poisson")
-          return std::make_unique<Poisson::OperatorMatrixBased<dim, LinearAlgebra, spacedim>>(
-            std::forward<Args>(args)...);
-        else if (problem_type == "Stokes")
-          AssertThrow(false, dealii::ExcNotImplemented());
-      }
-    else if (type == "MatrixFree")
-      {
-        if constexpr (std::is_same<LinearAlgebra, dealiiTrilinos>::value)
-          {
-            if (problem_type == "Poisson")
-              return std::make_unique<Poisson::OperatorMatrixFree<dim, LinearAlgebra, spacedim>>(
-                std::forward<Args>(args)...);
-            else if (problem_type == "Stokes")
-              AssertThrow(false, dealii::ExcNotImplemented());
-          }
-        else
-          {
-            AssertThrow(false,
-                        dealii::ExcMessage("MatrixFree only available with dealii & Trilinos!"));
-          }
-      }
-
-    AssertThrow(false, dealii::ExcNotImplemented());
-    return std::unique_ptr<OperatorBase<dim, LinearAlgebra, spacedim>>();
   }
 
 

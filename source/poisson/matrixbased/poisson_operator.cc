@@ -19,15 +19,15 @@
 
 #include <base/global.h>
 #include <base/linear_algebra.h>
-#include <poisson/matrixbased.h>
+#include <poisson/matrixbased/poisson_operator.h>
 
 using namespace dealii;
 
 
-namespace Poisson
+namespace PoissonMatrixBased
 {
   template <int dim, typename LinearAlgebra, int spacedim>
-  OperatorMatrixBased<dim, LinearAlgebra, spacedim>::OperatorMatrixBased(
+  PoissonOperator<dim, LinearAlgebra, spacedim>::PoissonOperator(
     const hp::MappingCollection<dim, spacedim> &mapping_collection,
     const hp::QCollection<dim>                 &quadrature_collection,
     const hp::FECollection<dim, spacedim>      &fe_collection)
@@ -46,7 +46,7 @@ namespace Poisson
 
 
   template <int dim, typename LinearAlgebra, int spacedim>
-  OperatorMatrixBased<dim, LinearAlgebra, spacedim>::OperatorMatrixBased(
+  PoissonOperator<dim, LinearAlgebra, spacedim>::PoissonOperator(
     const hp::MappingCollection<dim, spacedim> &mapping_collection,
     const hp::QCollection<dim>                 &quadrature_collection,
     const hp::FEValues<dim, spacedim>          &fe_values_collection)
@@ -57,22 +57,34 @@ namespace Poisson
 
 
   template <int dim, typename LinearAlgebra, int spacedim>
-  std::unique_ptr<OperatorBase<dim, LinearAlgebra, spacedim>>
-  OperatorMatrixBased<dim, LinearAlgebra, spacedim>::replicate() const
+  std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>
+  PoissonOperator<dim, LinearAlgebra, spacedim>::replicate() const
   {
-    return std::make_unique<OperatorMatrixBased<dim, LinearAlgebra, spacedim>>(
-      *mapping_collection, *quadrature_collection, fe_values_collection);
+    return std::make_unique<PoissonOperator<dim, LinearAlgebra, spacedim>>(*mapping_collection,
+                                                                           *quadrature_collection,
+                                                                           fe_values_collection);
   }
 
 
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  OperatorMatrixBased<dim, LinearAlgebra, spacedim>::reinit(
+  PoissonOperator<dim, LinearAlgebra, spacedim>::reinit(const Partitioning &,
+                                                        const DoFHandler<dim, spacedim> &,
+                                                        const AffineConstraints<value_type> &)
+  {
+    Assert(false, ExcNotImplemented());
+  }
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
+  void
+  PoissonOperator<dim, LinearAlgebra, spacedim>::reinit(
     const Partitioning                  &partitioning,
     const DoFHandler<dim, spacedim>     &dof_handler,
     const AffineConstraints<value_type> &constraints,
-    VectorType                          &system_rhs)
+    VectorType                          &system_rhs,
+    const dealii::Function<spacedim> * /*rhs_function*/)
   {
     {
       TimerOutput::Scope t(getTimer(), "setup_system");
@@ -139,8 +151,7 @@ namespace Poisson
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  OperatorMatrixBased<dim, LinearAlgebra, spacedim>::vmult(VectorType       &dst,
-                                                           const VectorType &src) const
+  PoissonOperator<dim, LinearAlgebra, spacedim>::vmult(VectorType &dst, const VectorType &src) const
   {
     system_matrix.vmult(dst, src);
   }
@@ -149,19 +160,35 @@ namespace Poisson
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  OperatorMatrixBased<dim, LinearAlgebra, spacedim>::initialize_dof_vector(VectorType &vec) const
+  PoissonOperator<dim, LinearAlgebra, spacedim>::initialize_dof_vector(VectorType &vec) const
   {
     // LA::distributed::Vector needs to know about ghost indices,
     // but Trilinos/PETSc::MPI::Vector must remain non-ghosted.
-    Assert(dealii_partitioner->ghost_indices_initialized(), ExcInternalError());
-    vec.reinit(dealii_partitioner, /*make_ghosted*/ false);
+    //
+    // Assert(dealii_partitioner->ghost_indices_initialized(), ExcInternalError());
+    // vec.reinit(dealii_partitioner, /*make_ghosted*/ false);
+
+    // TODO: Decide to go the old way
+    if constexpr (std::is_same_v<typename LinearAlgebra::Vector,
+                                 dealii::LinearAlgebra::distributed::Vector<double>>)
+      {
+        // LA::distributed::Vector must remain non-ghosted, but needs to know about ghost indices
+        Assert(dealii_partitioner->ghost_indices_initialized(), ExcInternalError());
+        vec.reinit(dealii_partitioner);
+      }
+    else
+      {
+        // Trilinos/PETSc::MPI::Vector must remain non-ghosted
+        vec.reinit(dealii_partitioner->locally_owned_range(),
+                   dealii_partitioner->get_mpi_communicator());
+      }
   }
 
 
 
   template <int dim, typename LinearAlgebra, int spacedim>
   types::global_dof_index
-  OperatorMatrixBased<dim, LinearAlgebra, spacedim>::m() const
+  PoissonOperator<dim, LinearAlgebra, spacedim>::m() const
   {
     return system_matrix.m();
   }
@@ -170,21 +197,20 @@ namespace Poisson
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  OperatorMatrixBased<dim, LinearAlgebra, spacedim>::compute_inverse_diagonal(
+  PoissonOperator<dim, LinearAlgebra, spacedim>::compute_inverse_diagonal(
     VectorType &diagonal) const
   {
     this->initialize_dof_vector(diagonal);
 
-    for (auto entry : system_matrix)
-      if (entry.row() == entry.column())
-        diagonal[entry.row()] = 1.0 / entry.value();
+    for (unsigned int n = 0; n < system_matrix.n(); ++n)
+      diagonal[n] = 1.0 / system_matrix.diag_element(n);
   }
 
 
 
   template <int dim, typename LinearAlgebra, int spacedim>
   const typename LinearAlgebra::SparseMatrix &
-  OperatorMatrixBased<dim, LinearAlgebra, spacedim>::get_system_matrix() const
+  PoissonOperator<dim, LinearAlgebra, spacedim>::get_system_matrix() const
   {
     return system_matrix;
   }
@@ -193,8 +219,8 @@ namespace Poisson
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  OperatorMatrixBased<dim, LinearAlgebra, spacedim>::Tvmult(VectorType       &dst,
-                                                            const VectorType &src) const
+  PoissonOperator<dim, LinearAlgebra, spacedim>::Tvmult(VectorType       &dst,
+                                                        const VectorType &src) const
   {
     vmult(dst, src);
   }
@@ -203,15 +229,15 @@ namespace Poisson
 
 // explicit instantiations
 #ifdef DEAL_II_WITH_TRILINOS
-  template class OperatorMatrixBased<2, dealiiTrilinos, 2>;
-  template class OperatorMatrixBased<3, dealiiTrilinos, 3>;
-  template class OperatorMatrixBased<2, Trilinos, 2>;
-  template class OperatorMatrixBased<3, Trilinos, 3>;
+  template class PoissonOperator<2, dealiiTrilinos, 2>;
+  template class PoissonOperator<3, dealiiTrilinos, 3>;
+  template class PoissonOperator<2, Trilinos, 2>;
+  template class PoissonOperator<3, Trilinos, 3>;
 #endif
 
 #ifdef DEAL_II_WITH_PETSC
-  template class OperatorMatrixBased<2, PETSc, 2>;
-  template class OperatorMatrixBased<3, PETSc, 3>;
+  template class PoissonOperator<2, PETSc, 2>;
+  template class PoissonOperator<3, PETSc, 3>;
 #endif
 
-} // namespace Poisson
+} // namespace PoissonMatrixBased

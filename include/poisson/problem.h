@@ -22,9 +22,8 @@
 #include <deal.II/hp/fe_values.h>
 
 #include <adaptation/base.h>
+#include <operator.h>
 #include <parameter.h>
-#include <poisson/matrixbased.h>
-#include <poisson/matrixfree.h>
 #include <problem.h>
 
 
@@ -83,7 +82,7 @@ namespace Poisson
 
     dealii::AffineConstraints<double> constraints;
 
-    std::unique_ptr<OperatorBase<dim, LinearAlgebra, spacedim>> poisson_operator;
+    std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>> poisson_operator;
 
     typename LinearAlgebra::Vector locally_relevant_solution;
     typename LinearAlgebra::Vector system_rhs;

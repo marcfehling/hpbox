@@ -44,8 +44,6 @@ namespace Stokes
     initialize_grid();
     void
     setup_system();
-    void
-    initialize_system();
 
     // TODO: we go with the classical matrix based way for now
     // template <typename OperatorType>
@@ -53,8 +51,7 @@ namespace Stokes
     // solve(const OperatorType                        &system_matrix,
     //       typename LinearAlgebra::BlockVector &locally_relevant_solution,
     //       const typename LinearAlgebra::BlockVector &system_rhs);
-    void
-    assemble_system();
+
     void
     solve();
 
@@ -96,12 +93,9 @@ namespace Stokes
 
     dealii::AffineConstraints<double> constraints;
 
-    // TODO: stick to classical matrix based appraoch
-    // std::unique_ptr<
-    //  Operator::Stokes::MatrixBased<dim, LinearAlgebra, spacedim>>
-    //  stokes_operator_matrixbased;
-    typename LinearAlgebra::BlockSparseMatrix system_matrix;
-    typename LinearAlgebra::BlockSparseMatrix preconditioner_matrix;
+    std::unique_ptr<BlockOperatorType<dim, LinearAlgebra, spacedim>> stokes_operator;
+    std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>      a_block_operator;
+    std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>      schur_block_operator;
 
     typename LinearAlgebra::BlockVector locally_relevant_solution;
     typename LinearAlgebra::BlockVector system_rhs;

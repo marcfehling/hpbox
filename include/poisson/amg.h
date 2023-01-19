@@ -27,7 +27,7 @@ namespace Poisson
   template <int dim, typename LinearAlgebra, int spacedim = dim>
   static void
   solve_amg(dealii::SolverControl                            &solver_control,
-            const OperatorBase<dim, LinearAlgebra, spacedim> &poisson_operator,
+            const OperatorType<dim, LinearAlgebra, spacedim> &poisson_operator,
             typename LinearAlgebra::Vector                   &dst,
             const typename LinearAlgebra::Vector             &src)
   {
@@ -51,6 +51,10 @@ namespace Poisson
     preconditioner.initialize(poisson_operator.get_system_matrix(), data);
 
     typename LinearAlgebra::SolverCG cg(solver_control);
+
+    //
+    // TODO: Is this part necessary? Or shall we just keep it matrixbased?
+    //
     if constexpr (std::is_same_v<LinearAlgebra, dealiiTrilinos>)
       {
         cg.solve(poisson_operator, dst, src, preconditioner);

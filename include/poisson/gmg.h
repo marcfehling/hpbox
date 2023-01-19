@@ -30,14 +30,24 @@
 
 namespace Poisson
 {
+  //
+  // TODO: I basically just need to add target_block = {} as parameter
+  //       and hand it to partitioning. rest should work out of box
+  //
+  //       also add rhs function?
+  //
+  // What shall we do about the (Block)VectorType, and (Block)OperatorBase
+  //
+  // Duplicate code for now, later reunite things
+  //
   template <int dim, typename LinearAlgebra, int spacedim = dim>
   void
-  solve_gmg(dealii::SolverControl                             &solver_control,
-            const OperatorBase<dim, LinearAlgebra, spacedim>  &poisson_operator,
-            typename LinearAlgebra::Vector                    &dst,
-            const typename LinearAlgebra::Vector              &src,
-            const dealii::hp::MappingCollection<dim, spacedim> mapping_collection,
-            const dealii::DoFHandler<dim, spacedim>           &dof_handler)
+  solve_gmg(dealii::SolverControl                              &solver_control,
+            const OperatorType<dim, LinearAlgebra, spacedim>   &poisson_operator,
+            typename LinearAlgebra::Vector                     &dst,
+            const typename LinearAlgebra::Vector               &src,
+            const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
+            const dealii::DoFHandler<dim, spacedim>            &dof_handler)
   {
     using namespace dealii;
 
@@ -48,7 +58,7 @@ namespace Poisson
     // Create a DoFHandler and operator for each multigrid level defined
     // by p-coarsening, as well as, create transfer operators.
     MGLevelObject<DoFHandler<dim, spacedim>>                                   dof_handlers;
-    MGLevelObject<std::unique_ptr<OperatorBase<dim, LinearAlgebra, spacedim>>> operators;
+    MGLevelObject<std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>> operators;
     MGLevelObject<MGTwoLevelTransfer<dim, VectorType>>                         transfers;
 
     std::vector<std::shared_ptr<const Triangulation<dim, spacedim>>> coarse_grid_triangulations;
@@ -153,6 +163,11 @@ namespace Poisson
     MGLevelObject<AffineConstraints<typename VectorType::value_type>> constraints(minlevel,
                                                                                   maxlevel);
 
+    //
+    // TODO: Generalise, maybe for operator and blockoperatorbase?
+    //       Pass this part as lambda function?
+    //       Or just pass vector target?
+    //
     for (unsigned int level = minlevel; level <= maxlevel; level++)
       {
         const auto &dof_handler = dof_handlers[level];
@@ -171,11 +186,7 @@ namespace Poisson
 
         // ... operator (just like on the finest level)
         operators[level] = poisson_operator.replicate();
-
-        {
-          VectorType dummy;
-          operators[level]->reinit(partitioning, dof_handler, constraint, dummy);
-        }
+        operators[level]->reinit(partitioning, dof_handler, constraint);
       }
 
     // Set up intergrid operators.
