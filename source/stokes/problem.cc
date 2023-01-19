@@ -21,10 +21,7 @@
 
 #include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_system.h>
-
-#include <deal.II/grid/grid_generator.h>
-
-#include <deal.II/lac/solver_gmres.h>
+#include <deal.II/fe/mapping_q1.h>
 
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
@@ -33,6 +30,12 @@
 #include <base/linear_algebra.h>
 #include <base/log.h>
 #include <factory.h>
+#include <stokes/amg.h>
+#include <stokes/block_schur_preconditioner.h>
+#include <stokes/matrixbased/a_block_operator.h>
+#include <stokes/matrixbased/schur_block_operator.h>
+#include <stokes/matrixbased/stokes_operator.h>
+#include <stokes/matrixfree/stokes_operator.h>
 #include <stokes/problem.h>
 
 //#include <ctime>
@@ -42,73 +45,42 @@
 using namespace dealii;
 
 
-namespace LinearSolvers
+namespace
 {
-  template <typename LinearAlgebra>
-  class BlockSchurPreconditioner : public Subscriptor
+  template <int dim, typename LinearAlgebra, int spacedim = dim, typename... Args>
+  std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>
+  create_operator(const std::string type, Args &&...args)
   {
-  public:
-    BlockSchurPreconditioner(const typename LinearAlgebra::BlockSparseMatrix  &S,
-                             const typename LinearAlgebra::BlockSparseMatrix  &Spre,
-                             const typename LinearAlgebra::PreconditionJacobi &Mppreconditioner,
-                             const typename LinearAlgebra::PreconditionAMG    &Apreconditioner,
-                             const bool                                        do_solve_A)
-      : stokes_matrix(&S)
-      , stokes_preconditioner_matrix(&Spre)
-      , mp_preconditioner(Mppreconditioner)
-      , a_preconditioner(Apreconditioner)
-      , do_solve_A(do_solve_A)
-    {}
+    Assert(false, ExcNotImplemented());
+  }
 
-    void
-    vmult(typename LinearAlgebra::BlockVector       &dst,
-          const typename LinearAlgebra::BlockVector &src) const
-    {
-      // This needs to be done explicitly, as GMRES does not initialize the data of the vector dst
-      // before calling us. Otherwise we might use random data as our initial guess.
-      // See also: https://github.com/geodynamics/aspect/pull/4973
-      dst = 0.;
 
+  template <int dim, typename LinearAlgebra, int spacedim = dim, typename... Args>
+  std::unique_ptr<BlockOperatorType<dim, LinearAlgebra, spacedim>>
+  create_block_operator(const std::string type, Args &&...args)
+  {
+    if (type == "MatrixBased")
       {
-        SolverControl                    solver_control(5000, 1e-6 * src.block(1).l2_norm());
-        typename LinearAlgebra::SolverCG solver(solver_control);
-
-        solver.solve(stokes_preconditioner_matrix->block(1, 1),
-                     dst.block(1),
-                     src.block(1),
-                     mp_preconditioner);
-
-        dst.block(1) *= -1.0;
+        return std::make_unique<StokesMatrixBased::StokesOperator<dim, LinearAlgebra, spacedim>>(
+          std::forward<Args>(args)...);
+      }
+    else if (type == "MatrixFree")
+      {
+        if constexpr (std::is_same<LinearAlgebra, dealiiTrilinos>::value)
+          {
+            return std::make_unique<StokesMatrixFree::StokesOperator<dim, LinearAlgebra, spacedim>>(
+              std::forward<Args>(args)...);
+          }
+        else
+          {
+            AssertThrow(false, ExcMessage("MatrixFree only available with dealii & Trilinos!"));
+          }
       }
 
-      typename LinearAlgebra::Vector utmp(src.block(0));
-
-      {
-        stokes_matrix->block(0, 1).vmult(utmp, dst.block(1));
-        utmp *= -1.0;
-        utmp += src.block(0);
-      }
-
-      if (do_solve_A == true)
-        {
-          SolverControl                    solver_control(5000, 1e-2 * utmp.l2_norm());
-          typename LinearAlgebra::SolverCG solver(solver_control);
-
-          solver.solve(stokes_matrix->block(0, 0), dst.block(0), utmp, a_preconditioner);
-        }
-      else
-        a_preconditioner.vmult(dst.block(0), utmp);
-    }
-
-  private:
-    const SmartPointer<const typename LinearAlgebra::BlockSparseMatrix> stokes_matrix;
-    const SmartPointer<const typename LinearAlgebra::BlockSparseMatrix>
-                                                      stokes_preconditioner_matrix;
-    const typename LinearAlgebra::PreconditionJacobi &mp_preconditioner;
-    const typename LinearAlgebra::PreconditionAMG    &a_preconditioner;
-    const bool                                        do_solve_A;
-  };
-} // namespace LinearSolvers
+    AssertThrow(false, ExcNotImplemented());
+    return std::unique_ptr<BlockOperatorType<dim, LinearAlgebra, spacedim>>();
+  }
+} // namespace
 
 
 
@@ -175,6 +147,21 @@ namespace Stokes
     // prepare operator (and fe values)
     if (prm.operator_type == "MatrixBased")
       {
+        // TODO: make pretty/ remove create_block_operator
+        stokes_operator = create_block_operator<dim, LinearAlgebra, spacedim>(prm.operator_type,
+                                                                              mapping_collection,
+                                                                              quadrature_collection,
+                                                                              fe_collection);
+
+        a_block_operator =
+          std::make_unique<StokesMatrixBased::ABlockOperator<dim, LinearAlgebra, spacedim>>(
+            mapping_collection, quadrature_collection, fe_collection);
+
+        schur_block_operator =
+          std::make_unique<StokesMatrixBased::SchurBlockOperator<dim, LinearAlgebra, spacedim>>(
+            mapping_collection, quadrature_collection, fe_collection);
+
+        // TODO: build only in matrixbased an pass to operators (from above)?
         {
           TimerOutput::Scope t(getTimer(), "calculate_fevalues");
 
@@ -283,6 +270,27 @@ namespace Stokes
     }
 
     {
+      TimerOutput::Scope(getTimer(), "reinit_vectors");
+
+      locally_relevant_solution.reinit(partitioning.get_owned_dofs_per_block(),
+                                       partitioning.get_relevant_dofs_per_block(),
+                                       mpi_communicator);
+
+      // TODO: remove
+      if constexpr (std::is_same_v<typename LinearAlgebra::BlockVector,
+                                   dealii::LinearAlgebra::distributed::BlockVector<double>>)
+        {
+          system_rhs.reinit(partitioning.get_owned_dofs_per_block(),
+                            partitioning.get_relevant_dofs_per_block(),
+                            mpi_communicator);
+        }
+      else
+        {
+          system_rhs.reinit(partitioning.get_owned_dofs_per_block(), mpi_communicator);
+        }
+    }
+
+    {
       TimerOutput::Scope t(getTimer(), "make_constraints");
 
       constraints.clear();
@@ -350,297 +358,36 @@ namespace Stokes
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  Problem<dim, LinearAlgebra, spacedim>::initialize_system()
-  {
-    TimerOutput::Scope t(getTimer(), "initialize_system");
-
-    {
-      TimerOutput::Scope t(getTimer(), "reinit_matrices");
-
-      system_matrix.clear();
-
-      Table<2, DoFTools::Coupling> coupling(dim + 1, dim + 1);
-      for (unsigned int c = 0; c < dim + 1; ++c)
-        for (unsigned int d = 0; d < dim + 1; ++d)
-          if (!((c == dim) && (d == dim)))
-            coupling[c][d] = DoFTools::always;
-          else
-            coupling[c][d] = DoFTools::none;
-
-      initialize_block_sparse_matrix(
-        system_matrix, dof_handler, constraints, partitioning, coupling);
-
-      preconditioner_matrix.clear();
-
-      for (unsigned int c = 0; c < dim + 1; ++c)
-        for (unsigned int d = 0; d < dim + 1; ++d)
-          if (c == d)
-            coupling[c][d] = DoFTools::always;
-          else
-            coupling[c][d] = DoFTools::none;
-
-      initialize_block_sparse_matrix(
-        preconditioner_matrix, dof_handler, constraints, partitioning, coupling);
-    }
-
-    {
-      TimerOutput::Scope(getTimer(), "reinit_vectors");
-
-      locally_relevant_solution.reinit(partitioning.get_owned_dofs_per_block(),
-                                       partitioning.get_relevant_dofs_per_block(),
-                                       mpi_communicator);
-
-      // TODO: Outsource to Operator as in Poisson
-      if constexpr (std::is_same_v<typename LinearAlgebra::BlockVector,
-                                   dealii::LinearAlgebra::distributed::BlockVector<double>>)
-        {
-          system_rhs.reinit(partitioning.get_owned_dofs_per_block(),
-                            partitioning.get_relevant_dofs_per_block(),
-                            mpi_communicator);
-        }
-      else
-        {
-          system_rhs.reinit(partitioning.get_owned_dofs_per_block(), mpi_communicator);
-        }
-    }
-
-    if (prm.operator_type == "MatrixBased")
-      Log::log_nonzero_elements(system_matrix);
-  }
-
-
-
-  // TODO: we stick to the classical matrix based appraoch for now
-  /*
-  template <int dim, typename LinearAlgebra, int spacedim>
-  template <typename OperatorType>
-  void
-  Problem<dim, LinearAlgebra, spacedim>::solve(
-    const OperatorType                        &system_matrix,
-    typename LinearAlgebra::BlockVector       &locally_relevant_solution,
-    const typename LinearAlgebra::BlockVector &system_rhs)
-  {
-    Assert(false, ExcNotImplemented());
-
-    TimerOutput::Scope t(getTimer(), "solve");
-
-    // Note: Only change to 'Poisson' is use of BlockVectors (and reinit below)
-    typename LinearAlgebra::BlockVector completely_distributed_solution;
-    typename LinearAlgebra::BlockVector completely_distributed_system_rhs;
-
-    // TODO: Maybe use initialization functions and overloads for each vector
-  type if constexpr (std::is_same< typename LinearAlgebra::Vector,
-                    dealii::LinearAlgebra::distributed::Vector<double>>::value)
-      {
-        Assert(false, ExcNotImplemented());
-      }
-    else
-      {
-        completely_distributed_solution.reinit(owned_partitioning,
-                                               mpi_communicator);
-        completely_distributed_system_rhs = system_rhs;
-      }
-
-    SolverControl solver_control(completely_distributed_system_rhs.size(),
-                                 1e-12 *
-                                   completely_distributed_system_rhs.l2_norm());
-
-
-
-    getPCOut() << "   Number of iterations:         "
-               << solver_control.last_step() << std::endl;
-    getTable().add_value("iteratations", solver_control.last_step());
-
-    constraints.distribute(completely_distributed_solution);
-
-    if constexpr (std::is_same<
-                    typename LinearAlgebra::Vector,
-                    dealii::LinearAlgebra::distributed::Vector<double>>::value)
-      {
-        Assert(false, ExcNotImplemented());
-      }
-    else
-      {
-        locally_relevant_solution = completely_distributed_solution;
-      }
-  }
-  */
-
-
-
-  template <int dim, typename LinearAlgebra, int spacedim>
-  void
-  Problem<dim, LinearAlgebra, spacedim>::assemble_system()
-  {
-    TimerOutput::Scope t(getTimer(), "assemble_system");
-
-    system_matrix         = 0;
-    preconditioner_matrix = 0;
-    system_rhs            = 0;
-
-    FullMatrix<double> cell_matrix;
-    FullMatrix<double> cell_matrix2;
-    Vector<double>     cell_rhs;
-
-    std::vector<Vector<double>> rhs_values;
-
-    std::vector<Tensor<2, dim>> grad_phi_u;
-    std::vector<double>         div_phi_u;
-    std::vector<double>         phi_p;
-
-    std::vector<types::global_dof_index> local_dof_indices;
-    const FEValuesExtractors::Vector     velocities(0);
-    const FEValuesExtractors::Scalar     pressure(dim);
-    for (const auto &cell :
-         dof_handler.active_cell_iterators() | IteratorFilters::LocallyOwnedCell())
-      {
-        fe_values_collection->reinit(cell);
-
-        const FEValues<dim> &fe_values     = fe_values_collection->get_present_fe_values();
-        const unsigned int   n_q_points    = fe_values.n_quadrature_points;
-        const unsigned int   dofs_per_cell = fe_values.dofs_per_cell;
-
-        cell_matrix.reinit(dofs_per_cell, dofs_per_cell);
-        cell_matrix = 0;
-        cell_matrix2.reinit(dofs_per_cell, dofs_per_cell);
-        cell_matrix2 = 0;
-        cell_rhs.reinit(dofs_per_cell);
-        cell_rhs = 0;
-
-        grad_phi_u.resize(dofs_per_cell);
-        div_phi_u.resize(dofs_per_cell);
-        phi_p.resize(dofs_per_cell);
-
-        local_dof_indices.resize(dofs_per_cell);
-
-        // TODO: Move this part to the problem class???
-        //       Not possible...
-        rhs_values.resize(n_q_points, Vector<double>(dim + 1));
-        rhs_function->vector_value_list(fe_values.get_quadrature_points(), rhs_values);
-
-        // TODO: move to parameter
-        const double viscosity = 0.1;
-
-        for (unsigned int q_point = 0; q_point < fe_values.n_quadrature_points; ++q_point)
-          {
-            for (unsigned int k = 0; k < dofs_per_cell; ++k)
-              {
-                grad_phi_u[k] = fe_values[velocities].gradient(k, q_point);
-                div_phi_u[k]  = fe_values[velocities].divergence(k, q_point);
-                phi_p[k]      = fe_values[pressure].value(k, q_point);
-              }
-
-            for (unsigned int i = 0; i < dofs_per_cell; ++i)
-              {
-                for (unsigned int j = 0; j < dofs_per_cell; ++j)
-                  {
-                    const double tmp = viscosity * scalar_product(grad_phi_u[i], grad_phi_u[j]);
-
-                    cell_matrix(i, j) += (tmp - div_phi_u[i] * phi_p[j] - phi_p[i] * div_phi_u[j]) *
-                                         fe_values.JxW(q_point);
-
-                    cell_matrix2(i, j) +=
-                      (tmp + 1.0 / viscosity * phi_p[i] * phi_p[j]) * fe_values.JxW(q_point);
-                  }
-
-                const unsigned int component_i = cell->get_fe().system_to_component_index(i).first;
-                cell_rhs(i) += fe_values.shape_value(i, q_point) *
-                               rhs_values[q_point](component_i) * fe_values.JxW(q_point);
-              }
-          }
-        local_dof_indices.resize(dofs_per_cell);
-        cell->get_dof_indices(local_dof_indices);
-
-        constraints.distribute_local_to_global(
-          cell_matrix, cell_rhs, local_dof_indices, system_matrix, system_rhs);
-
-        constraints.distribute_local_to_global(cell_matrix2,
-                                               local_dof_indices,
-                                               preconditioner_matrix);
-      }
-
-    system_rhs.compress(VectorOperation::values::add);
-    system_matrix.compress(VectorOperation::values::add);
-    preconditioner_matrix.compress(VectorOperation::add);
-  }
-
-
-
-  template <int dim, typename LinearAlgebra, int spacedim>
-  void
   Problem<dim, LinearAlgebra, spacedim>::solve()
   {
     TimerOutput::Scope t(getTimer(), "solve");
 
-    typename LinearAlgebra::PreconditionJacobi Mp_preconditioner;
-    typename LinearAlgebra::PreconditionAMG    Amg_preconditioner;
-
-    typename LinearAlgebra::PreconditionAMG::AdditionalData Amg_data;
-    if constexpr (std::is_same<LinearAlgebra, PETSc>::value)
-      {
-        Amg_data.symmetric_operator = true;
-        Amg_data.n_sweeps_coarse    = 2;
-        Amg_data.strong_threshold   = 0.02;
-      }
-    else if constexpr (std::is_same<LinearAlgebra, Trilinos>::value ||
-                       std::is_same<LinearAlgebra, dealiiTrilinos>::value)
-      {
-        std::vector<std::vector<bool>> constant_modes;
-        DoFTools::extract_constant_modes(dof_handler,
-                                         fe_collection.component_mask(velocities),
-                                         constant_modes);
-
-        Amg_data.constant_modes        = constant_modes;
-        Amg_data.elliptic              = true;
-        Amg_data.higher_order_elements = true;
-        Amg_data.smoother_sweeps       = 2;
-        Amg_data.aggregation_threshold = 0.02;
-      }
-    else
-      {
-        Assert(false, dealii::ExcNotImplemented());
-      }
-
-
-    Mp_preconditioner.initialize(preconditioner_matrix.block(1, 1));
-    Amg_preconditioner.initialize(preconditioner_matrix.block(0, 0), Amg_data);
-
-
+    // We need to introduce a vector that does not contain all ghost elements.
     typename LinearAlgebra::BlockVector completely_distributed_solution;
-    if constexpr (std::is_same_v<typename LinearAlgebra::BlockVector,
-                                 dealii::LinearAlgebra::distributed::BlockVector<double>>)
+    stokes_operator->initialize_dof_vector(completely_distributed_solution);
+
+    SolverControl solver_control_refined(system_rhs.size(), 1e-8 * system_rhs.l2_norm());
+
+    if (prm.solver_type == "AMG")
       {
-        completely_distributed_solution.reinit(partitioning.get_owned_dofs_per_block(),
-                                               partitioning.get_relevant_dofs_per_block(),
-                                               mpi_communicator);
+        solve_amg<dim, LinearAlgebra, spacedim>(solver_control_refined,
+                                                *stokes_operator,
+                                                *a_block_operator,
+                                                *schur_block_operator,
+                                                completely_distributed_solution,
+                                                system_rhs,
+                                                dof_handler);
+      }
+    else if (prm.solver_type == "GMG")
+      {
+        AssertThrow(false, ExcNotImplemented());
       }
     else
       {
-        completely_distributed_solution.reinit(partitioning.get_owned_dofs_per_block(),
-                                               mpi_communicator);
+        Assert(false, ExcNotImplemented());
       }
 
-    constraints.set_zero(completely_distributed_solution);
-
-
-    {
-      const LinearSolvers::BlockSchurPreconditioner<LinearAlgebra> preconditioner(
-        system_matrix, preconditioner_matrix, Mp_preconditioner, Amg_preconditioner, true);
-
-      SolverControl solver_control_refined(system_matrix.m(), 1e-8 * system_rhs.l2_norm());
-
-      PrimitiveVectorMemory<typename LinearAlgebra::BlockVector> mem;
-
-      typename SolverFGMRES<typename LinearAlgebra::BlockVector>::AdditionalData fgmres_data(50);
-      SolverFGMRES<typename LinearAlgebra::BlockVector> solver(solver_control_refined,
-                                                               mem,
-                                                               fgmres_data);
-
-      solver.solve(system_matrix, completely_distributed_solution, system_rhs, preconditioner);
-
-      Log::log_iterations(solver_control_refined);
-    }
-
+    Log::log_iterations(solver_control_refined);
 
     constraints.distribute(completely_distributed_solution);
 
@@ -888,12 +635,19 @@ namespace Stokes
           Log::log_cycle(cycle, prm);
 
           setup_system();
-          initialize_system();
 
           // TODO: I am not happy with this
           if (prm.operator_type == "MatrixBased")
             {
-              assemble_system();
+              stokes_operator->reinit(
+                partitioning, dof_handler, constraints, system_rhs, rhs_function.get());
+
+              if (prm.operator_type == "MatrixBased")
+                Log::log_nonzero_elements(stokes_operator->get_system_matrix());
+
+              a_block_operator->reinit(partitioning, dof_handler, constraints);
+              schur_block_operator->reinit(partitioning, dof_handler, constraints);
+
               solve();
             }
           else

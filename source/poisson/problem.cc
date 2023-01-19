@@ -25,6 +25,8 @@
 #include <factory.h>
 #include <poisson/amg.h>
 #include <poisson/gmg.h>
+#include <poisson/matrixbased/poisson_operator.h>
+#include <poisson/matrixfree/poisson_operator.h>
 #include <poisson/problem.h>
 
 #include <ctime>
@@ -32,6 +34,38 @@
 #include <sstream>
 
 using namespace dealii;
+
+
+namespace
+{
+  template <int dim, typename LinearAlgebra, int spacedim = dim, typename... Args>
+  std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>
+  create_operator(const std::string type, Args &&...args)
+  {
+    if (type == "MatrixBased")
+      {
+        return std::make_unique<PoissonMatrixBased::PoissonOperator<dim, LinearAlgebra, spacedim>>(
+          std::forward<Args>(args)...);
+      }
+    else if (type == "MatrixFree")
+      {
+        if constexpr (std::is_same<LinearAlgebra, dealiiTrilinos>::value)
+          {
+            return std::make_unique<
+              PoissonMatrixFree::PoissonOperator<dim, LinearAlgebra, spacedim>>(
+              std::forward<Args>(args)...);
+          }
+        else
+          {
+            AssertThrow(false, ExcMessage("MatrixFree only available with dealii & Trilinos!"));
+          }
+      }
+
+    AssertThrow(false, ExcNotImplemented());
+    return std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>();
+  }
+} // namespace
+
 
 
 namespace Poisson
@@ -78,8 +112,10 @@ namespace Poisson
       });
 
     // prepare operator
-    poisson_operator = Factory::create_operator<dim, LinearAlgebra, spacedim>(
-      prm.operator_type, "Poisson", mapping_collection, quadrature_collection, fe_collection);
+    poisson_operator = create_operator<dim, LinearAlgebra, spacedim>(prm.operator_type,
+                                                                     mapping_collection,
+                                                                     quadrature_collection,
+                                                                     fe_collection);
 
     // choose functions
     if (prm.grid_type == "reentrant corner")
@@ -206,18 +242,21 @@ namespace Poisson
 
     if (prm.solver_type == "AMG")
       {
-        solve_amg(solver_control, *poisson_operator, completely_distributed_solution, system_rhs);
+        solve_amg<dim, LinearAlgebra, spacedim>(solver_control,
+                                                *poisson_operator,
+                                                completely_distributed_solution,
+                                                system_rhs);
       }
     else if (prm.solver_type == "GMG")
       {
         if constexpr (std::is_same_v<LinearAlgebra, dealiiTrilinos>)
           {
-            solve_gmg(solver_control,
-                      *poisson_operator,
-                      completely_distributed_solution,
-                      system_rhs,
-                      /*boundary_values=*/mapping_collection,
-                      dof_handler);
+            solve_gmg<dim, LinearAlgebra, spacedim>(solver_control,
+                                                    *poisson_operator,
+                                                    completely_distributed_solution,
+                                                    system_rhs,
+                                                    /*boundary_values=*/mapping_collection,
+                                                    dof_handler);
           }
         else
           {
@@ -382,7 +421,7 @@ namespace Poisson
 
           Log::log_hp_diagnostics(triangulation, dof_handler, constraints);
 
-          poisson_operator->reinit(partitioning, dof_handler, constraints, system_rhs);
+          poisson_operator->reinit(partitioning, dof_handler, constraints, system_rhs, nullptr);
 
           if (prm.operator_type == "MatrixBased")
             Log::log_nonzero_elements(poisson_operator->get_system_matrix());

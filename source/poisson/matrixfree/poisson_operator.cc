@@ -19,15 +19,15 @@
 
 #include <base/global.h>
 #include <base/linear_algebra.h>
-#include <poisson/matrixfree.h>
+#include <poisson/matrixfree/poisson_operator.h>
 
 using namespace dealii;
 
 
-namespace Poisson
+namespace PoissonMatrixFree
 {
   template <int dim, typename LinearAlgebra, int spacedim>
-  OperatorMatrixFree<dim, LinearAlgebra, spacedim>::OperatorMatrixFree(
+  PoissonOperator<dim, LinearAlgebra, spacedim>::PoissonOperator(
     const hp::MappingCollection<dim, spacedim> &mapping_collection,
     const hp::QCollection<dim>                 &quadrature_collection,
     const hp::FECollection<dim, spacedim>      &fe_collection)
@@ -39,10 +39,10 @@ namespace Poisson
 
 
   template <int dim, typename LinearAlgebra, int spacedim>
-  std::unique_ptr<OperatorBase<dim, LinearAlgebra, spacedim>>
-  OperatorMatrixFree<dim, LinearAlgebra, spacedim>::replicate() const
+  std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>
+  PoissonOperator<dim, LinearAlgebra, spacedim>::replicate() const
   {
-    return std::make_unique<OperatorMatrixFree<dim, LinearAlgebra, spacedim>>(
+    return std::make_unique<PoissonOperator<dim, LinearAlgebra, spacedim>>(
       *mapping_collection, *quadrature_collection, hp::FECollection<dim, spacedim>());
   }
 
@@ -50,11 +50,31 @@ namespace Poisson
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  OperatorMatrixFree<dim, LinearAlgebra, spacedim>::reinit(
+  PoissonOperator<dim, LinearAlgebra, spacedim>::reinit(
+    const Partitioning                  &partitioning,
+    const DoFHandler<dim, spacedim>     &dof_handler,
+    const AffineConstraints<value_type> &constraints)
+  {
+    this->system_matrix.clear();
+
+    this->partitioning = partitioning;
+    this->constraints  = &constraints;
+
+    typename MatrixFree<dim, value_type>::AdditionalData data;
+    data.mapping_update_flags = update_gradients;
+
+    matrix_free.reinit(*mapping_collection, dof_handler, constraints, *quadrature_collection, data);
+  }
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
+  void
+  PoissonOperator<dim, LinearAlgebra, spacedim>::reinit(
     const Partitioning                  &partitioning,
     const DoFHandler<dim, spacedim>     &dof_handler,
     const AffineConstraints<value_type> &constraints,
-    VectorType                          &system_rhs)
+    VectorType                          &system_rhs,
+    const dealii::Function<spacedim> * /*rhs_function*/)
   {
     TimerOutput::Scope t(getTimer(), "reinit");
 
@@ -67,8 +87,9 @@ namespace Poisson
     data.mapping_update_flags = update_gradients;
 
     matrix_free.reinit(*mapping_collection, dof_handler, constraints, *quadrature_collection, data);
-    this->initialize_dof_vector(system_rhs);
 
+
+    this->initialize_dof_vector(system_rhs);
     {
       AffineConstraints<value_type> constraints_without_dbc;
 
@@ -88,7 +109,7 @@ namespace Poisson
 
       constraints.distribute(x);
 
-      matrix_free.cell_loop(&OperatorMatrixFree::do_cell_integral_range, this, b, x);
+      matrix_free.cell_loop(&PoissonOperator::do_cell_integral_range, this, b, x);
 
       constraints.set_zero(b);
 
@@ -100,17 +121,16 @@ namespace Poisson
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  OperatorMatrixFree<dim, LinearAlgebra, spacedim>::vmult(VectorType       &dst,
-                                                          const VectorType &src) const
+  PoissonOperator<dim, LinearAlgebra, spacedim>::vmult(VectorType &dst, const VectorType &src) const
   {
-    this->matrix_free.cell_loop(&OperatorMatrixFree::do_cell_integral_range, this, dst, src, true);
+    this->matrix_free.cell_loop(&PoissonOperator::do_cell_integral_range, this, dst, src, true);
   }
 
 
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  OperatorMatrixFree<dim, LinearAlgebra, spacedim>::initialize_dof_vector(VectorType &vec) const
+  PoissonOperator<dim, LinearAlgebra, spacedim>::initialize_dof_vector(VectorType &vec) const
   {
     matrix_free.initialize_dof_vector(vec);
   }
@@ -119,7 +139,7 @@ namespace Poisson
 
   template <int dim, typename LinearAlgebra, int spacedim>
   types::global_dof_index
-  OperatorMatrixFree<dim, LinearAlgebra, spacedim>::m() const
+  PoissonOperator<dim, LinearAlgebra, spacedim>::m() const
   {
     return matrix_free.get_dof_handler().n_dofs();
   }
@@ -128,13 +148,13 @@ namespace Poisson
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  OperatorMatrixFree<dim, LinearAlgebra, spacedim>::compute_inverse_diagonal(
+  PoissonOperator<dim, LinearAlgebra, spacedim>::compute_inverse_diagonal(
     VectorType &diagonal) const
   {
     matrix_free.initialize_dof_vector(diagonal);
     MatrixFreeTools::compute_diagonal(matrix_free,
                                       diagonal,
-                                      &OperatorMatrixFree::do_cell_integral_local,
+                                      &PoissonOperator::do_cell_integral_local,
                                       this);
 
     // invert diagonal
@@ -146,7 +166,7 @@ namespace Poisson
 
   template <int dim, typename LinearAlgebra, int spacedim>
   const typename LinearAlgebra::SparseMatrix &
-  OperatorMatrixFree<dim, LinearAlgebra, spacedim>::get_system_matrix() const
+  PoissonOperator<dim, LinearAlgebra, spacedim>::get_system_matrix() const
   {
     // Check if matrix has already been set up.
     if (system_matrix.m() == 0 && system_matrix.n() == 0)
@@ -155,11 +175,8 @@ namespace Poisson
 
         initialize_sparse_matrix(system_matrix, dof_handler, *constraints, partitioning);
 
-        MatrixFreeTools::compute_matrix(matrix_free,
-                                        *constraints,
-                                        system_matrix,
-                                        &OperatorMatrixFree::do_cell_integral_local,
-                                        this);
+        MatrixFreeTools::compute_matrix(
+          matrix_free, *constraints, system_matrix, &PoissonOperator::do_cell_integral_local, this);
       }
 
     return this->system_matrix;
@@ -169,8 +186,8 @@ namespace Poisson
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  OperatorMatrixFree<dim, LinearAlgebra, spacedim>::Tvmult(VectorType       &dst,
-                                                           const VectorType &src) const
+  PoissonOperator<dim, LinearAlgebra, spacedim>::Tvmult(VectorType       &dst,
+                                                        const VectorType &src) const
   {
     this->vmult(dst, src);
   }
@@ -179,7 +196,7 @@ namespace Poisson
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  OperatorMatrixFree<dim, LinearAlgebra, spacedim>::do_cell_integral_local(
+  PoissonOperator<dim, LinearAlgebra, spacedim>::do_cell_integral_local(
     FECellIntegrator &integrator) const
   {
     integrator.evaluate(EvaluationFlags::gradients);
@@ -194,7 +211,7 @@ namespace Poisson
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  OperatorMatrixFree<dim, LinearAlgebra, spacedim>::do_cell_integral_global(
+  PoissonOperator<dim, LinearAlgebra, spacedim>::do_cell_integral_global(
     FECellIntegrator &integrator,
     VectorType       &dst,
     const VectorType &src) const
@@ -211,7 +228,7 @@ namespace Poisson
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  OperatorMatrixFree<dim, LinearAlgebra, spacedim>::do_cell_integral_range(
+  PoissonOperator<dim, LinearAlgebra, spacedim>::do_cell_integral_range(
     const MatrixFree<dim, value_type>           &matrix_free,
     VectorType                                  &dst,
     const VectorType                            &src,
@@ -219,7 +236,7 @@ namespace Poisson
   {
     FECellIntegrator integrator(matrix_free, range);
 
-    for (unsigned cell = range.first; cell < range.second; ++cell)
+    for (unsigned int cell = range.first; cell < range.second; ++cell)
       {
         integrator.reinit(cell);
 
@@ -231,8 +248,8 @@ namespace Poisson
 
   // explicit instantiations
 #ifdef DEAL_II_WITH_TRILINOS
-  template class OperatorMatrixFree<2, dealiiTrilinos, 2>;
-  template class OperatorMatrixFree<3, dealiiTrilinos, 3>;
+  template class PoissonOperator<2, dealiiTrilinos, 2>;
+  template class PoissonOperator<3, dealiiTrilinos, 3>;
 #endif
 
-} // namespace Poisson
+} // namespace PoissonMatrixFree

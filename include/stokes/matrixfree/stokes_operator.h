@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2020 - 2022 by the deal.II authors
+// Copyright (C) 2022 - 2023 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -13,8 +13,8 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef poisson_matrixfree_h
-#define poisson_matrixfree_h
+#ifndef stokes_matrixfree_stokes_operator_h
+#define stokes_matrixfree_stokes_operator_h
 
 
 #include <deal.II/matrix_free/tools.h>
@@ -22,29 +22,35 @@
 #include <operator.h>
 
 
-namespace Poisson
+namespace StokesMatrixFree
 {
   template <int dim, typename LinearAlgebra, int spacedim = dim>
-  class OperatorMatrixFree : public OperatorBase<dim, LinearAlgebra, spacedim>
+  class StokesOperator : public BlockOperatorType<dim, LinearAlgebra, spacedim>
   {
   public:
-    using VectorType = typename LinearAlgebra::Vector;
+    using VectorType = typename LinearAlgebra::BlockVector;
     using value_type = typename VectorType::value_type;
 
-    using FECellIntegrator = dealii::FEEvaluation<dim, -1, 0, 1, value_type>;
+    using FECellIntegrator = dealii::FEEvaluation<dim, -1, 0, dim + 1, value_type>;
 
-    OperatorMatrixFree(const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
-                       const dealii::hp::QCollection<dim>                 &quadrature_collection,
-                       const dealii::hp::FECollection<dim, spacedim>      &fe_collection);
+    StokesOperator(const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
+                   const dealii::hp::QCollection<dim>                 &quadrature_collection,
+                   const dealii::hp::FECollection<dim, spacedim>      &fe_collection);
 
-    std::unique_ptr<OperatorBase<dim, LinearAlgebra, spacedim>>
+    std::unique_ptr<BlockOperatorType<dim, LinearAlgebra, spacedim>>
     replicate() const override;
 
     void
     reinit(const Partitioning                          &partitioning,
            const dealii::DoFHandler<dim, spacedim>     &dof_handler,
+           const dealii::AffineConstraints<value_type> &constraints) override;
+
+    void
+    reinit(const Partitioning                          &partitioning,
+           const dealii::DoFHandler<dim, spacedim>     &dof_handler,
            const dealii::AffineConstraints<value_type> &constraints,
-           VectorType                                  &system_rhs) override;
+           VectorType                                  &system_rhs,
+           const dealii::Function<spacedim>            *rhs_function) override;
 
     void
     vmult(VectorType &dst, const VectorType &src) const override;
@@ -58,7 +64,7 @@ namespace Poisson
     void
     compute_inverse_diagonal(VectorType &diagonal) const override;
 
-    const typename LinearAlgebra::SparseMatrix &
+    const typename LinearAlgebra::BlockSparseMatrix &
     get_system_matrix() const override;
 
     void
@@ -76,26 +82,18 @@ namespace Poisson
     // dealii::Function<dim> rhs_function;
 
     void
-    do_cell_integral_local(FECellIntegrator &integrator) const;
-
-    void
-    do_cell_integral_global(FECellIntegrator &integrator,
-                            VectorType       &dst,
-                            const VectorType &src) const;
-
-    void
     do_cell_integral_range(const dealii::MatrixFree<dim, value_type>   &matrix_free,
                            VectorType                                  &dst,
                            const VectorType                            &src,
                            const std::pair<unsigned int, unsigned int> &range) const;
 
     // TODO: Make partitioning a pointer? Or leave it like this?
-    Partitioning                        partitioning;
+    Partitioning partitioning;
     dealii::MatrixFree<dim, value_type> matrix_free;
 
-    mutable typename LinearAlgebra::SparseMatrix system_matrix;
+    mutable typename LinearAlgebra::BlockSparseMatrix dummy;
   };
-} // namespace Poisson
+} // namespace StokesMatrixFree
 
 
 #endif
