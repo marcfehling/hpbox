@@ -71,23 +71,32 @@ namespace Stokes
     std::string      filename_log;
 
     dealii::parallel::distributed::Triangulation<dim> triangulation;
-    dealii::DoFHandler<dim, spacedim>                 dof_handler;
-
-    // or in operator class, or in both?
-    const dealii::FEValuesExtractors::Vector velocities;
-    const dealii::FEValuesExtractors::Scalar pressure;
 
     dealii::hp::MappingCollection<dim, spacedim> mapping_collection;
-    dealii::hp::FECollection<dim, spacedim>      fe_collection;
-    dealii::hp::QCollection<dim>                 quadrature_collection;
-    dealii::hp::QCollection<dim>                 quadrature_collection_for_errors;
 
-    std::unique_ptr<dealii::hp::FEValues<dim, spacedim>> fe_values_collection;
-    std::unique_ptr<Adaptation::Base>                    adaptation_strategy;
+    dealii::DoFHandler<dim, spacedim> dof_handler_v;
+    dealii::DoFHandler<dim, spacedim> dof_handler_p;
 
-    std::unique_ptr<dealii::Function<dim>> boundary_function;
-    std::unique_ptr<dealii::Function<dim>> solution_function;
-    std::unique_ptr<dealii::Function<dim>> rhs_function;
+    dealii::hp::FECollection<dim, spacedim> fe_collection_v;
+    dealii::hp::FECollection<dim, spacedim> fe_collection_p;
+
+    dealii::hp::QCollection<dim> quadrature_collection_v;
+    dealii::hp::QCollection<dim> quadrature_collection_p
+    dealii::hp::QCollection<dim> quadrature_collection_for_errors;
+
+    std::unique_ptr<dealii::hp::FEValues<dim, spacedim>> fe_values_collection_v;
+    std::unique_ptr<dealii::hp::FEValues<dim, spacedim>> fe_values_collection_p;
+
+    std::unique_ptr<Adaptation::Base> adaptation_strategy;
+
+    std::unique_ptr<dealii::Function<dim>> boundary_function_v;
+    std::unique_ptr<dealii::Function<dim>> boundary_function_p;
+
+    std::unique_ptr<dealii::Function<dim>> solution_function_v;
+    std::unique_ptr<dealii::Function<dim>> solution_function_p;
+
+    std::unique_ptr<dealii::Function<dim>> rhs_function_v;
+    std::unique_ptr<dealii::Function<dim>> rhs_function_p;
 
     Partitioning partitioning;
 

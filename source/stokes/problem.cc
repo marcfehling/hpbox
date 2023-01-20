@@ -95,9 +95,8 @@ namespace Stokes
                     typename Triangulation<dim>::MeshSmoothing(
                       Triangulation<dim>::smoothing_on_refinement |
                       Triangulation<dim>::smoothing_on_coarsening))
-    , dof_handler(triangulation)
-    , velocities(0)
-    , pressure(dim)
+    , dof_handler_v(triangulation)
+    , dof_handler_p(triangulation)
   {
     //
     // TODO!!!
@@ -122,27 +121,33 @@ namespace Stokes
     Assert(prm.prm_adaptation.min_p_degree > 1,
            ExcMessage("The minimal polynomial degree must be at least 2!"));
 
-    for (unsigned int degree = 2; degree <= prm.prm_adaptation.max_p_degree; ++degree)
+    for (unsigned int degree = 2; degree <= prm.prm_adaptation.min_p_degree; ++degree)
       {
-        fe_collection.push_back(FESystem<dim, spacedim>(
-          FE_Q<dim, spacedim>(degree), dim, FE_Q<dim, spacedim>(degree - 1), 1));
-        quadrature_collection.push_back(QGauss<dim>(degree + 1));
-        quadrature_collection_for_errors.push_back(QGauss<dim>(degree + 2));
+        fe_collection_v.push_back(FESystem<dim, spacedim>(FE_Q<dim, spacedim>(degree), dim));
+        fe_collection_p.push_back(FE_Q<dim, spacedim>(degree - 1));
+
+        quadrature_collection_v.push_back(QGauss<dim>(degree + 1));
+        quadrature_collection_p.push_back(QGauss<dim>(degree + 1)); // TODO: reduce by one
+
+        quadrature_collection_for_errors.push_back(QGauss<dim>(degree + 2)); // TODO: reduce by one
       }
 
-    const unsigned int min_fe_index = prm.prm_adaptation.min_p_degree - 2;
-    fe_collection.set_hierarchy(
-      /*next_index=*/
-      [](const typename hp::FECollection<dim> &fe_collection,
-         const unsigned int                    fe_index) -> unsigned int {
-        return ((fe_index + 1) < fe_collection.size()) ? fe_index + 1 : fe_index;
-      },
-      /*previous_index=*/
-      [min_fe_index](const typename hp::FECollection<dim> &,
-                     const unsigned int fe_index) -> unsigned int {
-        Assert(fe_index >= min_fe_index, ExcMessage("Finite element is not part of hierarchy!"));
-        return (fe_index > min_fe_index) ? fe_index - 1 : fe_index;
-      });
+    {
+      const unsigned int min_fe_index = prm.prm_adaptation.min_p_degree - 2;
+
+      const auto next_index = [](const typename hp::FECollection<dim> &fe_collection,
+          const unsigned int                    fe_index) -> unsigned int {
+          return ((fe_index + 1) < fe_collection.size()) ? fe_index + 1 : fe_index;
+        };
+      const auto previous_index = [min_fe_index](const typename hp::FECollection<dim> &,
+                      const unsigned int fe_index) -> unsigned int {
+          Assert(fe_index >= min_fe_index, ExcMessage("Finite element is not part of hierarchy!"));
+          return (fe_index > min_fe_index) ? fe_index - 1 : fe_index;
+        };
+
+      fe_collection_v.set_hierarchy(next_index, previous_index);
+      fe_collection_p.set_hierarchy(next_index, previous_index);
+    }
 
     // prepare operator (and fe values)
     if (prm.operator_type == "MatrixBased")
@@ -162,18 +167,18 @@ namespace Stokes
             mapping_collection, quadrature_collection, fe_collection);
 
         // TODO: build only in matrixbased an pass to operators (from above)?
-        {
-          TimerOutput::Scope t(getTimer(), "calculate_fevalues");
+        // {
+        //   TimerOutput::Scope t(getTimer(), "calculate_fevalues");
 
-          fe_values_collection =
-            std::make_unique<hp::FEValues<dim, spacedim>>(mapping_collection,
-                                                          fe_collection,
-                                                          quadrature_collection,
-                                                          update_values | update_gradients |
-                                                            update_quadrature_points |
-                                                            update_JxW_values);
-          fe_values_collection->precalculate_fe_values();
-        }
+        //   fe_values_collection =
+        //     std::make_unique<hp::FEValues<dim, spacedim>>(mapping_collection,
+        //                                                   fe_collection,
+        //                                                   quadrature_collection,
+        //                                                   update_values | update_gradients |
+        //                                                     update_quadrature_points |
+        //                                                     update_JxW_values);
+        //   fe_values_collection->precalculate_fe_values();
+        // }
 
         // TODO: create operator here
         //       once we move away from the classical matrix based approach
@@ -207,15 +212,15 @@ namespace Stokes
       }
 
     // choose adaptation strategy
+    // TODO: weighting now only works on pressure!
     adaptation_strategy =
       Factory::create_adaptation<dim, typename LinearAlgebra::BlockVector, spacedim>(
         prm.adaptation_type,
         prm.prm_adaptation,
-        locally_relevant_solution,
-        fe_collection,
-        dof_handler,
-        triangulation,
-        fe_collection.component_mask(pressure));
+        locally_relevant_solution.block(1),
+        fe_collection_p,
+        dof_handler_p,
+        triangulation);
   }
 
 
@@ -244,7 +249,9 @@ namespace Stokes
           if (cell->is_locally_owned())
             cell->set_active_fe_index(min_fe_index);
 
-        dof_handler.distribute_dofs(fe_collection);
+        // TODO: is this necessary?
+        dof_handler_v.distribute_dofs(fe_collection_v);
+        dof_handler_p.distribute_dofs(fe_collection_p)
 
         triangulation.refine_global(adaptation_strategy->get_n_initial_refinements());
       }
@@ -264,9 +271,11 @@ namespace Stokes
     {
       TimerOutput::Scope t(getTimer(), "distribute_dofs");
 
-      dof_handler.distribute_dofs(fe_collection);
-      DoFRenumbering::component_wise(dof_handler, stokes_sub_blocks);
-      partitioning.reinit(dof_handler, stokes_sub_blocks);
+      dof_handler_v.distribute_dofs(fe_collection_v);
+      dof_handler_p.distribute_dofs(fe_collection_p);
+
+      // DoFRenumbering::component_wise(dof_handler, stokes_sub_blocks);
+      // partitioning.reinit(dof_handler, stokes_sub_blocks);
     }
 
     {
@@ -302,11 +311,10 @@ namespace Stokes
       if (prm.grid_type == "kovasznay")
         {
           VectorTools::interpolate_boundary_values(mapping_collection,
-                                                   dof_handler,
+                                                   dof_handler_v,
                                                    /*boundary_component=*/0,
                                                    *solution_function,
-                                                   constraints,
-                                                   fe_collection.component_mask(velocities));
+                                                   constraints_v);
         }
       else if (prm.grid_type == "y-pipe")
         {
@@ -317,10 +325,9 @@ namespace Stokes
           // flow at inlet opening 0
           // no slip on walls
           VectorTools::interpolate_boundary_values(mapping_collection,
-                                                   dof_handler,
+                                                   dof_handler_v,
                                                    /*function_map=*/{{0, &inflow}, {3, &zero}},
-                                                   constraints,
-                                                   fe_collection.component_mask(velocities));
+                                                   constraints_v);
         }
       else
         {
@@ -389,7 +396,8 @@ namespace Stokes
 
     Log::log_iterations(solver_control_refined);
 
-    constraints.distribute(completely_distributed_solution);
+    constraints_v.distribute(completely_distributed_solution.block(0));
+    constraints_p.distribute(completely_distributed_solution.block(1));
 
     locally_relevant_solution = completely_distributed_solution;
     locally_relevant_solution.update_ghost_values();
@@ -403,10 +411,9 @@ namespace Stokes
       {
         const double mean_pressure =
           VectorTools::compute_mean_value(mapping_collection,
-                                          dof_handler,
+                                          dof_handler_p,
                                           quadrature_collection_for_errors,
-                                          locally_relevant_solution,
-                                          dim);
+                                          locally_relevant_solution.block(1));
         completely_distributed_solution.block(1).add(-mean_pressure);
         locally_relevant_solution.block(1) = completely_distributed_solution.block(1);
       }
@@ -420,6 +427,7 @@ namespace Stokes
   {
     TimerOutput::Scope t(getTimer(), "compute_errors");
 
+# if false
     Vector<float> difference_per_cell(triangulation.n_active_cells());
 
     // QGauss<dim>   quadrature(velocity_degree + 2);
@@ -427,25 +435,22 @@ namespace Stokes
     //       because it is pressure degree + 1 and they re-use these?
 
     // velocity
-    const ComponentSelectFunction<dim> velocity_mask(std::make_pair(0, dim), dim + 1);
-    VectorTools::integrate_difference(dof_handler,
-                                      locally_relevant_solution,
+    VectorTools::integrate_difference(dof_handler_v,
+                                      locally_relevant_solution.block(0),
                                       *solution_function,
                                       difference_per_cell,
                                       quadrature_collection_for_errors,
-                                      VectorTools::L2_norm,
-                                      &velocity_mask);
+                                      VectorTools::L2_norm);
     const double L2_error_u =
       VectorTools::compute_global_error(triangulation, difference_per_cell, VectorTools::L2_norm);
 
     /*
-    VectorTools::integrate_difference(dof_handler,
-                                      locally_relevant_solution,
+    VectorTools::integrate_difference(dof_handler_v,
+                                      locally_relevant_solution.block(0),
                                       *solution_function,
                                       difference_per_cell,
                                       quadrature_collection_for_errors,
-                                      VectorTools::H1_norm,
-                                      &velocity_mask);
+                                      VectorTools::H1_norm);
     const double H1_error_u =
       VectorTools::compute_global_error(triangulation,
                                         difference_per_cell,
@@ -453,14 +458,12 @@ namespace Stokes
     */
 
     // pressure
-    const ComponentSelectFunction<dim> pressure_mask(dim, dim + 1);
-    VectorTools::integrate_difference(dof_handler,
-                                      locally_relevant_solution,
+    VectorTools::integrate_difference(dof_handler_p,
+                                      locally_relevant_solution.block(1),
                                       *solution_function,
                                       difference_per_cell,
                                       quadrature_collection_for_errors,
-                                      VectorTools::L2_norm,
-                                      &pressure_mask);
+                                      VectorTools::L2_norm);
     const double L2_error_p =
       VectorTools::compute_global_error(triangulation, difference_per_cell, VectorTools::L2_norm);
 
@@ -494,6 +497,7 @@ namespace Stokes
     // table.add_value("H1_p", H1_error_p);
     table.set_scientific("L2_p", true);
     // table.set_scientific("H1_p", true);
+#endif
   }
 
 
@@ -505,7 +509,7 @@ namespace Stokes
     TimerOutput::Scope t(getTimer(), "output_results");
 
     Vector<float> fe_degrees(triangulation.n_active_cells());
-    for (const auto &cell : dof_handler.active_cell_iterators())
+    for (const auto &cell : dof_handler_v.active_cell_iterators())
       if (cell->is_locally_owned())
         fe_degrees(cell->active_cell_index()) = cell->get_fe().degree;
 
@@ -518,22 +522,25 @@ namespace Stokes
 
     std::vector<DataComponentInterpretation::DataComponentInterpretation>
       data_component_interpretation(dim, DataComponentInterpretation::component_is_part_of_vector);
-    data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
 
     DataOut<dim> data_out;
-    data_out.attach_dof_handler(dof_handler);
-
-    data_out.add_data_vector(locally_relevant_solution,
-                             solution_names,
+    data_out.add_data_vector(dof_handler_v,
+                             locally_relevant_solution.block(0),
+                             "velocity",
                              DataOut<dim>::type_dof_data,
                              data_component_interpretation);
-    data_out.add_data_vector(fe_degrees, "fe_degree");
-    data_out.add_data_vector(subdomain, "subdomain");
+    data_out.add_data_vector(dof_handler_p,
+                             locally_relevant_solution.block(1),
+                             "pressure",
+                             DataComponentInterpretation::component_is_scalar);
+
+    data_out.add_data_vector(dof_handler_v, fe_degrees, "fe_degree");
+    data_out.add_data_vector(dof_handler_v, subdomain, "subdomain");
 
     if (adaptation_strategy->get_error_estimates().size() > 0)
-      data_out.add_data_vector(adaptation_strategy->get_error_estimates(), "error");
+      data_out.add_data_vector(dof_handler_p, adaptation_strategy->get_error_estimates(), "error");
     if (adaptation_strategy->get_hp_indicators().size() > 0)
-      data_out.add_data_vector(adaptation_strategy->get_hp_indicators(), "hp_indicator");
+      data_out.add_data_vector(dof_handler_p, adaptation_strategy->get_hp_indicators(), "hp_indicator");
 
     // TODO: Placeholder for interpolation of correct solution?
     //       Is this necessary???
@@ -571,8 +578,11 @@ namespace Stokes
     triangulation.load(prm.resume_filename);
 
     // custom repartitioning using DoFs requires correctly assigned FEs
-    dof_handler.deserialize_active_fe_indices();
-    dof_handler.distribute_dofs(fe_collection);
+    dof_handler_p.deserialize_active_fe_indices();
+    dof_handler_p.distribute_dofs(fe_collection);
+
+    // TODO: copy fe indices from different dof_handler
+
     triangulation.repartition();
 
     // unpack after repartitioning to avoid unnecessary data transfer
@@ -593,7 +603,7 @@ namespace Stokes
     // TODO: same as Poisson
 
     // write triangulation and data
-    dof_handler.prepare_for_serialization_of_active_fe_indices();
+    dof_handler_p.prepare_for_serialization_of_active_fe_indices();
     adaptation_strategy->prepare_for_serialization();
 
     const std::string filename = prm.file_stem + "-checkpoint";

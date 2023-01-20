@@ -34,27 +34,27 @@ namespace StokesMatrixBased
     using value_type = typename VectorType::value_type;
 
     StokesOperator(const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
-                   const dealii::hp::QCollection<dim>                 &quadrature_collection,
-                   const dealii::hp::FECollection<dim, spacedim>      &fe_collection);
+                   const std::vector<dealii::hp::QCollection<dim>>                 &quadrature_collection,
+                   const std::vector<dealii::hp::FECollection<dim, spacedim>>      &fe_collection);
 
     StokesOperator(const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
-                   const dealii::hp::QCollection<dim>                 &quadrature_collection,
-                   const dealii::hp::FEValues<dim, spacedim>          &fe_values_collection);
+                   const std::vector<dealii::hp::QCollection<dim>>                 &quadrature_collection,
+                   const std::vector<dealii::hp::FEValues<dim, spacedim>>          &fe_values_collection);
 
     std::unique_ptr<BlockOperatorType<dim, LinearAlgebra, spacedim>>
     replicate() const override;
 
     void
-    reinit(const Partitioning                          &partitioning,
-           const dealii::DoFHandler<dim, spacedim>     &dof_handler,
-           const dealii::AffineConstraints<value_type> &constraints) override;
+    reinit(const BlockPartitioning                                  &block_partitioning,
+           const std::vector<dealii::DoFHandler<dim, spacedim> *>     &dof_handlers,
+           const std::vector<dealii::AffineConstraints<value_type> *> &constraints) override;
 
     void
-    reinit(const Partitioning                          &partitioning,
-           const dealii::DoFHandler<dim, spacedim>     &dof_handler,
-           const dealii::AffineConstraints<value_type> &constraints,
-           VectorType                                  &system_rhs,
-           const dealii::Function<spacedim>            *rhs_function) override;
+    reinit(const BlockPartitioning                                  &block_partitioning,
+           const std::vector<dealii::DoFHandler<dim, spacedim>>     &dof_handler,
+           const std::vector<dealii::AffineConstraints<value_type>> &constraints,
+           VectorType                                               &system_rhs,
+           const dealii::Function<spacedim>                         *rhs_function) override;
 
     void
     vmult(VectorType &dst, const VectorType &src) const override;
@@ -78,18 +78,18 @@ namespace StokesMatrixBased
     // const Parameters &prm;
 
     dealii::SmartPointer<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
-    dealii::SmartPointer<const dealii::hp::QCollection<dim>>                 quadrature_collection;
+    dealii::SmartPointer<std::vector<const dealii::hp::QCollection<dim>>>    quadrature_collections;
 
     // TODO: Add RHS function to constructor
     //       Grab and set as RHS in reinit
     // dealii::Function<dim> rhs_function;
 
-    dealii::hp::FEValues<dim, spacedim> fe_values_collection;
+    std::vector<dealii::hp::FEValues<dim, spacedim>> fe_values_collection;
 
     typename LinearAlgebra::BlockSparseMatrix system_matrix;
 
-    MPI_Comm     communicator;
-    Partitioning partitioning;
+    MPI_Comm          communicator;
+    BlockPartitioning block_partitioning;
 
     std::vector<std::shared_ptr<const dealii::Utilities::MPI::Partitioner>> dealii_partitioners;
   };

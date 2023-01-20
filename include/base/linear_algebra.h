@@ -78,16 +78,16 @@ inline void
 initialize_block_sparse_matrix(BlockMatrixType                                    &system_matrix,
                                const dealii::DoFHandler<dim, spacedim>            &dof_handler,
                                const dealii::AffineConstraints<double>            &constraints,
-                               const Partitioning                                 &partitioning,
+                               const BlockPartitioning                            &block_partitioning,
                                const dealii::Table<2, dealii::DoFTools::Coupling> &coupling)
 {
   const MPI_Comm                      &communicator  = dof_handler.get_communicator();
-  const dealii::IndexSet              &owned_dofs    = partitioning.get_owned_dofs();
-  const dealii::IndexSet              &relevant_dofs = partitioning.get_relevant_dofs();
+  const dealii::IndexSet              &owned_dofs    = block_partitioning.get_owned_dofs();
+  const dealii::IndexSet              &relevant_dofs = block_partitioning.get_relevant_dofs();
   const std::vector<dealii::IndexSet> &owned_dofs_per_block =
-    partitioning.get_owned_dofs_per_block();
+    block_partitioning.get_owned_dofs_per_block();
   const std::vector<dealii::IndexSet> &relevant_dofs_per_block =
-    partitioning.get_relevant_dofs_per_block();
+    block_partitioning.get_relevant_dofs_per_block();
 
   const unsigned int myid = dealii::Utilities::MPI::this_mpi_process(communicator);
 
@@ -174,14 +174,14 @@ inline void
 initialize_block_sparse_matrix(dealii::TrilinosWrappers::BlockSparseMatrix        &system_matrix,
                                const dealii::DoFHandler<dim, spacedim>            &dof_handler,
                                const dealii::AffineConstraints<double>            &constraints,
-                               const Partitioning                                 &partitioning,
+                               const BlockPartitioning                            &block_partitioning,
                                const dealii::Table<2, dealii::DoFTools::Coupling> &coupling)
 {
   const MPI_Comm                      &communicator = dof_handler.get_communicator();
   const std::vector<dealii::IndexSet> &owned_dofs_per_block =
-    partitioning.get_owned_dofs_per_block();
+    block_partitioning.get_owned_dofs_per_block();
   const std::vector<dealii::IndexSet> &relevant_dofs_per_block =
-    partitioning.get_relevant_dofs_per_block();
+    block_partitioning.get_relevant_dofs_per_block();
 
   const unsigned int myid = dealii::Utilities::MPI::this_mpi_process(communicator);
 
