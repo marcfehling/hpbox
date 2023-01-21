@@ -17,7 +17,6 @@
 #define function_h
 
 
-#include <deal.II/base/exceptions.h>
 #include <deal.II/base/function.h>
 
 
@@ -43,10 +42,44 @@ namespace Function
    * Function from step-55.
    */
   template <int dim>
+  class KovasznayExactVelocity : public dealii::Function<dim>
+  {
+  public:
+    KovasznayExactVelocity();
+
+    virtual void
+    vector_value(const dealii::Point<dim> &p, dealii::Vector<double> &values) const override;
+  };
+
+  template <int dim>
+  class KovasznayExactPressure : public dealii::Function<dim>
+  {
+  public:
+    KovasznayExactPressure();
+
+    virtual double
+    value(const dealii::Point<dim> &p, const unsigned int component = 0) const override;
+  };
+
+  template <int dim>
   class KovasznayExact : public dealii::Function<dim>
   {
   public:
     KovasznayExact();
+
+    virtual void
+    vector_value(const dealii::Point<dim> &p, dealii::Vector<double> &values) const override;
+
+  private:
+    KovasznayExactVelocity<dim> velocity_function;
+    KovasznayExactPressure<dim> pressure_function;
+  };
+
+  template <int dim>
+  class KovasznayRHSVelocity : public dealii::Function<dim>
+  {
+  public:
+    KovasznayRHSVelocity();
 
     virtual void
     vector_value(const dealii::Point<dim> &p, dealii::Vector<double> &values) const override;
@@ -60,6 +93,39 @@ namespace Function
 
     virtual void
     vector_value(const dealii::Point<dim> &p, dealii::Vector<double> &values) const override;
+
+  private:
+    KovasznayRHSVelocity<dim> velocity_function;
+  };
+
+  /**
+   * Component version of PoisseuilleFlow
+   */
+  template <int dim>
+  class PoisseuilleFlowVelocity : public dealii::Function<dim>
+  {
+  public:
+    PoisseuilleFlowVelocity(const double r);
+
+    virtual void
+    vector_value(const dealii::Point<dim> &p, dealii::Vector<double> &values) const override;
+
+  private:
+    const double inv_sqr_radius;
+  };
+
+  template <int dim>
+  class PoisseuilleFlowPressure : public dealii::Function<dim>
+  {
+  public:
+    PoisseuilleFlowPressure(const double r, const double Re);
+
+    virtual double
+    value(const dealii::Point<dim> &p, const unsigned int component = 0) const override;
+
+  private:
+    const double inv_sqr_radius;
+    const double Reynolds;
   };
 } // namespace Function
 
