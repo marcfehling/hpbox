@@ -17,6 +17,7 @@
 #define stokes_matrixbased_problem_h
 
 
+#include <deal.II/distributed/cell_weights.h>
 #include <deal.II/distributed/tria.h>
 
 #include <deal.II/fe/fe_values_extractors.h>
@@ -84,6 +85,7 @@ namespace StokesMatrixBased
 
     std::unique_ptr<dealii::hp::FEValues<dim, spacedim>> fe_values_collection;
     std::unique_ptr<Adaptation::Base>                    adaptation_strategy;
+    dealii::parallel::CellWeights<dim, spacedim>         cell_weights;
 
     std::unique_ptr<dealii::Function<dim>> boundary_function;
     std::unique_ptr<dealii::Function<dim>> solution_function;

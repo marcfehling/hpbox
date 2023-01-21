@@ -19,7 +19,6 @@
 
 #include <deal.II/base/smartpointer.h>
 
-#include <deal.II/distributed/cell_weights.h>
 #include <deal.II/distributed/tria.h>
 
 #include <deal.II/dofs/dof_handler.h>
@@ -77,8 +76,6 @@ namespace Adaptation
       triangulation;
 
     const dealii::ComponentMask component_mask;
-
-    dealii::parallel::CellWeights<dim, spacedim> cell_weights;
 
     // dealii::FESeries::Legendre<dim, spacedim> legendre;
     std::unique_ptr<dealii::FESeries::Legendre<dim, spacedim>> legendre;

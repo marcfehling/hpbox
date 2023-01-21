@@ -46,9 +46,6 @@ namespace Adaptation
     , dof_handler(&dof_handler)
     , triangulation(&triangulation)
     , component_mask(component_mask)
-    , cell_weights(dof_handler,
-                   parallel::CellWeights<dim>::ndofs_weighting(
-                     {prm.weighting_factor, prm.weighting_exponent}))
     , data_transfer(triangulation,
                     /*transfer_variable_size_data=*/false,
                     &AdaptationStrategies::Refinement::l2_norm<dim, spacedim, float>,

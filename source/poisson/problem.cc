@@ -137,6 +137,13 @@ namespace Poisson
       fe_collection,
       dof_handler,
       triangulation);
+
+    // cell weighting
+    if (prm.adaptation_type != "h")
+      {
+        cell_weights.reinit(dof_handler, parallel::CellWeights<dim, spacedim>::ndofs_weighting(
+                                 {prm.prm_adaptation.weighting_factor, prm.prm_adaptation.weighting_exponent}));
+      }
   }
 
 

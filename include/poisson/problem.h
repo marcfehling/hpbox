@@ -13,10 +13,11 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef poisson_poisson_h
-#define poisson_poisson_h
+#ifndef poisson_problem_h
+#define poisson_problem_h
 
 
+#include <deal.II/distributed/cell_weights.h>
 #include <deal.II/distributed/tria.h>
 
 #include <deal.II/hp/fe_values.h>
@@ -73,6 +74,7 @@ namespace Poisson
 
     std::unique_ptr<dealii::hp::FEValues<dim, spacedim>> fe_values_collection;
     std::unique_ptr<Adaptation::Base>                    adaptation_strategy;
+    dealii::parallel::CellWeights<dim, spacedim>         cell_weights;
 
     std::unique_ptr<dealii::Function<dim>> boundary_function;
     std::unique_ptr<dealii::Function<dim>> solution_function;
