@@ -30,13 +30,11 @@
 #include <base/linear_algebra.h>
 #include <base/log.h>
 #include <factory.h>
-#include <stokes/amg.h>
-#include <stokes/block_schur_preconditioner.h>
-#include <stokes/matrixbased/a_block_operator.h>
-#include <stokes/matrixbased/schur_block_operator.h>
-#include <stokes/matrixbased/stokes_operator.h>
+#include <stokes/matrixfree/block_schur_preconditioner.h>
+#include <stokes/matrixfree/a_block_operator.h>
+#include <stokes/matrixfree/schur_block_operator.h>
 #include <stokes/matrixfree/stokes_operator.h>
-#include <stokes/problem.h>
+#include <stokes/matrixfree/problem.h>
 
 // #include <ctime>
 // #include <iomanip>
@@ -53,38 +51,11 @@ namespace
   {
     Assert(false, ExcNotImplemented());
   }
-
-
-  template <int dim, typename LinearAlgebra, int spacedim = dim, typename... Args>
-  std::unique_ptr<BlockOperatorType<dim, LinearAlgebra, spacedim>>
-  create_block_operator(const std::string type, Args &&...args)
-  {
-    if (type == "MatrixBased")
-      {
-        return std::make_unique<StokesMatrixBased::StokesOperator<dim, LinearAlgebra, spacedim>>(
-          std::forward<Args>(args)...);
-      }
-    else if (type == "MatrixFree")
-      {
-        if constexpr (std::is_same<LinearAlgebra, dealiiTrilinos>::value)
-          {
-            return std::make_unique<StokesMatrixFree::StokesOperator<dim, LinearAlgebra, spacedim>>(
-              std::forward<Args>(args)...);
-          }
-        else
-          {
-            AssertThrow(false, ExcMessage("MatrixFree only available with dealii & Trilinos!"));
-          }
-      }
-
-    AssertThrow(false, ExcNotImplemented());
-    return std::unique_ptr<BlockOperatorType<dim, LinearAlgebra, spacedim>>();
-  }
 } // namespace
 
 
 
-namespace Stokes
+namespace StokesMatrixFree
 {
   template <int dim, typename LinearAlgebra, int spacedim>
   Problem<dim, LinearAlgebra, spacedim>::Problem(const Parameter &prm)
@@ -148,17 +119,14 @@ namespace Stokes
     if (prm.operator_type == "MatrixBased")
       {
         // TODO: make pretty/ remove create_block_operator
-        stokes_operator = create_block_operator<dim, LinearAlgebra, spacedim>(prm.operator_type,
-                                                                              mapping_collection,
-                                                                              quadrature_collection,
-                                                                              fe_collection);
+        // stokes_operator = std::make_unique<StokesMatrixFree::StokesOperator<dim, LinearAlgebra, spacedim>>(mapping_collection, quadrature_collection);
 
         a_block_operator =
-          std::make_unique<StokesMatrixBased::ABlockOperator<dim, LinearAlgebra, spacedim>>(
+          std::make_unique<StokesMatrixFree::ABlockOperator<dim, LinearAlgebra, spacedim>>(
             mapping_collection, quadrature_collection, fe_collection);
 
         schur_block_operator =
-          std::make_unique<StokesMatrixBased::SchurBlockOperator<dim, LinearAlgebra, spacedim>>(
+          std::make_unique<StokesMatrixFree::SchurBlockOperator<dim, LinearAlgebra, spacedim>>(
             mapping_collection, quadrature_collection, fe_collection);
 
         // TODO: build only in matrixbased an pass to operators (from above)?
@@ -370,13 +338,13 @@ namespace Stokes
 
     if (prm.solver_type == "AMG")
       {
-        solve_amg<dim, LinearAlgebra, spacedim>(solver_control_refined,
-                                                *stokes_operator,
-                                                *a_block_operator,
-                                                *schur_block_operator,
-                                                completely_distributed_solution,
-                                                system_rhs,
-                                                dof_handler);
+        // solve_amg<dim, LinearAlgebra, spacedim>(solver_control_refined,
+        //                                         *stokes_operator,
+        //                                         *a_block_operator,
+        //                                         *schur_block_operator,
+        //                                         completely_distributed_solution,
+        //                                         system_rhs,
+        //                                         dof_handler);
       }
     else if (prm.solver_type == "GMG")
       {
@@ -639,8 +607,8 @@ namespace Stokes
           // TODO: I am not happy with this
           if (prm.operator_type == "MatrixBased")
             {
-              stokes_operator->reinit(
-                partitioning, dof_handler, constraints, system_rhs, rhs_function.get());
+              // stokes_operator->reinit(
+              //   partitioning, dof_handler, constraints, system_rhs, rhs_function.get());
 
               if (prm.operator_type == "MatrixBased")
                 Log::log_nonzero_elements(stokes_operator->get_system_matrix());

@@ -13,14 +13,14 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef stokes_block_schur_preconditioner_h
-#define stokes_block_schur_preconditioner_h
+#ifndef stokes_matrixbased_block_schur_preconditioner_h
+#define stokes_matrixbased_block_schur_preconditioner_h
 
 
 #include <base/linear_algebra.h>
 
 
-namespace LinearSolvers
+namespace LinearSolversMatrixBased
 {
   template <typename LinearAlgebra,
             typename StokesMatrixType,

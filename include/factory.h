@@ -28,7 +28,7 @@
 #include <function.h>
 #include <grid.h>
 #include <poisson/problem.h>
-#include <stokes/problem.h>
+#include <stokes/matrixbased/problem.h>
 
 #include <memory>
 
@@ -104,8 +104,11 @@ namespace Factory
       return std::make_unique<Poisson::Problem<dim, LinearAlgebra, spacedim>>(
         std::forward<Args>(args)...);
     else if (type == "Stokes")
-      return std::make_unique<Stokes::Problem<dim, LinearAlgebra, spacedim>>(
-        std::forward<Args>(args)...);
+      {
+        // check if matrixfree or matrixbased here
+        return std::make_unique<StokesMatrixBased::Problem<dim, LinearAlgebra, spacedim>>(
+          std::forward<Args>(args)...);
+      }
 
     AssertThrow(false, dealii::ExcNotImplemented());
     return std::unique_ptr<ProblemBase>();

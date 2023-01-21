@@ -31,62 +31,32 @@ namespace StokesMatrixFree
   template <int dim, typename LinearAlgebra, int spacedim>
   StokesOperator<dim, LinearAlgebra, spacedim>::StokesOperator(
     const hp::MappingCollection<dim, spacedim> &mapping_collection,
-    const hp::QCollection<dim>                 &quadrature_collection,
-    const hp::FECollection<dim, spacedim>      &fe_collection)
+    const std::vector<hp::QCollection<dim>>    &quadrature_collections)
     : mapping_collection(&mapping_collection)
-    , quadrature_collection(&quadrature_collection)
-  {
-    (void)fe_collection; // unused, only here for matching interface to matrixbased
-  }
-
-
-  template <int dim, typename LinearAlgebra, int spacedim>
-  std::unique_ptr<BlockOperatorType<dim, LinearAlgebra, spacedim>>
-  StokesOperator<dim, LinearAlgebra, spacedim>::replicate() const
-  {
-    return std::make_unique<StokesOperator<dim, LinearAlgebra, spacedim>>(
-      *mapping_collection, *quadrature_collection, hp::FECollection<dim, spacedim>());
-  }
+    , quadrature_collections(&quadrature_collections)
+  {}
 
 
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
   StokesOperator<dim, LinearAlgebra, spacedim>::reinit(
-    const Partitioning                  &partitioning,
-    const DoFHandler<dim, spacedim>     &dof_handler,
-    const AffineConstraints<value_type> &constraints)
-  {
-    this->partitioning = partitioning;
-    this->constraints  = &constraints;
-
-    typename MatrixFree<dim, value_type>::AdditionalData data;
-    data.mapping_update_flags = update_gradients;
-    // TODO: more?
-
-    matrix_free.reinit(*mapping_collection, dof_handler, constraints, *quadrature_collection, data);
-  }
-
-
-  template <int dim, typename LinearAlgebra, int spacedim>
-  void
-  StokesOperator<dim, LinearAlgebra, spacedim>::reinit(
-    const Partitioning                  &partitioning,
-    const DoFHandler<dim, spacedim>     &dof_handler,
-    const AffineConstraints<value_type> &constraints,
-    VectorType                          &system_rhs,
-    const dealii::Function<spacedim>    *rhs_function)
+    const Partitioning                                 &partitioning,
+    const std::vector<DoFHandler<dim, spacedim> *>     &dof_handlers,
+    const std::vector<AffineConstraints<value_type> *> &constraints,
+    VectorType                                         &system_rhs,
+    const dealii::Function<spacedim>                   *rhs_function)
   {
     TimerOutput::Scope t(getTimer(), "reinit");
 
     this->partitioning = partitioning;
-    this->constraints  = &constraints;
+    this->constraints  = std::shared_ptr<const std::vector<AffineConstraints<value_type> *>>(&constraints);
 
     typename MatrixFree<dim, value_type>::AdditionalData data;
     data.mapping_update_flags = update_gradients;
     // TODO: more?
 
-    matrix_free.reinit(*mapping_collection, dof_handler, constraints, *quadrature_collection, data);
+    // matrix_free.reinit(mapping_collection.get(), dof_handlers, constraints, quadrature_collections.get(), data);
 
 
     this->initialize_dof_vector(system_rhs);
@@ -97,31 +67,31 @@ namespace StokesMatrixFree
     (void)rhs_function;
 
     {
-      AffineConstraints<value_type> constraints_without_dbc;
+      // AffineConstraints<value_type> constraints_without_dbc;
 
-      constraints_without_dbc.reinit(partitioning.get_relevant_dofs());
+      // constraints_without_dbc.reinit(partitioning.get_relevant_dofs());
 
-      DoFTools::make_hanging_node_constraints(dof_handler, constraints_without_dbc);
-      constraints_without_dbc.close();
+      // DoFTools::make_hanging_node_constraints(dof_handler, constraints_without_dbc);
+      // constraints_without_dbc.close();
 
-      VectorType b, x;
+      // VectorType b, x;
 
-      MatrixFree<dim, value_type> matrix_free;
-      matrix_free.reinit(
-        *mapping_collection, dof_handler, constraints_without_dbc, *quadrature_collection, data);
+      // MatrixFree<dim, value_type> matrix_free;
+      // matrix_free.reinit(
+      //   *mapping_collection, dof_handler, constraints_without_dbc, *quadrature_collection, data);
 
-      // matrix_free.initialize_dof_vector(b);
-      // matrix_free.initialize_dof_vector(x);
-      this->initialize_dof_vector(b);
-      this->initialize_dof_vector(x);
+      // // matrix_free.initialize_dof_vector(b);
+      // // matrix_free.initialize_dof_vector(x);
+      // this->initialize_dof_vector(b);
+      // this->initialize_dof_vector(x);
 
-      constraints.distribute(x);
+      // constraints.distribute(x);
 
-      matrix_free.cell_loop(&StokesOperator::do_cell_integral_range, this, b, x);
+      // matrix_free.cell_loop(&StokesOperator::do_cell_integral_range, this, b, x);
 
-      constraints.set_zero(b);
+      // constraints.set_zero(b);
 
-      system_rhs -= b;
+      // system_rhs -= b;
     }
   }
 
@@ -199,11 +169,12 @@ namespace StokesMatrixFree
     (void)dst;
     (void)src;
 
-    FECellIntegrator integrator(matrix_free, range);
+    // FECellIntegrator integrator(matrix_free, range);
 
     for (unsigned int cell = range.first; cell < range.second; ++cell)
       {
-        integrator.reinit(cell);
+        (void)cell;
+        // integrator.reinit(cell);
 
         // ...
       }

@@ -25,32 +25,23 @@
 namespace StokesMatrixFree
 {
   template <int dim, typename LinearAlgebra, int spacedim = dim>
-  class StokesOperator : public BlockOperatorType<dim, LinearAlgebra, spacedim>
+  class StokesOperator : public dealii::MGSolverOperatorBase<dim, typename LinearAlgebra::BlockVector, typename LinearAlgebra::BlockSparseMatrix>
   {
   public:
     using VectorType = typename LinearAlgebra::BlockVector;
     using value_type = typename VectorType::value_type;
 
-    using FECellIntegrator = dealii::FEEvaluation<dim, -1, 0, dim + 1, value_type>;
+    // using FECellIntegrator = dealii::FEEvaluation<dim, -1, 0, dim + 1, value_type>;
 
     StokesOperator(const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
-                   const dealii::hp::QCollection<dim>                 &quadrature_collection,
-                   const dealii::hp::FECollection<dim, spacedim>      &fe_collection);
-
-    std::unique_ptr<BlockOperatorType<dim, LinearAlgebra, spacedim>>
-    replicate() const override;
+                   const std::vector<dealii::hp::QCollection<dim>>    &quadrature_collections);
 
     void
-    reinit(const Partitioning                          &partitioning,
-           const dealii::DoFHandler<dim, spacedim>     &dof_handler,
-           const dealii::AffineConstraints<value_type> &constraints) override;
-
-    void
-    reinit(const Partitioning                          &partitioning,
-           const dealii::DoFHandler<dim, spacedim>     &dof_handler,
-           const dealii::AffineConstraints<value_type> &constraints,
-           VectorType                                  &system_rhs,
-           const dealii::Function<spacedim>            *rhs_function) override;
+    reinit(const Partitioning                                         &partitioning,
+           const std::vector<dealii::DoFHandler<dim, spacedim> *>     &dof_handlers,
+           const std::vector<dealii::AffineConstraints<value_type> *> &constraints,
+           VectorType                                                 &system_rhs,
+           const dealii::Function<spacedim>                           *rhs_function);
 
     void
     vmult(VectorType &dst, const VectorType &src) const override;
@@ -73,9 +64,9 @@ namespace StokesMatrixFree
   private:
     // const Parameters &prm;
 
-    dealii::SmartPointer<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
-    dealii::SmartPointer<const dealii::hp::QCollection<dim>>                 quadrature_collection;
-    dealii::SmartPointer<const dealii::AffineConstraints<value_type>>        constraints;
+    std::shared_ptr<const dealii::hp::MappingCollection<dim, spacedim>>         mapping_collection;
+    std::shared_ptr<const std::vector<dealii::hp::QCollection<dim>>>            quadrature_collections;
+    std::shared_ptr<const std::vector<dealii::AffineConstraints<value_type> *>> constraints;
 
     // TODO: Add RHS function to constructor
     //       Grab and set as RHS in reinit

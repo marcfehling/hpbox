@@ -13,8 +13,8 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef stokes_problem_h
-#define stokes_problem_h
+#ifndef stokes_matrixbased_problem_h
+#define stokes_matrixbased_problem_h
 
 
 #include <deal.II/distributed/tria.h>
@@ -28,7 +28,7 @@
 #include <problem.h>
 
 
-namespace Stokes
+namespace StokesMatrixBased
 {
   template <int dim, typename LinearAlgebra, int spacedim = dim>
   class Problem : public ProblemBase
