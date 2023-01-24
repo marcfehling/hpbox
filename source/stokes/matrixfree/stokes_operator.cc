@@ -112,6 +112,7 @@ namespace StokesMatrixFree
   {
     matrix_free.initialize_dof_vector(vec.block(0), 0);
     matrix_free.initialize_dof_vector(vec.block(1), 1);
+    vec.collect_sizes();
   }
 
 

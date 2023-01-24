@@ -180,13 +180,11 @@ namespace StokesMatrixBased
     else if (prm.grid_type == "y-pipe")
       {
         // boundary_function = Factory::create_function<dim>("zero");
-        // solution_function = Factory::create_function<dim>("zero");
-        // rhs_function      = Factory::create_function<dim>("zero");
 
-        solution_function = std::make_unique<dealii::Functions::ZeroFunction<dim>>(
-          /*n_components=*/dim + 1);
-        rhs_function = std::make_unique<dealii::Functions::ZeroFunction<dim>>(
-          /*n_components=*/dim + 1);
+        // solution_function = Factory::create_function<dim>("zero", /*n_components=*/dim + 1);
+        // rhs_function = Factory::create_function<dim>("zero", /*n_components=*/dim + 1);
+        solution_function = std::make_unique<Functions::ZeroFunction<dim>>(dim + 1);
+        rhs_function = std::make_unique<Functions::ZeroFunction<dim>>(dim + 1);
       }
     else
       {

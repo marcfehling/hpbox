@@ -72,28 +72,40 @@ namespace StokesMatrixFree
     std::string      filename_log;
 
     dealii::parallel::distributed::Triangulation<dim> triangulation;
-    dealii::DoFHandler<dim, spacedim>                 dof_handler;
 
-    // or in operator class, or in both?
-    const dealii::FEValuesExtractors::Vector velocities;
-    const dealii::FEValuesExtractors::Scalar pressure;
+    dealii::DoFHandler<dim, spacedim>                dof_handler_v;
+    dealii::DoFHandler<dim, spacedim>                dof_handler_p;
+    std::vector<dealii::DoFHandler<dim, spacedim> *> dof_handlers;
 
     dealii::hp::MappingCollection<dim, spacedim> mapping_collection;
-    dealii::hp::FECollection<dim, spacedim>      fe_collection;
-    dealii::hp::QCollection<dim>                 quadrature_collection;
-    dealii::hp::QCollection<dim>                 quadrature_collection_for_errors;
+
+    dealii::hp::FECollection<dim, spacedim> fe_collection_v;
+    dealii::hp::FECollection<dim, spacedim> fe_collection_p;
+
+    dealii::hp::QCollection<dim>              quadrature_collection_v;
+    dealii::hp::QCollection<dim>              quadrature_collection_p;
+    std::vector<dealii::hp::QCollection<dim>> quadrature_collections;
+    dealii::hp::QCollection<dim>              quadrature_collection_for_errors;
 
     std::unique_ptr<dealii::hp::FEValues<dim, spacedim>> fe_values_collection;
-    std::unique_ptr<Adaptation::Base>                    adaptation_strategy;
-    dealii::parallel::CellWeights<dim, spacedim>         cell_weights;
+    std::unique_ptr<Adaptation::Base>                    adaptation_strategy_p;
 
-    std::unique_ptr<dealii::Function<dim>> boundary_function;
-    std::unique_ptr<dealii::Function<dim>> solution_function;
-    std::unique_ptr<dealii::Function<dim>> rhs_function;
+    dealii::parallel::CellWeights<dim, spacedim>         cell_weights_v;
+    dealii::parallel::CellWeights<dim, spacedim>         cell_weights_p;
 
-    Partitioning partitioning;
+    std::unique_ptr<dealii::Function<dim>> boundary_function_v;
+    std::unique_ptr<dealii::Function<dim>> boundary_function_p;
+    std::unique_ptr<dealii::Function<dim>> solution_function_v;
+    std::unique_ptr<dealii::Function<dim>> solution_function_p;
+    std::unique_ptr<dealii::Function<dim>> rhs_function_v;
+    std::unique_ptr<dealii::Function<dim>> rhs_function_p;
 
-    dealii::AffineConstraints<double> constraints;
+    Partitioning partitioning_v;
+    Partitioning partitioning_p;
+
+    dealii::AffineConstraints<double>                constraints_v;
+    dealii::AffineConstraints<double>                constraints_p;
+    std::vector<dealii::AffineConstraints<double> *> constraints;
 
     std::unique_ptr<StokesMatrixFree::StokesOperator<dim, LinearAlgebra, spacedim>> stokes_operator;
     std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>                     a_block_operator;
