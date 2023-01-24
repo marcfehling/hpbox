@@ -131,11 +131,11 @@ namespace StokesMatrixFree
 
         a_block_operator =
           std::make_unique<StokesMatrixFree::ABlockOperator<dim, LinearAlgebra, spacedim>>(
-            mapping_collection, quadrature_collection, fe_collection);
+            mapping_collection, quadrature_collection_v, fe_collection_v);
 
         schur_block_operator =
           std::make_unique<StokesMatrixFree::SchurBlockOperator<dim, LinearAlgebra, spacedim>>(
-            mapping_collection, quadrature_collection, fe_collection);
+            mapping_collection, quadrature_collection_p, fe_collection_p);
 
         // TODO: build only in matrixbased an pass to operators (from above)?
         // {
@@ -231,7 +231,10 @@ namespace StokesMatrixFree
     else
       {
         const unsigned int min_fe_index = prm.prm_adaptation.min_p_degree - 2;
-        for (const auto &cell : dof_handler.active_cell_iterators())
+        for (const auto &cell : dof_handler_v.active_cell_iterators())
+          if (cell->is_locally_owned())
+            cell->set_active_fe_index(min_fe_index);
+        for (const auto &cell : dof_handler_p.active_cell_iterators())
           if (cell->is_locally_owned())
             cell->set_active_fe_index(min_fe_index);
 
@@ -266,22 +269,13 @@ namespace StokesMatrixFree
     {
       TimerOutput::Scope(getTimer(), "reinit_vectors");
 
-      locally_relevant_solution.reinit(partitioning.get_owned_dofs_per_block(),
-                                       partitioning.get_relevant_dofs_per_block(),
-                                       mpi_communicator);
-
-      // TODO: remove
-      if constexpr (std::is_same_v<typename LinearAlgebra::BlockVector,
-                                   dealii::LinearAlgebra::distributed::BlockVector<double>>)
-        {
-          system_rhs.reinit(partitioning.get_owned_dofs_per_block(),
-                            partitioning.get_relevant_dofs_per_block(),
-                            mpi_communicator);
-        }
-      else
-        {
-          system_rhs.reinit(partitioning.get_owned_dofs_per_block(), mpi_communicator);
-        }
+      locally_relevant_solution.block(0).reinit(partitioning_v.get_owned_dofs(),
+                                                partitioning_v.get_relevant_dofs(),
+                                                mpi_communicator);
+      locally_relevant_solution.block(1).reinit(partitioning_p.get_owned_dofs(),
+                                                partitioning_p.get_relevant_dofs(),
+                                                mpi_communicator);
+      locally_relevant_solution.collect_sizes();
     }
 
     {
@@ -304,7 +298,7 @@ namespace StokesMatrixFree
           }
         else if (prm.grid_type == "y-pipe")
           {
-            Function::PoisseuilleFlowVelocity<dim> inflow(/*radius=*/1.);
+            ::Function::PoisseuilleFlowVelocity<dim> inflow(/*radius=*/1.);
             Functions::ZeroFunction<dim>           zero(/*n_components=*/dim);
 
             // flow at inlet opening 0
@@ -391,7 +385,8 @@ namespace StokesMatrixFree
           VectorTools::compute_mean_value(mapping_collection,
                                           dof_handler_p,
                                           quadrature_collection_for_errors,
-                                          locally_relevant_solution.block(1));
+                                          locally_relevant_solution.block(1),
+                                          /*component=*/0);
         completely_distributed_solution.block(1).add(-mean_pressure);
         locally_relevant_solution.block(1) = completely_distributed_solution.block(1);
       }
@@ -504,12 +499,11 @@ namespace StokesMatrixFree
     data_out.add_data_vector(dof_handler_v,
                              locally_relevant_solution.block(0),
                              "velocity",
-                             DataOut<dim>::type_dof_data,
                              data_component_interpretation);
     data_out.add_data_vector(dof_handler_p,
                              locally_relevant_solution.block(1),
-                             "pressure",
-                             DataComponentInterpretation::component_is_scalar);
+                             "pressure");
+    //                         DataComponentInterpretation::component_is_scalar);
 
     data_out.add_data_vector(dof_handler_p, fe_degrees, "fe_degree");
     data_out.add_data_vector(dof_handler_p, subdomain, "subdomain");
@@ -638,11 +632,11 @@ namespace StokesMatrixFree
               // stokes_operator->reinit(
               //   partitioning, dof_handler, constraints, system_rhs, rhs_function.get());
 
-              if (prm.operator_type == "MatrixBased")
-                Log::log_nonzero_elements(stokes_operator->get_system_matrix());
+              // if (prm.operator_type == "MatrixBased")
+              //   Log::log_nonzero_elements(stokes_operator->get_system_matrix());
 
-              a_block_operator->reinit(partitioning, dof_handler, constraints);
-              schur_block_operator->reinit(partitioning, dof_handler, constraints);
+              a_block_operator->reinit(partitioning_v, dof_handler_v, constraints_v);
+              schur_block_operator->reinit(partitioning_p, dof_handler_p, constraints_p);
 
               solve();
             }
@@ -652,7 +646,7 @@ namespace StokesMatrixFree
             }
 
           // compute_errors();
-          adaptation_strategy->estimate_mark();
+          adaptation_strategy_p->estimate_mark();
 
           if ((prm.output_frequency > 0) && (cycle % prm.output_frequency == 0))
             output_results();
