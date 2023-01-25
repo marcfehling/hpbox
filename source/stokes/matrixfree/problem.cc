@@ -71,6 +71,8 @@ namespace StokesMatrixFree
     , dof_handlers({&dof_handler_v, &dof_handler_p})
     , constraints({&constraints_v, &constraints_p})
   {
+    AssertThrow(prm.operator_type == "MatrixFree", ExcNotImplemented());
+
     //
     // TODO!!!
     // nearly identical to Poisson
@@ -670,13 +672,6 @@ namespace StokesMatrixFree
 #ifdef DEAL_II_WITH_TRILINOS
   template class Problem<2, dealiiTrilinos, 2>;
   template class Problem<3, dealiiTrilinos, 3>;
-  template class Problem<2, Trilinos, 2>;
-  template class Problem<3, Trilinos, 3>;
-#endif
-
-#ifdef DEAL_II_WITH_PETSC
-  template class Problem<2, PETSc, 2>;
-  template class Problem<3, PETSc, 3>;
 #endif
 
 } // namespace Stokes

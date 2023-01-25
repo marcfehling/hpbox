@@ -30,6 +30,7 @@
 #include <grid.h>
 #include <poisson/problem.h>
 #include <stokes/matrixbased/problem.h>
+#include <stokes/matrixfree/problem.h>
 
 #include <memory>
 
@@ -116,13 +117,26 @@ namespace Factory
   create_problem(const std::string &type, Args &&...args)
   {
     if (type == "Poisson")
-      return std::make_unique<Poisson::Problem<dim, LinearAlgebra, spacedim>>(
-        std::forward<Args>(args)...);
+      {
+        return std::make_unique<Poisson::Problem<dim, LinearAlgebra, spacedim>>(
+          std::forward<Args>(args)...);
+      }
     else if (type == "Stokes")
       {
-        // check if matrixfree or matrixbased here
         return std::make_unique<StokesMatrixBased::Problem<dim, LinearAlgebra, spacedim>>(
           std::forward<Args>(args)...);
+      }
+    else if (type == "StokesMatrixFree")
+      {
+        if constexpr (std::is_same_v<LinearAlgebra, dealiiTrilinos>)
+          {
+            return std::make_unique<StokesMatrixFree::Problem<dim, LinearAlgebra, spacedim>>(
+                std::forward<Args>(args)...);
+          }
+        else
+          {
+            AssertThrow(false, dealii::ExcMessage("MatrixFree only available with dealii & Trilinos!"));
+          }
       }
 
     AssertThrow(false, dealii::ExcNotImplemented());

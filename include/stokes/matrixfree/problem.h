@@ -25,6 +25,7 @@
 #include <deal.II/hp/fe_values.h>
 
 #include <adaptation/base.h>
+#include <stokes/matrixfree/stokes_operator.h>
 #include <parameter.h>
 #include <problem.h>
 

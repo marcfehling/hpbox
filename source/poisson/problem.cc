@@ -49,7 +49,7 @@ namespace
       }
     else if (type == "MatrixFree")
       {
-        if constexpr (std::is_same<LinearAlgebra, dealiiTrilinos>::value)
+        if constexpr (std::is_same_v<LinearAlgebra, dealiiTrilinos>)
           {
             return std::make_unique<
               PoissonMatrixFree::PoissonOperator<dim, LinearAlgebra, spacedim>>(

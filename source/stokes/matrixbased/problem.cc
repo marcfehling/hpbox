@@ -86,6 +86,8 @@ namespace StokesMatrixBased
     , velocities(0)
     , pressure(dim)
   {
+    AssertThrow(prm.operator_type == "MatrixBased", ExcNotImplemented());
+
     //
     // TODO!!!
     // nearly identical to Poisson
