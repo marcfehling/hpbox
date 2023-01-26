@@ -70,6 +70,7 @@ namespace StokesMatrixFree
     , dof_handler_p(triangulation)
     , dof_handlers({&dof_handler_v, &dof_handler_p})
     , constraints({&constraints_v, &constraints_p})
+    , locally_relevant_solution(2)
   {
     AssertThrow(prm.operator_type == "MatrixFree", ExcNotImplemented());
 
@@ -125,41 +126,18 @@ namespace StokesMatrixFree
       fe_collection_p.set_hierarchy(next_index, previous_index);
     }
 
-    // prepare operator (and fe values)
-    if (prm.operator_type == "MatrixBased")
-      {
-        // TODO: make pretty/ remove create_block_operator
-        // stokes_operator = std::make_unique<StokesMatrixFree::StokesOperator<dim, LinearAlgebra, spacedim>>(mapping_collection, quadrature_collection);
+    // prepare operator
+    {
+      // stokes_operator = std::make_unique<StokesMatrixFree::StokesOperator<dim, LinearAlgebra, spacedim>>(mapping_collection, quadrature_collection);
 
-        a_block_operator =
-          std::make_unique<StokesMatrixFree::ABlockOperator<dim, LinearAlgebra, spacedim>>(
-            mapping_collection, quadrature_collection_v, fe_collection_v);
+      a_block_operator =
+        std::make_unique<StokesMatrixFree::ABlockOperator<dim, LinearAlgebra, spacedim>>(
+          mapping_collection, quadrature_collection_v, fe_collection_v);
 
-        schur_block_operator =
-          std::make_unique<StokesMatrixFree::SchurBlockOperator<dim, LinearAlgebra, spacedim>>(
-            mapping_collection, quadrature_collection_p, fe_collection_p);
-
-        // TODO: build only in matrixbased an pass to operators (from above)?
-        // {
-        //   TimerOutput::Scope t(getTimer(), "calculate_fevalues");
-
-        //   fe_values_collection =
-        //     std::make_unique<hp::FEValues<dim, spacedim>>(mapping_collection,
-        //                                                   fe_collection,
-        //                                                   quadrature_collection,
-        //                                                   update_values | update_gradients |
-        //                                                     update_quadrature_points |
-        //                                                     update_JxW_values);
-        //   fe_values_collection->precalculate_fe_values();
-        // }
-
-        // TODO: create operator here
-        //       once we move away from the classical matrix based approach
-      }
-    else
-      {
-        Assert(false, ExcNotImplemented());
-      }
+      schur_block_operator =
+        std::make_unique<StokesMatrixFree::SchurBlockOperator<dim, LinearAlgebra, spacedim>>(
+          mapping_collection, quadrature_collection_p, fe_collection_p);
+    }
 
     // choose functions
     if (prm.grid_type == "kovasznay")
@@ -168,7 +146,8 @@ namespace StokesMatrixFree
         solution_function_v = Factory::create_function<dim>("kovasznay exact velocity");
         solution_function_p = Factory::create_function<dim>("kovasznay exact pressure");
         rhs_function_v      = Factory::create_function<dim>("kovasznay rhs velocity");
-        rhs_function_p      = Factory::create_function<dim>("kovasznay rhs pressure");
+        // rhs_function_p      = Factory::create_function<dim>("kovasznay rhs pressure");
+        rhs_function_p      = std::make_unique<Functions::ZeroFunction<dim>>(1);
       }
     else if (prm.grid_type == "y-pipe")
       {
@@ -628,24 +607,14 @@ namespace StokesMatrixFree
 
           setup_system();
 
-          // TODO: I am not happy with this
-          if (prm.operator_type == "MatrixBased")
-            {
-              // stokes_operator->reinit(
-              //   partitioning, dof_handler, constraints, system_rhs, rhs_function.get());
+          // stokes_operator->reinit(
+          //   partitioning, dof_handler, constraints, system_rhs, rhs_function.get());
 
-              // if (prm.operator_type == "MatrixBased")
-              //   Log::log_nonzero_elements(stokes_operator->get_system_matrix());
+          // a_block_operator->reinit(partitioning_v, dof_handler_v, constraints_v);
+          // schur_block_operator->reinit(partitioning_p, dof_handler_p, constraints_p);
 
-              a_block_operator->reinit(partitioning_v, dof_handler_v, constraints_v);
-              schur_block_operator->reinit(partitioning_p, dof_handler_p, constraints_p);
-
-              solve();
-            }
-          else
-            {
-              Assert(false, ExcInternalError());
-            }
+          // solve();
+          locally_relevant_solution.update_ghost_values(); // normally part of solve
 
           // compute_errors();
           adaptation_strategy_p->estimate_mark();
