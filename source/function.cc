@@ -107,18 +107,18 @@ namespace Function
 
     constexpr double pi2 = numbers::PI * numbers::PI;
 
-    return
-      -1.0L / 2.0L * std::exp(R_x * (-2 * std::sqrt(25.0 + 4 * pi2) + 10.0)) -
-      2.0 * (-6538034.74494422 + 0.0134758939981709 * std::exp(4 * std::sqrt(25.0 + 4 * pi2))) /
-        (-80.0 * std::exp(3 * std::sqrt(25.0 + 4 * pi2)) +
-         16.0 * std::sqrt(25.0 + 4 * pi2) * std::exp(3 * std::sqrt(25.0 + 4 * pi2))) -
-      1634508.68623606 * std::exp(-3.0 * std::sqrt(25.0 + 4 * pi2)) /
-        (-10.0 + 2.0 * std::sqrt(25.0 + 4 * pi2)) +
-      (-0.00673794699908547 * std::exp(std::sqrt(25.0 + 4 * pi2)) +
-       3269017.37247211 * std::exp(-3 * std::sqrt(25.0 + 4 * pi2))) /
-        (-8 * std::sqrt(25.0 + 4 * pi2) + 40.0) +
-      0.00336897349954273 * std::exp(1.0 * std::sqrt(25.0 + 4 * pi2)) /
-        (-10.0 + 2.0 * std::sqrt(25.0 + 4 * pi2));
+    return -1.0L / 2.0L * std::exp(R_x * (-2 * std::sqrt(25.0 + 4 * pi2) + 10.0)) -
+           2.0 *
+             (-6538034.74494422 + 0.0134758939981709 * std::exp(4 * std::sqrt(25.0 + 4 * pi2))) /
+             (-80.0 * std::exp(3 * std::sqrt(25.0 + 4 * pi2)) +
+              16.0 * std::sqrt(25.0 + 4 * pi2) * std::exp(3 * std::sqrt(25.0 + 4 * pi2))) -
+           1634508.68623606 * std::exp(-3.0 * std::sqrt(25.0 + 4 * pi2)) /
+             (-10.0 + 2.0 * std::sqrt(25.0 + 4 * pi2)) +
+           (-0.00673794699908547 * std::exp(std::sqrt(25.0 + 4 * pi2)) +
+            3269017.37247211 * std::exp(-3 * std::sqrt(25.0 + 4 * pi2))) /
+             (-8 * std::sqrt(25.0 + 4 * pi2) + 40.0) +
+           0.00336897349954273 * std::exp(1.0 * std::sqrt(25.0 + 4 * pi2)) /
+             (-10.0 + 2.0 * std::sqrt(25.0 + 4 * pi2));
   }
 
 

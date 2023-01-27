@@ -94,7 +94,7 @@ namespace LinearSolversMatrixBased
 
     const bool do_solve_A;
   };
-} // namespace LinearSolvers
+} // namespace LinearSolversMatrixBased
 
 
 #endif

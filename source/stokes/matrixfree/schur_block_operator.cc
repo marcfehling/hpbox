@@ -82,16 +82,15 @@ namespace StokesMatrixFree
       this->communicator = dof_handler.get_communicator();
       this->partitioning = partitioning;
 
-      this->dealii_partitioner = std::make_shared<const Utilities::MPI::Partitioner>(
-        partitioning.get_owned_dofs(),
-        partitioning.get_relevant_dofs(),
-        dof_handler.get_communicator());
+      this->dealii_partitioner =
+        std::make_shared<const Utilities::MPI::Partitioner>(partitioning.get_owned_dofs(),
+                                                            partitioning.get_relevant_dofs(),
+                                                            dof_handler.get_communicator());
 
       {
         TimerOutput::Scope t(getTimer(), "reinit_matrices");
 
-        initialize_sparse_matrix(
-          schur_block_matrix, dof_handler, constraints, partitioning);
+        initialize_sparse_matrix(schur_block_matrix, dof_handler, constraints, partitioning);
       }
 
       {

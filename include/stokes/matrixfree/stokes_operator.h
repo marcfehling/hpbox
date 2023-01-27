@@ -25,7 +25,10 @@
 namespace StokesMatrixFree
 {
   template <int dim, typename LinearAlgebra, int spacedim = dim>
-  class StokesOperator : public dealii::MGSolverOperatorBase<dim, typename LinearAlgebra::BlockVector, typename LinearAlgebra::BlockSparseMatrix>
+  class StokesOperator
+    : public dealii::MGSolverOperatorBase<dim,
+                                          typename LinearAlgebra::BlockVector,
+                                          typename LinearAlgebra::BlockSparseMatrix>
   {
   public:
     using VectorType = typename LinearAlgebra::BlockVector;
@@ -64,8 +67,8 @@ namespace StokesMatrixFree
   private:
     // const Parameters &prm;
 
-    std::shared_ptr<const dealii::hp::MappingCollection<dim, spacedim>>         mapping_collection;
-    std::shared_ptr<const std::vector<dealii::hp::QCollection<dim>>>            quadrature_collections;
+    std::shared_ptr<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
+    std::shared_ptr<const std::vector<dealii::hp::QCollection<dim>>>    quadrature_collections;
     std::shared_ptr<const std::vector<dealii::AffineConstraints<value_type> *>> constraints;
 
     // TODO: Add RHS function to constructor

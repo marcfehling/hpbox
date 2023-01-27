@@ -30,11 +30,11 @@
 #include <base/linear_algebra.h>
 #include <base/log.h>
 #include <factory.h>
-#include <stokes/matrixfree/block_schur_preconditioner.h>
 #include <stokes/matrixfree/a_block_operator.h>
+#include <stokes/matrixfree/block_schur_preconditioner.h>
+#include <stokes/matrixfree/problem.h>
 #include <stokes/matrixfree/schur_block_operator.h>
 #include <stokes/matrixfree/stokes_operator.h>
-#include <stokes/matrixfree/problem.h>
 
 // #include <ctime>
 // #include <iomanip>
@@ -113,14 +113,14 @@ namespace StokesMatrixFree
       const unsigned int min_fe_index = prm.prm_adaptation.min_p_degree - 2;
 
       const auto next_index = [](const typename hp::FECollection<dim> &fe_collection,
-          const unsigned int                    fe_index) -> unsigned int {
-          return ((fe_index + 1) < fe_collection.size()) ? fe_index + 1 : fe_index;
-        };
+                                 const unsigned int                    fe_index) -> unsigned int {
+        return ((fe_index + 1) < fe_collection.size()) ? fe_index + 1 : fe_index;
+      };
       const auto previous_index = [min_fe_index](const typename hp::FECollection<dim> &,
-                      const unsigned int fe_index) -> unsigned int {
-          Assert(fe_index >= min_fe_index, ExcMessage("Finite element is not part of hierarchy!"));
-          return (fe_index > min_fe_index) ? fe_index - 1 : fe_index;
-        };
+                                                 const unsigned int fe_index) -> unsigned int {
+        Assert(fe_index >= min_fe_index, ExcMessage("Finite element is not part of hierarchy!"));
+        return (fe_index > min_fe_index) ? fe_index - 1 : fe_index;
+      };
 
       fe_collection_v.set_hierarchy(next_index, previous_index);
       fe_collection_p.set_hierarchy(next_index, previous_index);
@@ -148,7 +148,7 @@ namespace StokesMatrixFree
         solution_function_p = Factory::create_function<dim>("kovasznay exact pressure");
         rhs_function_v      = Factory::create_function<dim>("kovasznay rhs velocity");
         // rhs_function_p      = Factory::create_function<dim>("kovasznay rhs pressure");
-        rhs_function_p      = std::make_unique<Functions::ZeroFunction<dim>>(1);
+        rhs_function_p = std::make_unique<Functions::ZeroFunction<dim>>(1);
       }
     else if (prm.grid_type == "y-pipe")
       {
@@ -163,8 +163,8 @@ namespace StokesMatrixFree
 
         solution_function_v = std::make_unique<Functions::ZeroFunction<dim>>(dim);
         solution_function_p = std::make_unique<Functions::ZeroFunction<dim>>(1);
-        rhs_function_v = std::make_unique<Functions::ZeroFunction<dim>>(dim);
-        rhs_function_p = std::make_unique<Functions::ZeroFunction<dim>>(1);
+        rhs_function_v      = std::make_unique<Functions::ZeroFunction<dim>>(dim);
+        rhs_function_p      = std::make_unique<Functions::ZeroFunction<dim>>(1);
       }
     else
       {
@@ -184,10 +184,14 @@ namespace StokesMatrixFree
     // cell weighting
     if (prm.adaptation_type != "h")
       {
-        cell_weights_v.reinit(dof_handler_v, parallel::CellWeights<dim, spacedim>::ndofs_weighting(
-                                 {prm.prm_adaptation.weighting_factor, prm.prm_adaptation.weighting_exponent}));
-        cell_weights_p.reinit(dof_handler_p, parallel::CellWeights<dim, spacedim>::ndofs_weighting(
-                                 {prm.prm_adaptation.weighting_factor, prm.prm_adaptation.weighting_exponent}));
+        cell_weights_v.reinit(dof_handler_v,
+                              parallel::CellWeights<dim, spacedim>::ndofs_weighting(
+                                {prm.prm_adaptation.weighting_factor,
+                                 prm.prm_adaptation.weighting_exponent}));
+        cell_weights_p.reinit(dof_handler_p,
+                              parallel::CellWeights<dim, spacedim>::ndofs_weighting(
+                                {prm.prm_adaptation.weighting_factor,
+                                 prm.prm_adaptation.weighting_exponent}));
       }
   }
 
@@ -281,7 +285,7 @@ namespace StokesMatrixFree
         else if (prm.grid_type == "y-pipe")
           {
             ::Function::PoisseuilleFlowVelocity<dim> inflow(/*radius=*/1.);
-            Functions::ZeroFunction<dim>           zero(/*n_components=*/dim);
+            Functions::ZeroFunction<dim>             zero(/*n_components=*/dim);
 
             // flow at inlet opening 0
             // no slip on walls
@@ -482,18 +486,20 @@ namespace StokesMatrixFree
                              locally_relevant_solution.block(0),
                              "velocity",
                              data_component_interpretation);
-    data_out.add_data_vector(dof_handler_p,
-                             locally_relevant_solution.block(1),
-                             "pressure");
+    data_out.add_data_vector(dof_handler_p, locally_relevant_solution.block(1), "pressure");
     //                         DataComponentInterpretation::component_is_scalar);
 
     data_out.add_data_vector(dof_handler_p, fe_degrees, "fe_degree");
     data_out.add_data_vector(dof_handler_p, subdomain, "subdomain");
 
     if (adaptation_strategy_p->get_error_estimates().size() > 0)
-      data_out.add_data_vector(dof_handler_p, adaptation_strategy_p->get_error_estimates(), "error");
+      data_out.add_data_vector(dof_handler_p,
+                               adaptation_strategy_p->get_error_estimates(),
+                               "error");
     if (adaptation_strategy_p->get_hp_indicators().size() > 0)
-      data_out.add_data_vector(dof_handler_p, adaptation_strategy_p->get_hp_indicators(), "hp_indicator");
+      data_out.add_data_vector(dof_handler_p,
+                               adaptation_strategy_p->get_hp_indicators(),
+                               "hp_indicator");
 
     // TODO: Placeholder for interpolation of correct solution?
     //       Is this necessary???
@@ -597,12 +603,13 @@ namespace StokesMatrixFree
                 write_to_checkpoint();
             }
 
-          #ifdef DEBUG
+#ifdef DEBUG
           // check if both dofhandlers have same fe indices
           std::vector<types::fe_index> fe_indices_v = dof_handler_v.get_active_fe_indices();
           std::vector<types::fe_index> fe_indices_p = dof_handler_p.get_active_fe_indices();
-          Assert(std::equal(fe_indices_v.begin(), fe_indices_v.end(), fe_indices_p.begin()), ExcMessage("Active FE indices differ!"));
-          #endif
+          Assert(std::equal(fe_indices_v.begin(), fe_indices_v.end(), fe_indices_p.begin()),
+                 ExcMessage("Active FE indices differ!"));
+#endif
 
           Log::log_cycle(cycle, prm);
 
@@ -644,4 +651,4 @@ namespace StokesMatrixFree
   template class Problem<3, dealiiTrilinos, 3>;
 #endif
 
-} // namespace Stokes
+} // namespace StokesMatrixFree

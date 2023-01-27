@@ -50,7 +50,8 @@ namespace StokesMatrixFree
     TimerOutput::Scope t(getTimer(), "reinit");
 
     this->partitioning = partitioning;
-    this->constraints  = std::shared_ptr<const std::vector<AffineConstraints<value_type> *>>(&constraints);
+    this->constraints =
+      std::shared_ptr<const std::vector<AffineConstraints<value_type> *>>(&constraints);
 
     typename MatrixFree<dim, value_type>::AdditionalData data;
     data.mapping_update_flags = update_gradients;

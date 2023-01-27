@@ -17,9 +17,9 @@
 #define stokes_matrixfree_a_block_operator_h
 
 
-#include <deal.II/matrix_free/tools.h>
-
 #include <deal.II/hp/fe_values.h>
+
+#include <deal.II/matrix_free/tools.h>
 
 #include <operator.h>
 
@@ -107,8 +107,8 @@ namespace StokesMatrixFree
     typename LinearAlgebra::SparseMatrix a_block_matrix;
 
     // from matrixbased
-    dealii::hp::FEValues<dim, spacedim> fe_values_collection;
-    MPI_Comm     communicator;
+    dealii::hp::FEValues<dim, spacedim>                        fe_values_collection;
+    MPI_Comm                                                   communicator;
     std::shared_ptr<const dealii::Utilities::MPI::Partitioner> dealii_partitioner;
   };
 } // namespace StokesMatrixFree

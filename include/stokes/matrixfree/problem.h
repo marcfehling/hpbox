@@ -25,9 +25,9 @@
 #include <deal.II/hp/fe_values.h>
 
 #include <adaptation/base.h>
-#include <stokes/matrixfree/stokes_operator.h>
 #include <parameter.h>
 #include <problem.h>
+#include <stokes/matrixfree/stokes_operator.h>
 
 
 namespace StokesMatrixFree
@@ -91,8 +91,8 @@ namespace StokesMatrixFree
     std::unique_ptr<dealii::hp::FEValues<dim, spacedim>> fe_values_collection;
     std::unique_ptr<Adaptation::Base>                    adaptation_strategy_p;
 
-    dealii::parallel::CellWeights<dim, spacedim>         cell_weights_v;
-    dealii::parallel::CellWeights<dim, spacedim>         cell_weights_p;
+    dealii::parallel::CellWeights<dim, spacedim> cell_weights_v;
+    dealii::parallel::CellWeights<dim, spacedim> cell_weights_p;
 
     std::unique_ptr<dealii::Function<dim>> boundary_function_v;
     std::unique_ptr<dealii::Function<dim>> boundary_function_p;
@@ -109,15 +109,15 @@ namespace StokesMatrixFree
     std::vector<dealii::AffineConstraints<double> *> constraints;
 
     std::unique_ptr<StokesMatrixFree::StokesOperator<dim, LinearAlgebra, spacedim>> stokes_operator;
-    std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>                     a_block_operator;
-    std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>                     schur_block_operator;
+    std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>> a_block_operator;
+    std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>> schur_block_operator;
 
     typename LinearAlgebra::BlockVector locally_relevant_solution;
     typename LinearAlgebra::BlockVector system_rhs;
 
     unsigned int cycle;
   };
-} // namespace Stokes
+} // namespace StokesMatrixFree
 
 
 #endif

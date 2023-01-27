@@ -76,10 +76,11 @@ namespace StokesMatrixBased
     //
     // TODO: System Matrix or operator? See below
     //
-    const LinearSolversMatrixBased::BlockSchurPreconditioner<LinearAlgebra,
-                                                  typename LinearAlgebra::BlockSparseMatrix,
-                                                  typename LinearAlgebra::SparseMatrix,
-                                                  typename LinearAlgebra::SparseMatrix>
+    const LinearSolversMatrixBased::BlockSchurPreconditioner<
+      LinearAlgebra,
+      typename LinearAlgebra::BlockSparseMatrix,
+      typename LinearAlgebra::SparseMatrix,
+      typename LinearAlgebra::SparseMatrix>
       preconditioner(stokes_operator.get_system_matrix(),
                      a_block_operator.get_system_matrix(),
                      schur_block_operator.get_system_matrix(),
@@ -108,7 +109,7 @@ namespace StokesMatrixBased
         solver.solve(stokes_operator.get_system_matrix(), dst, src, preconditioner);
       }
   }
-} // namespace Stokes
+} // namespace StokesMatrixBased
 
 
 #endif

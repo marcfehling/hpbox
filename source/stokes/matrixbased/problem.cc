@@ -30,12 +30,12 @@
 #include <base/linear_algebra.h>
 #include <base/log.h>
 #include <factory.h>
+#include <stokes/matrixbased/a_block_operator.h>
 #include <stokes/matrixbased/amg.h>
 #include <stokes/matrixbased/block_schur_preconditioner.h>
-#include <stokes/matrixbased/a_block_operator.h>
+#include <stokes/matrixbased/problem.h>
 #include <stokes/matrixbased/schur_block_operator.h>
 #include <stokes/matrixbased/stokes_operator.h>
-#include <stokes/matrixbased/problem.h>
 
 // #include <ctime>
 // #include <iomanip>
@@ -186,7 +186,7 @@ namespace StokesMatrixBased
         // solution_function = Factory::create_function<dim>("zero", /*n_components=*/dim + 1);
         // rhs_function = Factory::create_function<dim>("zero", /*n_components=*/dim + 1);
         solution_function = std::make_unique<Functions::ZeroFunction<dim>>(dim + 1);
-        rhs_function = std::make_unique<Functions::ZeroFunction<dim>>(dim + 1);
+        rhs_function      = std::make_unique<Functions::ZeroFunction<dim>>(dim + 1);
       }
     else
       {
@@ -207,8 +207,10 @@ namespace StokesMatrixBased
     // cell weighting
     if (prm.adaptation_type != "h")
       {
-        cell_weights.reinit(dof_handler, parallel::CellWeights<dim, spacedim>::ndofs_weighting(
-                                 {prm.prm_adaptation.weighting_factor, prm.prm_adaptation.weighting_exponent}));
+        cell_weights.reinit(dof_handler,
+                            parallel::CellWeights<dim, spacedim>::ndofs_weighting(
+                              {prm.prm_adaptation.weighting_factor,
+                               prm.prm_adaptation.weighting_exponent}));
       }
   }
 
@@ -683,4 +685,4 @@ namespace StokesMatrixBased
   template class Problem<3, PETSc, 3>;
 #endif
 
-} // namespace Stokes
+} // namespace StokesMatrixBased

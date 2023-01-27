@@ -94,7 +94,7 @@ namespace LinearSolversMatrixFree
 
     const bool do_solve_A;
   };
-} // namespace LinearSolvers
+} // namespace LinearSolversMatrixFree
 
 
 #endif

@@ -104,7 +104,7 @@ namespace StokesMatrixBased
 
     unsigned int cycle;
   };
-} // namespace Stokes
+} // namespace StokesMatrixBased
 
 
 #endif
