@@ -84,12 +84,15 @@ namespace StokesMatrixFree
     //       Grab and set as RHS in reinit
     // dealii::Function<dim> rhs_function;
 
-    typename LinearAlgebra::BlockSparseMatrix schur_block_matrix;
+    typename LinearAlgebra::SparseMatrix schur_block_matrix;
 
     MPI_Comm     communicator;
     Partitioning partitioning;
 
     std::shared_ptr<const dealii::Utilities::MPI::Partitioner> dealii_partitioner;
+
+    // from matrixbased
+    dealii::hp::FEValues<dim, spacedim> fe_values_collection;
   };
 } // namespace StokesMatrixFree
 

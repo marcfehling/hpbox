@@ -19,6 +19,8 @@
 
 #include <deal.II/matrix_free/tools.h>
 
+#include <deal.II/hp/fe_values.h>
+
 #include <operator.h>
 
 
@@ -36,6 +38,10 @@ namespace StokesMatrixFree
     ABlockOperator(const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
                    const dealii::hp::QCollection<dim>                 &quadrature_collection,
                    const dealii::hp::FECollection<dim, spacedim>      &fe_collection);
+
+    ABlockOperator(const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
+                   const dealii::hp::QCollection<dim>                 &quadrature_collection,
+                   const dealii::hp::FEValues<dim, spacedim>          &fe_values_collection);
 
     std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>
     replicate() const override;
@@ -98,7 +104,12 @@ namespace StokesMatrixFree
     Partitioning                        partitioning;
     dealii::MatrixFree<dim, value_type> matrix_free;
 
-    typename LinearAlgebra::BlockSparseMatrix a_block_matrix;
+    typename LinearAlgebra::SparseMatrix a_block_matrix;
+
+    // from matrixbased
+    dealii::hp::FEValues<dim, spacedim> fe_values_collection;
+    MPI_Comm     communicator;
+    std::shared_ptr<const dealii::Utilities::MPI::Partitioner> dealii_partitioner;
   };
 } // namespace StokesMatrixFree
 
