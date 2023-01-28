@@ -119,9 +119,7 @@ namespace StokesMatrixFree
   types::global_dof_index
   StokesOperator<dim, LinearAlgebra, spacedim>::m() const
   {
-    // TODO
-    // of each dofhandler
-    return matrix_free.get_dof_handler().n_dofs();
+    return matrix_free.get_dof_handler(0).n_dofs() + matrix_free.get_dof_handler(1).n_dofs();
   }
 
 
