@@ -163,19 +163,37 @@ namespace StokesMatrixFree
     const VectorType                            &src,
     const std::pair<unsigned int, unsigned int> &range) const
   {
-    Assert(false, ExcNotImplemented());
+    FEEvaluation<dim, -1, 0, dim, value_type> velocity (matrix_free, 0);
+    FEEvaluation<dim, -1, 0, 1  , value_type> pressure (matrix_free, 1);
 
-    (void)dst;
-    (void)src;
-
-    // FECellIntegrator integrator(matrix_free, range);
-
-    for (unsigned int cell = range.first; cell < range.second; ++cell)
+    for (unsigned int cell=range.first; cell<range.second; ++cell)
       {
-        (void)cell;
-        // integrator.reinit(cell);
+        velocity.reinit (cell);
+        velocity.read_dof_values (src.block(0));
+        velocity.evaluate (EvaluationFlags::gradients);
+        pressure.reinit (cell);
+        pressure.read_dof_values (src.block(1));
+        pressure.evaluate (EvaluationFlags::values);
 
-        // ...
+        for (unsigned int q=0; q<velocity.n_q_points; ++q)
+          {
+            SymmetricTensor<2,dim,VectorizedArray<double> > sym_grad_u =
+              velocity.get_symmetric_gradient (q);
+            VectorizedArray<double> pres = pressure.get_value(q);
+            VectorizedArray<double> div = -trace(sym_grad_u);
+            pressure.submit_value (div, q);
+
+            // subtract p * I
+            for (unsigned int d=0; d<dim; ++d)
+              sym_grad_u[d][d] -= pres;
+
+            velocity.submit_symmetric_gradient(sym_grad_u, q);
+         }
+
+        velocity.integrate (EvaluationFlags::gradients);
+        velocity.distribute_local_to_global (dst.block(0));
+        pressure.integrate (EvaluationFlags::values);
+        pressure.distribute_local_to_global (dst.block(1));
       }
   }
 
