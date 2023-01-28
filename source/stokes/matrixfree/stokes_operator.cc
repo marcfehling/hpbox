@@ -41,17 +41,14 @@ namespace StokesMatrixFree
   template <int dim, typename LinearAlgebra, int spacedim>
   void
   StokesOperator<dim, LinearAlgebra, spacedim>::reinit(
-    const Partitioning                                 &partitioning,
     const std::vector<const DoFHandler<dim, spacedim> *>     &dof_handlers,
     const std::vector<const AffineConstraints<value_type> *> &constraints,
-    VectorType                                         &system_rhs,
-    const dealii::Function<spacedim>                   *rhs_function)
+    VectorType                                               &system_rhs,
+    const std::vector<const dealii::Function<spacedim> *>    &rhs_functions)
   {
     TimerOutput::Scope t(getTimer(), "reinit");
 
-    this->partitioning = partitioning;
-    this->constraints =
-      std::shared_ptr<const std::vector<const AffineConstraints<value_type> *>>(&constraints);
+    this->constraints = &constraints;
 
     typename MatrixFree<dim, value_type>::AdditionalData data;
     data.mapping_update_flags = update_gradients;
@@ -65,7 +62,6 @@ namespace StokesMatrixFree
     // !!! TODO !!!
     // add rhs here
     // how to do this in a matrix free fashion? --- check tutorials (step-67)
-    (void)rhs_function;
 
     {
       // AffineConstraints<value_type> constraints_without_dbc;

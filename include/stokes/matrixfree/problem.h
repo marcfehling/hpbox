@@ -74,9 +74,9 @@ namespace StokesMatrixFree
 
     dealii::parallel::distributed::Triangulation<dim> triangulation;
 
-    dealii::DoFHandler<dim, spacedim>                dof_handler_v;
-    dealii::DoFHandler<dim, spacedim>                dof_handler_p;
-    std::vector<dealii::DoFHandler<dim, spacedim> *> dof_handlers;
+    dealii::DoFHandler<dim, spacedim>                      dof_handler_v;
+    dealii::DoFHandler<dim, spacedim>                      dof_handler_p;
+    std::vector<const dealii::DoFHandler<dim, spacedim> *> dof_handlers;
 
     dealii::hp::MappingCollection<dim, spacedim> mapping_collection;
 
@@ -94,19 +94,21 @@ namespace StokesMatrixFree
     dealii::parallel::CellWeights<dim, spacedim> cell_weights_v;
     dealii::parallel::CellWeights<dim, spacedim> cell_weights_p;
 
-    std::unique_ptr<dealii::Function<dim>> boundary_function_v;
-    std::unique_ptr<dealii::Function<dim>> boundary_function_p;
-    std::unique_ptr<dealii::Function<dim>> solution_function_v;
-    std::unique_ptr<dealii::Function<dim>> solution_function_p;
-    std::unique_ptr<dealii::Function<dim>> rhs_function_v;
-    std::unique_ptr<dealii::Function<dim>> rhs_function_p;
+    std::unique_ptr<dealii::Function<spacedim>> boundary_function_v;
+    std::unique_ptr<dealii::Function<spacedim>> boundary_function_p;
+    std::unique_ptr<dealii::Function<spacedim>> solution_function_v;
+    std::unique_ptr<dealii::Function<spacedim>> solution_function_p;
+
+    std::shared_ptr<dealii::Function<spacedim>>     rhs_function_v;
+    std::shared_ptr<dealii::Function<spacedim>>     rhs_function_p;
+    std::vector<const dealii::Function<spacedim> *> rhs_functions;
 
     Partitioning partitioning_v;
     Partitioning partitioning_p;
 
-    dealii::AffineConstraints<double>                constraints_v;
-    dealii::AffineConstraints<double>                constraints_p;
-    std::vector<dealii::AffineConstraints<double> *> constraints;
+    dealii::AffineConstraints<double>                      constraints_v;
+    dealii::AffineConstraints<double>                      constraints_p;
+    std::vector<const dealii::AffineConstraints<double> *> constraints;
 
     std::unique_ptr<StokesMatrixFree::StokesOperator<dim, LinearAlgebra, spacedim>> stokes_operator;
     std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>> a_block_operator;

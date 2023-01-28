@@ -40,11 +40,10 @@ namespace StokesMatrixFree
                    const std::vector<dealii::hp::QCollection<dim>>    &quadrature_collections);
 
     void
-    reinit(const Partitioning                                         &partitioning,
-           const std::vector<const dealii::DoFHandler<dim, spacedim> *>     &dof_handlers,
+    reinit(const std::vector<const dealii::DoFHandler<dim, spacedim> *>     &dof_handlers,
            const std::vector<const dealii::AffineConstraints<value_type> *> &constraints,
-           VectorType                                                 &system_rhs,
-           const dealii::Function<spacedim>                           *rhs_function);
+           VectorType                                                       &system_rhs,
+           const std::vector<const dealii::Function<spacedim> *>            &rhs_functions);
 
     void
     vmult(VectorType &dst, const VectorType &src) const override;
@@ -67,9 +66,9 @@ namespace StokesMatrixFree
   private:
     // const Parameters &prm;
 
-    std::shared_ptr<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
-    std::shared_ptr<const std::vector<dealii::hp::QCollection<dim>>>    quadrature_collections;
-    std::shared_ptr<const std::vector<const dealii::AffineConstraints<value_type> *>> constraints;
+    dealii::SmartPointer<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
+    const std::vector<dealii::hp::QCollection<dim>> * quadrature_collections;
+    const std::vector<const dealii::AffineConstraints<value_type> *> * constraints;
 
     // TODO: Add RHS function to constructor
     //       Grab and set as RHS in reinit

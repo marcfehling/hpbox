@@ -145,9 +145,10 @@ namespace StokesMatrixFree
         // boundary_function = Factory::create_function<dim>("zero");
         solution_function_v = Factory::create_function<dim>("kovasznay exact velocity");
         solution_function_p = Factory::create_function<dim>("kovasznay exact pressure");
+
         rhs_function_v      = Factory::create_function<dim>("kovasznay rhs velocity");
         // rhs_function_p      = Factory::create_function<dim>("kovasznay rhs pressure");
-        rhs_function_p = std::make_unique<Functions::ZeroFunction<dim>>(1);
+        rhs_function_p = std::make_shared<Functions::ZeroFunction<dim>>(1);
       }
     else if (prm.grid_type == "y-pipe")
       {
@@ -162,13 +163,15 @@ namespace StokesMatrixFree
 
         solution_function_v = std::make_unique<Functions::ZeroFunction<dim>>(dim);
         solution_function_p = std::make_unique<Functions::ZeroFunction<dim>>(1);
-        rhs_function_v      = std::make_unique<Functions::ZeroFunction<dim>>(dim);
-        rhs_function_p      = std::make_unique<Functions::ZeroFunction<dim>>(1);
+
+        rhs_function_v = std::make_shared<Functions::ZeroFunction<dim>>(dim);
+        rhs_function_p = std::make_shared<Functions::ZeroFunction<dim>>(1);
       }
     else
       {
         Assert(false, ExcNotImplemented());
       }
+    rhs_functions = {rhs_function_v.get(), rhs_function_p.get()};
 
     // choose adaptation strategy
     adaptation_strategy_p =
@@ -614,16 +617,12 @@ namespace StokesMatrixFree
 
           setup_system();
 
-          // TODO: vector of partitionings here!!!
-          // but i don't need partitioning at all!
-          stokes_operator->reinit(
-            partitioning, dof_handlers, constraints, system_rhs, rhs_function.get());
+          stokes_operator->reinit(dof_handlers, constraints, system_rhs, rhs_functions);
 
           a_block_operator->reinit(partitioning_v, dof_handler_v, constraints_v);
           schur_block_operator->reinit(partitioning_p, dof_handler_p, constraints_p);
 
           solve();
-          // locally_relevant_solution.update_ghost_values(); // normally part of solve
 
           // compute_errors();
           adaptation_strategy_p->estimate_mark();
