@@ -41,8 +41,8 @@ namespace StokesMatrixFree
 
     void
     reinit(const Partitioning                                         &partitioning,
-           const std::vector<dealii::DoFHandler<dim, spacedim> *>     &dof_handlers,
-           const std::vector<dealii::AffineConstraints<value_type> *> &constraints,
+           const std::vector<const dealii::DoFHandler<dim, spacedim> *>     &dof_handlers,
+           const std::vector<const dealii::AffineConstraints<value_type> *> &constraints,
            VectorType                                                 &system_rhs,
            const dealii::Function<spacedim>                           *rhs_function);
 
@@ -69,7 +69,7 @@ namespace StokesMatrixFree
 
     std::shared_ptr<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
     std::shared_ptr<const std::vector<dealii::hp::QCollection<dim>>>    quadrature_collections;
-    std::shared_ptr<const std::vector<dealii::AffineConstraints<value_type> *>> constraints;
+    std::shared_ptr<const std::vector<const dealii::AffineConstraints<value_type> *>> constraints;
 
     // TODO: Add RHS function to constructor
     //       Grab and set as RHS in reinit

@@ -128,9 +128,8 @@ namespace StokesMatrixFree
 
     // prepare operator
     {
-      // stokes_operator = std::make_unique<StokesMatrixFree::StokesOperator<dim, LinearAlgebra, spacedim>>(mapping_collection, quadrature_collection);
+      stokes_operator = std::make_unique<StokesMatrixFree::StokesOperator<dim, LinearAlgebra, spacedim>>(mapping_collection, quadrature_collections);
 
-      // TODO: use matrixbased for now
       a_block_operator =
         std::make_unique<StokesMatrixFree::ABlockOperator<dim, LinearAlgebra, spacedim>>(
           mapping_collection, quadrature_collection_v, fe_collection_v);
@@ -615,14 +614,16 @@ namespace StokesMatrixFree
 
           setup_system();
 
-          // stokes_operator->reinit(
-          //   partitioning, dof_handler, constraints, system_rhs, rhs_function.get());
+          // TODO: vector of partitionings here!!!
+          // but i don't need partitioning at all!
+          stokes_operator->reinit(
+            partitioning, dof_handlers, constraints, system_rhs, rhs_function.get());
 
           a_block_operator->reinit(partitioning_v, dof_handler_v, constraints_v);
           schur_block_operator->reinit(partitioning_p, dof_handler_p, constraints_p);
 
-          // solve();
-          locally_relevant_solution.update_ghost_values(); // normally part of solve
+          solve();
+          // locally_relevant_solution.update_ghost_values(); // normally part of solve
 
           // compute_errors();
           adaptation_strategy_p->estimate_mark();

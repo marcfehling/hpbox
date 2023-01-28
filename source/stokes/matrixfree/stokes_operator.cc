@@ -42,8 +42,8 @@ namespace StokesMatrixFree
   void
   StokesOperator<dim, LinearAlgebra, spacedim>::reinit(
     const Partitioning                                 &partitioning,
-    const std::vector<DoFHandler<dim, spacedim> *>     &dof_handlers,
-    const std::vector<AffineConstraints<value_type> *> &constraints,
+    const std::vector<const DoFHandler<dim, spacedim> *>     &dof_handlers,
+    const std::vector<const AffineConstraints<value_type> *> &constraints,
     VectorType                                         &system_rhs,
     const dealii::Function<spacedim>                   *rhs_function)
   {
@@ -51,13 +51,13 @@ namespace StokesMatrixFree
 
     this->partitioning = partitioning;
     this->constraints =
-      std::shared_ptr<const std::vector<AffineConstraints<value_type> *>>(&constraints);
+      std::shared_ptr<const std::vector<const AffineConstraints<value_type> *>>(&constraints);
 
     typename MatrixFree<dim, value_type>::AdditionalData data;
     data.mapping_update_flags = update_gradients;
     // TODO: more?
 
-    // matrix_free.reinit(mapping_collection.get(), dof_handlers, constraints, quadrature_collections.get(), data);
+    matrix_free.reinit(*mapping_collection, dof_handlers, constraints, *quadrature_collections, data);
 
 
     this->initialize_dof_vector(system_rhs);
@@ -111,6 +111,7 @@ namespace StokesMatrixFree
   void
   StokesOperator<dim, LinearAlgebra, spacedim>::initialize_dof_vector(VectorType &vec) const
   {
+    vec.reinit(2);
     matrix_free.initialize_dof_vector(vec.block(0), 0);
     matrix_free.initialize_dof_vector(vec.block(1), 1);
     vec.collect_sizes();
