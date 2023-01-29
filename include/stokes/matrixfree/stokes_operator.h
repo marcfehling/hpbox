@@ -40,7 +40,8 @@ namespace StokesMatrixFree
                    const std::vector<dealii::hp::QCollection<dim>>    &quadrature_collections);
 
     void
-    reinit(const std::vector<const dealii::DoFHandler<dim, spacedim> *>     &dof_handlers,
+    reinit(const std::vector<const Partitioning *>                          &partitionings,
+           const std::vector<const dealii::DoFHandler<dim, spacedim> *>     &dof_handlers,
            const std::vector<const dealii::AffineConstraints<value_type> *> &constraints,
            VectorType                                                       &system_rhs,
            const std::vector<const dealii::Function<spacedim> *>            &rhs_functions);

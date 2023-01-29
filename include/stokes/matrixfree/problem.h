@@ -103,8 +103,9 @@ namespace StokesMatrixFree
     std::shared_ptr<dealii::Function<spacedim>>     rhs_function_p;
     std::vector<const dealii::Function<spacedim> *> rhs_functions;
 
-    Partitioning partitioning_v;
-    Partitioning partitioning_p;
+    Partitioning                      partitioning_v;
+    Partitioning                      partitioning_p;
+    std::vector<const Partitioning *> partitionings;
 
     dealii::AffineConstraints<double>                      constraints_v;
     dealii::AffineConstraints<double>                      constraints_p;

@@ -41,6 +41,7 @@ namespace StokesMatrixFree
   template <int dim, typename LinearAlgebra, int spacedim>
   void
   StokesOperator<dim, LinearAlgebra, spacedim>::reinit(
+    const std::vector<const Partitioning *>                  &partitionings,
     const std::vector<const DoFHandler<dim, spacedim> *>     &dof_handlers,
     const std::vector<const AffineConstraints<value_type> *> &constraints,
     VectorType                                               &system_rhs,
@@ -65,6 +66,8 @@ namespace StokesMatrixFree
     // how to do this in a matrix free fashion? --- check tutorials (step-67)
 
     {
+      (void) partitionings;
+
       // AffineConstraints<value_type> constraints_without_dbc;
 
       // constraints_without_dbc.reinit(partitioning.get_relevant_dofs());

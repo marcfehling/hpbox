@@ -252,6 +252,7 @@ namespace StokesMatrixFree
 
       partitioning_v.reinit(dof_handler_v);
       partitioning_p.reinit(dof_handler_p);
+      partitionings = {&partitioning_v, &partitioning_p};
     }
 
     {
@@ -617,7 +618,7 @@ namespace StokesMatrixFree
 
           setup_system();
 
-          stokes_operator->reinit(dof_handlers, constraints, system_rhs, rhs_functions);
+          stokes_operator->reinit(partitionings, dof_handlers, constraints, system_rhs, rhs_functions);
 
           a_block_operator->reinit(partitioning_v, dof_handler_v, constraints_v);
           schur_block_operator->reinit(partitioning_p, dof_handler_p, constraints_p);
