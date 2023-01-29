@@ -69,13 +69,16 @@ namespace StokesMatrixFree
     dealii::SmartPointer<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
     const std::vector<dealii::hp::QCollection<dim>> * quadrature_collections;
     const std::vector<const dealii::AffineConstraints<value_type> *> * constraints;
-
-    // TODO: Add RHS function to constructor
-    //       Grab and set as RHS in reinit
-    // dealii::Function<dim> rhs_function;
+    const std::vector<const dealii::Function<spacedim> *> * rhs_functions;
 
     void
     do_cell_integral_range(const dealii::MatrixFree<dim, value_type>   &matrix_free,
+                           VectorType                                  &dst,
+                           const VectorType                            &src,
+                           const std::pair<unsigned int, unsigned int> &range) const;
+
+    void
+    do_cell_residual_range(const dealii::MatrixFree<dim, value_type>   &matrix_free,
                            VectorType                                  &dst,
                            const VectorType                            &src,
                            const std::pair<unsigned int, unsigned int> &range) const;

@@ -49,6 +49,7 @@ namespace StokesMatrixFree
     TimerOutput::Scope t(getTimer(), "reinit");
 
     this->constraints = &constraints;
+    this->rhs_functions = &rhs_functions;
 
     typename MatrixFree<dim, value_type>::AdditionalData data;
     data.mapping_update_flags = update_gradients;
@@ -77,8 +78,6 @@ namespace StokesMatrixFree
       // matrix_free.reinit(
       //   *mapping_collection, dof_handler, constraints_without_dbc, *quadrature_collection, data);
 
-      // // matrix_free.initialize_dof_vector(b);
-      // // matrix_free.initialize_dof_vector(x);
       // this->initialize_dof_vector(b);
       // this->initialize_dof_vector(x);
 
@@ -164,7 +163,7 @@ namespace StokesMatrixFree
     FEEvaluation<dim, -1, 0, dim, value_type> velocity (matrix_free, 0);
     FEEvaluation<dim, -1, 0, 1  , value_type> pressure (matrix_free, 1);
 
-    for (unsigned int cell=range.first; cell<range.second; ++cell)
+    for (unsigned int cell = range.first; cell < range.second; ++cell)
       {
         velocity.reinit (cell);
         velocity.read_dof_values (src.block(0));
@@ -173,13 +172,65 @@ namespace StokesMatrixFree
         pressure.read_dof_values (src.block(1));
         pressure.evaluate (EvaluationFlags::values);
 
-        for (unsigned int q=0; q<velocity.n_q_points; ++q)
+        for (unsigned int q = 0; q < velocity.n_q_points; ++q)
           {
-            SymmetricTensor<2,dim,VectorizedArray<double> > sym_grad_u =
+            SymmetricTensor<2, dim, VectorizedArray<double> > sym_grad_u =
               velocity.get_symmetric_gradient (q);
             VectorizedArray<double> pres = pressure.get_value(q);
             VectorizedArray<double> div = -trace(sym_grad_u);
             pressure.submit_value (div, q);
+
+            // sym_grad_u *= viscosity_times_two;
+
+            // subtract p * I
+            for (unsigned int d=0; d<dim; ++d)
+              sym_grad_u[d][d] -= pres;
+
+            velocity.submit_symmetric_gradient(sym_grad_u, q);
+         }
+
+        velocity.integrate (EvaluationFlags::gradients);
+        velocity.distribute_local_to_global (dst.block(0));
+        pressure.integrate (EvaluationFlags::values);
+        pressure.distribute_local_to_global (dst.block(1));
+      }
+  }
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
+  void
+  StokesOperator<dim, LinearAlgebra, spacedim>::do_cell_residual_range(
+      const MatrixFree<dim, value_type>           &matrix_free,
+      VectorType                                  &dst,
+      const VectorType                            &src,
+      const std::pair<unsigned int, unsigned int> &range) const
+  {
+    FEEvaluation<dim, -1, 0, dim, value_type> velocity (matrix_free, 0);
+    FEEvaluation<dim, -1, 0, 1  , value_type> pressure (matrix_free, 1);
+
+    for (unsigned int cell = range.first; cell < range.second; ++cell)
+      {
+        velocity.reinit (cell);
+        velocity.read_dof_values (src.block(0));
+        velocity.evaluate (EvaluationFlags::gradients);
+        pressure.reinit (cell);
+        pressure.read_dof_values (src.block(1));
+        pressure.evaluate (EvaluationFlags::values);
+
+        for (unsigned int q = 0; q < velocity.n_q_points; ++q)
+          {
+            // add rhs here, the rest is like above
+            (void) this->rhs_functions;
+
+
+            SymmetricTensor<2, dim, VectorizedArray<double> > sym_grad_u =
+              velocity.get_symmetric_gradient (q);
+            VectorizedArray<double> pres = pressure.get_value(q);
+            VectorizedArray<double> div = -trace(sym_grad_u);
+            pressure.submit_value (div, q);
+
+            // sym_grad_u *= viscosity_times_two;
 
             // subtract p * I
             for (unsigned int d=0; d<dim; ++d)
