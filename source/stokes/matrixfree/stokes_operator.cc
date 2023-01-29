@@ -216,17 +216,20 @@ namespace StokesMatrixFree
       {
         velocity.reinit (cell);
         velocity.read_dof_values (src.block(0));
-        velocity.evaluate (EvaluationFlags::gradients);
+        velocity.evaluate (EvaluationFlags::values | EvaluationFlags::gradients);
         pressure.reinit (cell);
         pressure.read_dof_values (src.block(1));
         pressure.evaluate (EvaluationFlags::values);
 
         for (unsigned int q = 0; q < velocity.n_q_points; ++q)
           {
-            // add rhs here, the rest is like above
-            (void) this->rhs_functions;
+            // residual r = f - A*u0
+            // f
+            velocity.submit_value((*rhs_functions)[0]->value(velocity.quadrature_point(q)), q);
+            pressure.submit_value((*rhs_functions)[1]->value(pressure.quadrature_point(q)), q);
+            // TODO: error: no matching function for call to ‘dealii::Function<2, double>::value(dealii::Point<2, dealii::VectorizedArray<double, 2> >) const’
 
-
+            // - A*u0
             SymmetricTensor<2, dim, VectorizedArray<double> > sym_grad_u =
               velocity.get_symmetric_gradient (q);
             VectorizedArray<double> pres = pressure.get_value(q);
@@ -242,7 +245,7 @@ namespace StokesMatrixFree
             velocity.submit_symmetric_gradient(sym_grad_u, q);
          }
 
-        velocity.integrate (EvaluationFlags::gradients);
+        velocity.integrate (EvaluationFlags::values | EvaluationFlags::gradients);
         velocity.distribute_local_to_global (dst.block(0));
         pressure.integrate (EvaluationFlags::values);
         pressure.distribute_local_to_global (dst.block(1));
