@@ -65,23 +65,24 @@ namespace LinearSolversMatrixFree
         dst.block(1) *= -1.0;
       }
 
-      typename LinearAlgebra::Vector utmp(src.block(0));
+      typename LinearAlgebra::BlockVector utmp;
+      utmp.reinit(src);
 
       {
-        stokes_matrix->block(0, 1).vmult(utmp, dst.block(1));
-        utmp *= -1.0;
-        utmp += src.block(0);
+        stokes_matrix->vmult(utmp, dst); // B^T
+        utmp.block(0) *= -1.0;
+        utmp.block(0) += src.block(0);
       }
 
       if (do_solve_A == true)
         {
-          dealii::SolverControl            solver_control(5000, 1e-2 * utmp.l2_norm());
+          dealii::SolverControl            solver_control(5000, 1e-2 * utmp.block(0).l2_norm());
           typename LinearAlgebra::SolverCG solver(solver_control);
 
-          solver.solve(*a_block, dst.block(0), utmp, a_block_preconditioner);
+          solver.solve(*a_block, dst.block(0), utmp.block(0), a_block_preconditioner);
         }
       else
-        a_block_preconditioner.vmult(dst.block(0), utmp);
+        a_block_preconditioner.vmult(dst.block(0), utmp.block(0));
     }
 
   private:

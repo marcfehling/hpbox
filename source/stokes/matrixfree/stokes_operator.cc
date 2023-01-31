@@ -58,39 +58,51 @@ namespace StokesMatrixFree
 
     matrix_free.reinit(*mapping_collection, dof_handlers, constraints, *quadrature_collections, data);
 
-
     this->initialize_dof_vector(system_rhs);
 
-    // !!! TODO !!!
-    // add rhs here
-    // how to do this in a matrix free fashion? --- check tutorials (step-67)
-
+    // residual: r = f - Au0
+    // TODO: that is just the -Au0 part. add the rhs function part (check step-37/step-67)
     {
-      (void) partitionings;
+      AffineConstraints<value_type> constraints_v_without_dbc;
+      constraints_v_without_dbc.reinit(partitionings[0]->get_relevant_dofs());
+      DoFTools::make_hanging_node_constraints(*dof_handlers[0], constraints_v_without_dbc);
+      constraints_v_without_dbc.close();
 
-      // AffineConstraints<value_type> constraints_without_dbc;
+      AffineConstraints<value_type> constraints_p_without_dbc;
+      constraints_p_without_dbc.reinit(partitionings[1]->get_relevant_dofs());
+      DoFTools::make_hanging_node_constraints(*dof_handlers[1], constraints_p_without_dbc);
+      constraints_p_without_dbc.close();
 
-      // constraints_without_dbc.reinit(partitioning.get_relevant_dofs());
+      const std::vector<const AffineConstraints<value_type> *> constraints_without_dbc = {&constraints_v_without_dbc, &constraints_p_without_dbc};
 
-      // DoFTools::make_hanging_node_constraints(dof_handler, constraints_without_dbc);
-      // constraints_without_dbc.close();
+      MatrixFree<dim, value_type> matrix_free;
+      matrix_free.reinit(
+        *mapping_collection, dof_handlers, constraints_without_dbc, *quadrature_collections, data);
 
-      // VectorType b, x;
+      VectorType b;
+      b.reinit(2);
+      matrix_free.initialize_dof_vector(b.block(0), 0);
+      matrix_free.initialize_dof_vector(b.block(1), 1);
+      b.collect_sizes();
 
-      // MatrixFree<dim, value_type> matrix_free;
-      // matrix_free.reinit(
-      //   *mapping_collection, dof_handler, constraints_without_dbc, *quadrature_collection, data);
+      VectorType x;
+      x.reinit(2);
+      matrix_free.initialize_dof_vector(x.block(0), 0);
+      matrix_free.initialize_dof_vector(x.block(1), 1);
+      x.collect_sizes();
 
-      // this->initialize_dof_vector(b);
-      // this->initialize_dof_vector(x);
+      constraints[0]->distribute(x.block(0));
+      constraints[1]->distribute(x.block(1));
 
-      // constraints.distribute(x);
+      // only zero rhs function supported for now
+      // TODO: evaluate rhs function here
 
-      // matrix_free.cell_loop(&StokesOperator::do_cell_integral_range, this, b, x);
+      matrix_free.cell_loop(&StokesOperator::do_cell_integral_range, this, b, x);
 
-      // constraints.set_zero(b);
+      constraints[0]->set_zero(b.block(0));
+      constraints[1]->set_zero(b.block(1));
 
-      // system_rhs -= b;
+      system_rhs -= b;
     }
   }
 
@@ -163,8 +175,8 @@ namespace StokesMatrixFree
     const VectorType                            &src,
     const std::pair<unsigned int, unsigned int> &range) const
   {
-    FEEvaluation<dim, -1, 0, dim, value_type> velocity (matrix_free, 0);
-    FEEvaluation<dim, -1, 0, 1  , value_type> pressure (matrix_free, 1);
+    FEEvaluation<dim, -1, 0, dim, value_type> velocity (matrix_free, range, 0);
+    FEEvaluation<dim, -1, 0, 1  , value_type> pressure (matrix_free, range, 1);
 
     for (unsigned int cell = range.first; cell < range.second; ++cell)
       {
@@ -203,7 +215,7 @@ namespace StokesMatrixFree
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  StokesOperator<dim, LinearAlgebra, spacedim>::do_cell_residual_range(
+  StokesOperator<dim, LinearAlgebra, spacedim>::do_cell_rhs_function_range(
       const MatrixFree<dim, value_type>           &matrix_free,
       VectorType                                  &dst,
       const VectorType                            &src,
@@ -223,26 +235,7 @@ namespace StokesMatrixFree
 
         for (unsigned int q = 0; q < velocity.n_q_points; ++q)
           {
-            // residual r = f - A*u0
-            // f
-            velocity.submit_value((*rhs_functions)[0]->value(velocity.quadrature_point(q)), q);
-            pressure.submit_value((*rhs_functions)[1]->value(pressure.quadrature_point(q)), q);
-            // TODO: error: no matching function for call to ‘dealii::Function<2, double>::value(dealii::Point<2, dealii::VectorizedArray<double, 2> >) const’
-
-            // - A*u0
-            SymmetricTensor<2, dim, VectorizedArray<double> > sym_grad_u =
-              velocity.get_symmetric_gradient (q);
-            VectorizedArray<double> pres = pressure.get_value(q);
-            VectorizedArray<double> div = -trace(sym_grad_u);
-            pressure.submit_value (div, q);
-
-            // sym_grad_u *= viscosity_times_two;
-
-            // subtract p * I
-            for (unsigned int d=0; d<dim; ++d)
-              sym_grad_u[d][d] -= pres;
-
-            velocity.submit_symmetric_gradient(sym_grad_u, q);
+            // do something like step-67
          }
 
         velocity.integrate (EvaluationFlags::values | EvaluationFlags::gradients);
