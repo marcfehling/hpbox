@@ -478,51 +478,23 @@ namespace StokesMatrixFree
     for (auto &subd : subdomain)
       subd = triangulation.locally_owned_subdomain();
 
-    std::vector<std::string> solution_names(dim, "velocity");
-    solution_names.emplace_back("pressure");
+    DataOut<dim> data_out;
+    data_out.attach_dof_handler(dof_handler_p);
+    data_out.add_data_vector(locally_relevant_solution.block(1), "pressure");
+    data_out.add_data_vector(fe_degrees, "fe_degree");
+    data_out.add_data_vector(subdomain, "subdomain");
+
+    if (adaptation_strategy_p->get_error_estimates().size() > 0)
+      data_out.add_data_vector(adaptation_strategy_p->get_error_estimates(), "error");
+    if (adaptation_strategy_p->get_hp_indicators().size() > 0)
+      data_out.add_data_vector(adaptation_strategy_p->get_hp_indicators(), "hp_indicator");
 
     std::vector<DataComponentInterpretation::DataComponentInterpretation>
       data_component_interpretation(dim, DataComponentInterpretation::component_is_part_of_vector);
-
-    DataOut<dim> data_out;
     data_out.add_data_vector(dof_handler_v,
                              locally_relevant_solution.block(0),
                              "velocity",
                              data_component_interpretation);
-    data_out.add_data_vector(dof_handler_p, locally_relevant_solution.block(1), "pressure");
-    //                         DataComponentInterpretation::component_is_scalar);
-
-    data_out.add_data_vector(dof_handler_p, fe_degrees, "fe_degree");
-    data_out.add_data_vector(dof_handler_p, subdomain, "subdomain");
-
-    if (adaptation_strategy_p->get_error_estimates().size() > 0)
-      data_out.add_data_vector(dof_handler_p,
-                               adaptation_strategy_p->get_error_estimates(),
-                               "error");
-    if (adaptation_strategy_p->get_hp_indicators().size() > 0)
-      data_out.add_data_vector(dof_handler_p,
-                               adaptation_strategy_p->get_hp_indicators(),
-                               "hp_indicator");
-
-    // TODO: Placeholder for interpolation of correct solution?
-    //       Is this necessary???
-    /*
-    LA::MPI::BlockVector interpolated;
-    interpolated.reinit(owned_partitioning, MPI_COMM_WORLD);
-    VectorTools::interpolate(dof_handler, ExactSolution<dim>(), interpolated);
-    LA::MPI::BlockVector interpolated_relevant(owned_partitioning,
-                                               relevant_partitioning,
-                                               MPI_COMM_WORLD);
-    interpolated_relevant = interpolated;
-    {
-      std::vector<std::string> solution_names(dim, "ref_u");
-      solution_names.emplace_back("ref_p");
-      data_out.add_data_vector(interpolated_relevant,
-                               solution_names,
-                               DataOut<dim>::type_dof_data,
-                               data_component_interpretation);
-    }
-    */
 
     data_out.build_patches(mapping_collection);
 
