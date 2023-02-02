@@ -16,7 +16,7 @@ subsection problem
   set adaptation type         = hp Legendre
   set checkpoint each n steps = 0
   set dimension               = 3
-  set file stem               = stokes_matrixfree_amg
+  set file stem               = stokes_matrixfree_amg_ypipe
   set grid type               = y-pipe
   set linear algebra          = dealii & Trilinos
   set operator type           = MatrixFree
