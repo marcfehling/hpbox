@@ -606,6 +606,10 @@ namespace StokesMatrixFree
                 write_to_checkpoint();
             }
 
+          Log::log_cycle(cycle, prm);
+
+          setup_system();
+
 #ifdef DEBUG
           // check if both dofhandlers have same fe indices
           std::vector<types::fe_index> fe_indices_v = dof_handler_v.get_active_fe_indices();
@@ -613,10 +617,6 @@ namespace StokesMatrixFree
           Assert(std::equal(fe_indices_v.begin(), fe_indices_v.end(), fe_indices_p.begin()),
                  ExcMessage("Active FE indices differ!"));
 #endif
-
-          Log::log_cycle(cycle, prm);
-
-          setup_system();
 
           stokes_operator->reinit(partitionings, dof_handlers, constraints, system_rhs, rhs_functions);
 
