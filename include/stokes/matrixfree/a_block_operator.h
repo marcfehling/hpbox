@@ -33,15 +33,10 @@ namespace StokesMatrixFree
     using VectorType = typename LinearAlgebra::Vector;
     using value_type = typename VectorType::value_type;
 
-    using FECellIntegrator = dealii::FEEvaluation<dim, -1, 0, 1, value_type>;
+    using FECellIntegrator = dealii::FEEvaluation<dim, -1, 0, dim, value_type>;
 
     ABlockOperator(const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
-                   const dealii::hp::QCollection<dim>                 &quadrature_collection,
-                   const dealii::hp::FECollection<dim, spacedim>      &fe_collection);
-
-    ABlockOperator(const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
-                   const dealii::hp::QCollection<dim>                 &quadrature_collection,
-                   const dealii::hp::FEValues<dim, spacedim>          &fe_values_collection);
+                   const dealii::hp::QCollection<dim>                 &quadrature_collection);
 
     std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>
     replicate() const override;
@@ -81,6 +76,7 @@ namespace StokesMatrixFree
 
     dealii::SmartPointer<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
     dealii::SmartPointer<const dealii::hp::QCollection<dim>>                 quadrature_collection;
+    dealii::SmartPointer<const dealii::AffineConstraints<value_type>>        constraints;
 
     // TODO: Add RHS function to constructor
     //       Grab and set as RHS in reinit
@@ -104,12 +100,7 @@ namespace StokesMatrixFree
     Partitioning                        partitioning;
     dealii::MatrixFree<dim, value_type> matrix_free;
 
-    typename LinearAlgebra::SparseMatrix a_block_matrix;
-
-    // from matrixbased
-    dealii::hp::FEValues<dim, spacedim>                        fe_values_collection;
-    MPI_Comm                                                   communicator;
-    std::shared_ptr<const dealii::Utilities::MPI::Partitioner> dealii_partitioner;
+    mutable typename LinearAlgebra::SparseMatrix a_block_matrix;
   };
 } // namespace StokesMatrixFree
 

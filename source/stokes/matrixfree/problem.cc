@@ -133,7 +133,7 @@ namespace StokesMatrixFree
 
       a_block_operator =
         std::make_unique<StokesMatrixFree::ABlockOperator<dim, LinearAlgebra, spacedim>>(
-          mapping_collection, quadrature_collection_v, fe_collection_v);
+          mapping_collection, quadrature_collection_v);
 
       schur_block_operator =
         std::make_unique<StokesMatrixFree::SchurBlockOperator<dim, LinearAlgebra, spacedim>>(
