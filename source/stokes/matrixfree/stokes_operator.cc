@@ -180,6 +180,7 @@ namespace StokesMatrixFree
 
     for (unsigned int cell = range.first; cell < range.second; ++cell)
       {
+        // TODO: use garther_evaluate ?
         velocity.reinit (cell);
         velocity.read_dof_values (src.block(0));
         velocity.evaluate (EvaluationFlags::gradients);
@@ -195,7 +196,9 @@ namespace StokesMatrixFree
             VectorizedArray<double> div = -trace(sym_grad_u);
             pressure.submit_value (div, q);
 
-            // sym_grad_u *= viscosity_times_two;
+            // TODO: Move viscosity to class member
+            constexpr double viscosity = 0.1;
+            sym_grad_u *= viscosity;
 
             // subtract p * I
             for (unsigned int d=0; d<dim; ++d)
@@ -204,6 +207,7 @@ namespace StokesMatrixFree
             velocity.submit_symmetric_gradient(sym_grad_u, q);
          }
 
+        // TODO: use integrate_scatter ?
         velocity.integrate (EvaluationFlags::gradients);
         velocity.distribute_local_to_global (dst.block(0));
         pressure.integrate (EvaluationFlags::values);
@@ -221,8 +225,8 @@ namespace StokesMatrixFree
       const VectorType                            &src,
       const std::pair<unsigned int, unsigned int> &range) const
   {
-    FEEvaluation<dim, -1, 0, dim, value_type> velocity (matrix_free, 0);
-    FEEvaluation<dim, -1, 0, 1  , value_type> pressure (matrix_free, 1);
+    FEEvaluation<dim, -1, 0, dim, value_type> velocity (matrix_free, range, 0);
+    FEEvaluation<dim, -1, 0, 1  , value_type> pressure (matrix_free, range, 1);
 
     for (unsigned int cell = range.first; cell < range.second; ++cell)
       {
