@@ -180,13 +180,10 @@ namespace StokesMatrixFree
 
     for (unsigned int cell = range.first; cell < range.second; ++cell)
       {
-        // TODO: use garther_evaluate ?
         velocity.reinit (cell);
-        velocity.read_dof_values (src.block(0));
-        velocity.evaluate (EvaluationFlags::gradients);
+        velocity.gather_evaluate (src.block(0), EvaluationFlags::gradients);
         pressure.reinit (cell);
-        pressure.read_dof_values (src.block(1));
-        pressure.evaluate (EvaluationFlags::values);
+        pressure.gather_evaluate (src.block(1), EvaluationFlags::values);
 
         for (unsigned int q = 0; q < velocity.n_q_points; ++q)
           {
@@ -207,11 +204,8 @@ namespace StokesMatrixFree
             velocity.submit_symmetric_gradient(sym_grad_u, q);
          }
 
-        // TODO: use integrate_scatter ?
-        velocity.integrate (EvaluationFlags::gradients);
-        velocity.distribute_local_to_global (dst.block(0));
-        pressure.integrate (EvaluationFlags::values);
-        pressure.distribute_local_to_global (dst.block(1));
+        velocity.integrate_scatter (EvaluationFlags::gradients, dst.block(0));
+        pressure.integrate_scatter (EvaluationFlags::values, dst.block(1));
       }
   }
 
