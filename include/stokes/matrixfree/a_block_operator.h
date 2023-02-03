@@ -17,8 +17,6 @@
 #define stokes_matrixfree_a_block_operator_h
 
 
-#include <deal.II/hp/fe_values.h>
-
 #include <deal.II/matrix_free/tools.h>
 
 #include <operator.h>
