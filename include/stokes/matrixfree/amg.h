@@ -73,7 +73,9 @@ namespace StokesMatrixFree
       LinearAlgebra,
       StokesMatrixFree::StokesOperator<dim, LinearAlgebra, spacedim>,
       typename LinearAlgebra::SparseMatrix,
-      typename LinearAlgebra::SparseMatrix>
+      typename LinearAlgebra::SparseMatrix,
+      typename LinearAlgebra::PreconditionAMG,
+      typename LinearAlgebra::PreconditionJacobi>
       preconditioner(stokes_operator,
                      a_block_operator.get_system_matrix(),
                      schur_block_operator.get_system_matrix(),

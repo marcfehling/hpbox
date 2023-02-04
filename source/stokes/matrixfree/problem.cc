@@ -32,6 +32,7 @@
 #include <factory.h>
 #include <stokes/matrixfree/a_block_operator.h>
 #include <stokes/matrixfree/amg.h>
+#include <stokes/matrixfree/gmg.h>
 #include <stokes/matrixfree/block_schur_preconditioner.h>
 #include <stokes/matrixfree/problem.h>
 #include <stokes/matrixfree/schur_block_operator.h>
@@ -348,7 +349,14 @@ namespace StokesMatrixFree
       }
     else if (prm.solver_type == "GMG")
       {
-        AssertThrow(false, ExcNotImplemented());
+        solve_gmg<dim, LinearAlgebra, spacedim>(solver_control_refined,
+                                                *stokes_operator,
+                                                *a_block_operator,
+                                                *schur_block_operator,
+                                                completely_distributed_solution,
+                                                system_rhs,
+                                                mapping_collection,
+                                                dof_handlers);
       }
     else
       {

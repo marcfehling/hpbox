@@ -25,17 +25,19 @@ namespace LinearSolversMatrixFree
   template <typename LinearAlgebra,
             typename StokesMatrixType,
             typename ABlockMatrixType,
-            typename SchurComplementMatrixType>
+            typename SchurComplementMatrixType,
+            typename ABlockPreconditionerType,
+            typename SchurComplementPreconditionerType>
   class BlockSchurPreconditioner : public dealii::Subscriptor
   {
   public:
     BlockSchurPreconditioner(
-      const StokesMatrixType                           &stokes_matrix,
-      const ABlockMatrixType                           &a_block,
-      const SchurComplementMatrixType                  &schur_complement_block,
-      const typename LinearAlgebra::PreconditionAMG    &a_block_preconditioner,
-      const typename LinearAlgebra::PreconditionJacobi &schur_complement_preconditioner,
-      const bool                                        do_solve_A)
+      const StokesMatrixType                  &stokes_matrix,
+      const ABlockMatrixType                  &a_block,
+      const SchurComplementMatrixType         &schur_complement_block,
+      const ABlockPreconditionerType          &a_block_preconditioner,
+      const SchurComplementPreconditionerType &schur_complement_preconditioner,
+      const bool                              do_solve_A)
       : stokes_matrix(&stokes_matrix)
       , a_block(&a_block)
       , schur_complement_block(&schur_complement_block)
@@ -90,8 +92,8 @@ namespace LinearSolversMatrixFree
     const dealii::SmartPointer<const ABlockMatrixType>          a_block;
     const dealii::SmartPointer<const SchurComplementMatrixType> schur_complement_block;
 
-    const typename LinearAlgebra::PreconditionAMG    &a_block_preconditioner;
-    const typename LinearAlgebra::PreconditionJacobi &schur_complement_preconditioner;
+    const ABlockPreconditionerType          &a_block_preconditioner;
+    const SchurComplementPreconditionerType &schur_complement_preconditioner;
 
     const bool do_solve_A;
   };
