@@ -99,20 +99,27 @@ namespace StokesMatrixFree
     Assert(prm.prm_adaptation.min_p_degree > 1,
            ExcMessage("The minimal polynomial degree must be at least 2!"));
 
-    for (unsigned int degree = 2; degree <= prm.prm_adaptation.max_p_degree; ++degree)
+    for (unsigned int degree = 1; degree <= prm.prm_adaptation.max_p_degree; ++degree)
       {
         fe_collection_v.push_back(FESystem<dim, spacedim>(FE_Q<dim, spacedim>(degree), dim));
-        fe_collection_p.push_back(FE_Q<dim, spacedim>(degree - 1));
-
         quadrature_collection_v.push_back(QGauss<dim>(degree + 1));
-        quadrature_collection_p.push_back(QGauss<dim>(degree + 1)); // TODO: reduce by one!
-        quadrature_collections = {quadrature_collection_v, quadrature_collection_p};
-
         quadrature_collection_for_errors.push_back(QGauss<dim>(degree + 2)); // TODO: reduce by one?
       }
 
+    // Add dummy element
+    // TODO: Find more elegant solution
+    fe_collection_p.push_back(FE_Q<dim, spacedim>(1));
+    quadrature_collection_p.push_back(QGauss<dim>(2));
+    for (unsigned int degree = 1; degree <= prm.prm_adaptation.max_p_degree - 1; ++degree)
+      {
+        fe_collection_p.push_back(FE_Q<dim, spacedim>(degree));
+        quadrature_collection_p.push_back(QGauss<dim>(degree + 1));
+      }
+
+    quadrature_collections = {quadrature_collection_v, quadrature_collection_p};
+
     {
-      const unsigned int min_fe_index = prm.prm_adaptation.min_p_degree - 2;
+      const unsigned int min_fe_index = prm.prm_adaptation.min_p_degree - 1;
 
       const auto next_index = [](const typename hp::FECollection<dim> &fe_collection,
                                  const unsigned int                    fe_index) -> unsigned int {
@@ -220,7 +227,8 @@ namespace StokesMatrixFree
       }
     else
       {
-        const unsigned int min_fe_index = prm.prm_adaptation.min_p_degree - 2;
+        const unsigned int min_fe_index = prm.prm_adaptation.min_p_degree - 1;
+
         for (const auto &cell : dof_handler_v.active_cell_iterators())
           if (cell->is_locally_owned())
             cell->set_active_fe_index(min_fe_index);
