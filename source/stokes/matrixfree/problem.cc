@@ -477,10 +477,15 @@ namespace StokesMatrixFree
   {
     TimerOutput::Scope t(getTimer(), "output_results");
 
-    Vector<float> fe_degrees(triangulation.n_active_cells());
+    Vector<float> fe_degrees_v(triangulation.n_active_cells());
+    for (const auto &cell : dof_handler_v.active_cell_iterators())
+      if (cell->is_locally_owned())
+        fe_degrees_v(cell->active_cell_index()) = cell->get_fe().degree;
+
+    Vector<float> fe_degrees_p(triangulation.n_active_cells());
     for (const auto &cell : dof_handler_p.active_cell_iterators())
       if (cell->is_locally_owned())
-        fe_degrees(cell->active_cell_index()) = cell->get_fe().degree;
+        fe_degrees_p(cell->active_cell_index()) = cell->get_fe().degree;
 
     Vector<float> subdomain(triangulation.n_active_cells());
     for (auto &subd : subdomain)
@@ -489,7 +494,7 @@ namespace StokesMatrixFree
     DataOut<dim> data_out;
     data_out.attach_dof_handler(dof_handler_p);
     data_out.add_data_vector(locally_relevant_solution.block(1), "pressure");
-    data_out.add_data_vector(fe_degrees, "fe_degree");
+    data_out.add_data_vector(fe_degrees_p, "fe_degree_p");
     data_out.add_data_vector(subdomain, "subdomain");
 
     if (adaptation_strategy_p->get_error_estimates().size() > 0)
@@ -497,6 +502,7 @@ namespace StokesMatrixFree
     if (adaptation_strategy_p->get_hp_indicators().size() > 0)
       data_out.add_data_vector(adaptation_strategy_p->get_hp_indicators(), "hp_indicator");
 
+    data_out.add_data_vector(dof_handler_v, fe_degrees_v, "fe_degree_v");
     std::vector<DataComponentInterpretation::DataComponentInterpretation>
       data_component_interpretation(dim, DataComponentInterpretation::component_is_part_of_vector);
     data_out.add_data_vector(dof_handler_v,
