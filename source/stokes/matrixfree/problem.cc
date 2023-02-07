@@ -592,8 +592,8 @@ namespace StokesMatrixFree
 
 #ifdef DEBUG
           // check if both dofhandlers have same fe indices
-          std::vector<types::fe_index> fe_indices_v = dof_handler_v.get_active_fe_indices();
-          std::vector<types::fe_index> fe_indices_p = dof_handler_p.get_active_fe_indices();
+          const std::vector<types::fe_index> fe_indices_v = dof_handler_v.get_active_fe_indices();
+          const std::vector<types::fe_index> fe_indices_p = dof_handler_p.get_active_fe_indices();
           Assert(std::equal(fe_indices_v.begin(), fe_indices_v.end(), fe_indices_p.begin()),
                  ExcMessage("Active FE indices differ!"));
 #endif
