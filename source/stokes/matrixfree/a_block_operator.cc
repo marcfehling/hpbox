@@ -194,7 +194,9 @@ namespace StokesMatrixFree
 
         // TODO: Move viscosity to class member
         constexpr double viscosity = 0.1;
-        sym_grad_u *= viscosity;
+        // Times two because we ask for symmetric gradient
+        constexpr double viscosity_times_two = viscosity * 2;
+        sym_grad_u *= viscosity_times_two;
 
         velocity.submit_symmetric_gradient(sym_grad_u, q);
       }

@@ -195,7 +195,9 @@ namespace StokesMatrixFree
 
             // TODO: Move viscosity to class member
             constexpr double viscosity = 0.1;
-            sym_grad_u *= viscosity;
+            // Times two because we ask for symmetric gradient
+            constexpr double viscosity_times_two = viscosity * 2;
+            sym_grad_u *= viscosity_times_two;
 
             // subtract p * I
             for (unsigned int d=0; d<dim; ++d)
