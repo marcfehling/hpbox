@@ -51,39 +51,60 @@ namespace Log
   void
   log_hp_diagnostics(const parallel::distributed::Triangulation<dim, spacedim> &triangulation,
                      const DoFHandler<dim, spacedim>                           &dof_handler,
-                     const AffineConstraints<T>                                &constraints)
+                     const AffineConstraints<T>                                &constraint)
   {
+    log_hp_diagnostics<dim, T, spacedim>(triangulation, {&dof_handler}, {&constraint});
+  }
+
+
+
+  template <int dim, typename T, int spacedim>
+  void
+  log_hp_diagnostics(const parallel::distributed::Triangulation<dim, spacedim> &triangulation,
+                     const std::vector<const DoFHandler<dim, spacedim> *>      &dof_handlers,
+                     const std::vector<const AffineConstraints<T> *>           &constraints)
+  {
+    Assert((!dof_handlers.empty()) && (!constraints.empty()), ExcMessage("Empty containers"));
+
     ConditionalOStream &pcout = getPCOut();
     TableHandler       &table = getTable();
 
-    const MPI_Comm                        &mpi_communicator = dof_handler.get_communicator();
-    const hp::FECollection<dim, spacedim> &fe_collection    = dof_handler.get_fe_collection();
+    const MPI_Comm &mpi_communicator = triangulation.get_communicator();
 
     const unsigned int first_n_processes =
       std::min<unsigned int>(8, Utilities::MPI::n_mpi_processes(mpi_communicator));
     const bool output_cropped =
       first_n_processes < Utilities::MPI::n_mpi_processes(mpi_communicator);
 
+    const auto pcout_first_n = [&pcout, first_n_processes, output_cropped](const auto &container) {
+      for (unsigned int i = 0; i < first_n_processes; ++i)
+        pcout << ' ' << container[i];
+      if (output_cropped)
+        pcout << " ...";
+      pcout << std::endl;
+    };
+
     {
       pcout << "   Number of active cells:       " << triangulation.n_global_active_cells()
             << std::endl;
       table.add_value("active_cells", triangulation.n_global_active_cells());
 
-      pcout << "     by partition:              ";
-      std::vector<unsigned int> n_active_cells_per_subdomain =
+      const std::vector<unsigned int> n_active_cells_per_subdomain =
         Utilities::MPI::gather(mpi_communicator, triangulation.n_locally_owned_active_cells());
-      for (unsigned int i = 0; i < first_n_processes; ++i)
-        pcout << ' ' << n_active_cells_per_subdomain[i];
-      if (output_cropped)
-        pcout << " ...";
-      pcout << std::endl;
+
+      pcout << "     by partition:              ";
+      pcout_first_n(n_active_cells_per_subdomain);
     }
 
     {
-      std::vector<unsigned int> n_fe_indices(fe_collection.size(), 0);
+      // log active fe indices only for the first dof_handler
+      const DoFHandler<dim, spacedim>       &dof_handler   = *dof_handlers[0];
+      const hp::FECollection<dim, spacedim> &fe_collection = dof_handler.get_fe_collection();
+
+      std::vector<types::global_cell_index> n_fe_indices(fe_collection.size(), 0);
       for (const auto &cell : dof_handler.active_cell_iterators())
         if (cell->is_locally_owned())
-          n_fe_indices[cell->active_fe_index()]++;
+          ++n_fe_indices[cell->active_fe_index()];
 
       Utilities::MPI::sum(n_fe_indices, mpi_communicator, n_fe_indices);
 
@@ -94,54 +115,58 @@ namespace Log
       pcout << std::endl;
     }
 
+    types::global_dof_index global_dofs = 0;
     {
-      pcout << "   Number of degrees of freedom: " << dof_handler.n_dofs() << std::endl;
-      table.add_value("dofs", dof_handler.n_dofs());
+      for (const auto &dof_handler : dof_handlers)
+        global_dofs += dof_handler->n_dofs();
+
+      types::global_dof_index n_locally_owned_dofs = 0;
+      for (const auto &dof_handler : dof_handlers)
+        n_locally_owned_dofs += dof_handler->n_locally_owned_dofs();
+      const std::vector<types::global_dof_index> n_dofs_per_subdomain =
+        Utilities::MPI::gather(mpi_communicator, n_locally_owned_dofs);
+
+      pcout << "   Number of degrees of freedom: " << global_dofs << std::endl;
+      table.add_value("dofs", global_dofs);
 
       pcout << "     by partition:              ";
-      std::vector<types::global_dof_index> n_dofs_per_subdomain =
-        Utilities::MPI::gather(mpi_communicator, dof_handler.n_locally_owned_dofs());
-      for (unsigned int i = 0; i < first_n_processes; ++i)
-        pcout << ' ' << n_dofs_per_subdomain[i];
-      if (output_cropped)
-        pcout << " ...";
-      pcout << std::endl;
+      pcout_first_n(n_dofs_per_subdomain);
     }
 
     {
-      std::vector<types::global_dof_index> n_constraints_per_subdomain =
-        Utilities::MPI::gather(mpi_communicator, constraints.n_constraints());
-      const unsigned int n_constraints =
+      types::global_dof_index n_constraints = 0;
+      for (const auto constraint : constraints)
+        n_constraints += constraint->n_constraints();
+
+      const std::vector<types::global_dof_index> n_constraints_per_subdomain =
+        Utilities::MPI::gather(mpi_communicator, n_constraints);
+      const types::global_dof_index global_constraints =
         std::accumulate(n_constraints_per_subdomain.begin(), n_constraints_per_subdomain.end(), 0);
 
-      pcout << "   Number of constraints:        " << n_constraints << std::endl;
-      table.add_value("constraints", n_constraints);
+      pcout << "   Number of constraints:        " << global_constraints << std::endl;
+      table.add_value("constraints", global_constraints);
 
       pcout << "     by partition:              ";
-      for (unsigned int i = 0; i < first_n_processes; ++i)
-        pcout << ' ' << n_constraints_per_subdomain[i];
-      if (output_cropped)
-        pcout << " ...";
-      pcout << std::endl;
+      pcout_first_n(n_constraints_per_subdomain);
     }
 
     {
-      std::vector<types::global_dof_index> n_identities_per_subdomain =
-        Utilities::MPI::gather(mpi_communicator, constraints.n_identities());
-      const unsigned int n_identities =
+      types::global_dof_index n_identities = 0;
+      for (const auto constraint : constraints)
+        n_identities += constraint->n_identities();
+
+      const std::vector<types::global_dof_index> n_identities_per_subdomain =
+        Utilities::MPI::gather(mpi_communicator, n_identities);
+      const types::global_dof_index global_identities =
         std::accumulate(n_identities_per_subdomain.begin(), n_identities_per_subdomain.end(), 0);
 
-      pcout << "   Number of identities:         " << n_identities << std::endl;
-      table.add_value("identities", n_identities);
+      pcout << "   Number of identities:         " << global_identities << std::endl;
+      table.add_value("identities", global_identities);
 
       pcout << "     by partition:              ";
-      for (unsigned int i = 0; i < first_n_processes; ++i)
-        pcout << ' ' << n_identities_per_subdomain[i];
-      if (output_cropped)
-        pcout << " ...";
-      pcout << std::endl;
+      pcout_first_n(n_identities_per_subdomain);
 
-      const float fraction = static_cast<float>(n_identities) / dof_handler.n_dofs();
+      const float fraction = static_cast<float>(global_identities) / global_dofs;
       pcout << "   Fraction of identities:       " << 100 * fraction << "%" << std::endl;
     }
   }

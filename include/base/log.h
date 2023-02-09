@@ -37,7 +37,14 @@ namespace Log
   log_hp_diagnostics(
     const dealii::parallel::distributed::Triangulation<dim, spacedim> &triangulation,
     const dealii::DoFHandler<dim, spacedim>                           &dof_handler,
-    const dealii::AffineConstraints<T>                                &constraints);
+    const dealii::AffineConstraints<T>                                &constraint);
+
+  template <int dim, typename T, int spacedim = dim>
+  void
+  log_hp_diagnostics(
+    const dealii::parallel::distributed::Triangulation<dim, spacedim> &triangulation,
+    const std::vector<const dealii::DoFHandler<dim, spacedim> *>      &dof_handlers,
+    const std::vector<const dealii::AffineConstraints<T> *>           &constraints);
 
   void
   log_iterations(const dealii::SolverControl &control);

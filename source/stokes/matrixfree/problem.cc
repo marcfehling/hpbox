@@ -326,10 +326,7 @@ namespace StokesMatrixFree
     }
 
     // TODO: check consistency
-
-    // TODO: also log p
-    // add new function to Log that takes vector
-    Log::log_hp_diagnostics(triangulation, dof_handler_v, constraints_v);
+    Log::log_hp_diagnostics(triangulation, dof_handlers, constraints);
   }
 
 
