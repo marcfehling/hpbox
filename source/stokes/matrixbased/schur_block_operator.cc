@@ -132,8 +132,8 @@ namespace StokesMatrixBased
             phi_p.resize(dofs_per_cell);
 
             // TODO: move to parameter
-            // const double viscosity     = 0.1;
-            const double inv_viscosity = 10;
+            constexpr double viscosity     = 0.1;
+            constexpr double inv_viscosity = 1/viscosity;
 
             for (unsigned int q_point = 0; q_point < n_q_points; ++q_point)
               {

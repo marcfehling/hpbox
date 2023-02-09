@@ -165,19 +165,19 @@ namespace StokesMatrixFree
   {
     pressure.evaluate(EvaluationFlags::values);
 
-      for (unsigned int q = 0; q < pressure.n_q_points; ++q)
-        {
-          auto value = pressure.get_value(q);
+    for (unsigned int q = 0; q < pressure.n_q_points; ++q)
+      {
+        auto value = pressure.get_value(q);
 
-          // TODO: move to class member
-          constexpr double viscosity = 0.1;
-          constexpr double inv_viscosity = 1/viscosity;
-          value *= inv_viscosity;
+        // TODO: move to class member
+        constexpr double viscosity = 0.1;
+        constexpr double inv_viscosity = 1/viscosity;
+        value *= inv_viscosity;
 
-          pressure.submit_value(value, q);
-        }
+        pressure.submit_value(value, q);
+      }
 
-      pressure.integrate(EvaluationFlags::values);
+    pressure.integrate(EvaluationFlags::values);
   }
 
 
