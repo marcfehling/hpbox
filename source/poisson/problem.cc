@@ -16,6 +16,8 @@
 
 #include <deal.II/fe/fe_q.h>
 
+#include <deal.II/grid/grid_generator.h>
+
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
 
@@ -156,7 +158,10 @@ namespace Poisson
   {
     TimerOutput::Scope t(getTimer(), "initialize_grid");
 
-    Factory::create_grid(prm.grid_type, triangulation);
+    Triangulation<dim, spacedim> triangulation_in;
+    Factory::create_grid(prm.grid_type, triangulation_in);
+    triangulation_in.refine_global(adaptation_strategy->get_n_initial_refinements());
+    GridGenerator::flatten_triangulation(triangulation_in, triangulation);
 
     if (prm.resume_filename.compare("") != 0)
       {
@@ -170,8 +175,6 @@ namespace Poisson
             cell->set_active_fe_index(min_fe_index);
 
         dof_handler.distribute_dofs(fe_collection);
-
-        triangulation.refine_global(adaptation_strategy->get_n_initial_refinements());
       }
   }
 
