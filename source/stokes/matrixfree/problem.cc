@@ -503,6 +503,7 @@ namespace StokesMatrixFree
     data_out.attach_dof_handler(dof_handler_p);
     data_out.add_data_vector(locally_relevant_solution.block(1), "pressure");
     data_out.add_data_vector(fe_degrees_p, "fe_degree_p");
+    data_out.add_data_vector(fe_degrees_v, "fe_degree_v");
     data_out.add_data_vector(subdomain, "subdomain");
 
     if (adaptation_strategy_p->get_error_estimates().size() > 0)
@@ -510,7 +511,6 @@ namespace StokesMatrixFree
     if (adaptation_strategy_p->get_hp_indicators().size() > 0)
       data_out.add_data_vector(adaptation_strategy_p->get_hp_indicators(), "hp_indicator");
 
-    data_out.add_data_vector(dof_handler_v, fe_degrees_v, "fe_degree_v");
     std::vector<DataComponentInterpretation::DataComponentInterpretation>
       data_component_interpretation(dim, DataComponentInterpretation::component_is_part_of_vector);
     data_out.add_data_vector(dof_handler_v,
