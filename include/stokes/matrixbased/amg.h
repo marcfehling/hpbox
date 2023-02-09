@@ -86,7 +86,8 @@ namespace StokesMatrixBased
                      schur_block_operator.get_system_matrix(),
                      Amg_preconditioner,
                      Mp_preconditioner,
-                     true);
+                     false,
+                     false);
 
     // set up solver
     dealii::PrimitiveVectorMemory<typename LinearAlgebra::BlockVector> mem;

@@ -35,13 +35,15 @@ namespace LinearSolversMatrixBased
       const SchurComplementMatrixType                  &schur_complement_block,
       const typename LinearAlgebra::PreconditionAMG    &a_block_preconditioner,
       const typename LinearAlgebra::PreconditionJacobi &schur_complement_preconditioner,
-      const bool                                        do_solve_A)
+      const bool                                        do_solve_A,
+      const bool                                        do_solve_Schur_complement)
       : stokes_matrix(&stokes_matrix)
       , a_block(&a_block)
       , schur_complement_block(&schur_complement_block)
       , a_block_preconditioner(a_block_preconditioner)
       , schur_complement_preconditioner(schur_complement_preconditioner)
       , do_solve_A(do_solve_A)
+      , do_solve_Schur_complement(do_solve_Schur_complement)
     {}
 
     void
@@ -53,17 +55,20 @@ namespace LinearSolversMatrixBased
       // See also: https://github.com/geodynamics/aspect/pull/4973
       dst = 0.;
 
-      {
-        dealii::SolverControl            solver_control(5000, 1e-6 * src.block(1).l2_norm());
-        typename LinearAlgebra::SolverCG solver(solver_control);
+      if (do_solve_Schur_complement)
+        {
+          dealii::SolverControl            solver_control(5000, 1e-6 * src.block(1).l2_norm());
+          typename LinearAlgebra::SolverCG solver(solver_control);
 
-        solver.solve(*schur_complement_block,
-                     dst.block(1),
-                     src.block(1),
-                     schur_complement_preconditioner);
+          solver.solve(*schur_complement_block,
+                       dst.block(1),
+                       src.block(1),
+                       schur_complement_preconditioner);
+        }
+      else
+        schur_complement_preconditioner.vmult(dst.block(1), src.block(1));
 
-        dst.block(1) *= -1.0;
-      }
+      dst.block(1) *= -1.0;
 
       typename LinearAlgebra::Vector utmp(src.block(0));
 
@@ -93,6 +98,7 @@ namespace LinearSolversMatrixBased
     const typename LinearAlgebra::PreconditionJacobi &schur_complement_preconditioner;
 
     const bool do_solve_A;
+    const bool do_solve_Schur_complement;
   };
 } // namespace LinearSolversMatrixBased
 
