@@ -156,12 +156,11 @@ namespace Adaptation
               indicator -= decrement;
           }
 
-        // decide hp
+        // set future fe indices
         hp::Refinement::p_adaptivity_fixed_number(*dof_handler,
                                                   hp_indicators,
                                                   prm.p_refine_fraction,
                                                   prm.p_coarsen_fraction);
-        hp::Refinement::choose_p_over_h(*dof_handler);
 
         // limit levels
         Assert(triangulation->n_levels() >= prm.min_h_level + 1 &&
@@ -174,6 +173,9 @@ namespace Adaptation
 
         for (const auto &cell : triangulation->active_cell_iterators_on_level(prm.min_h_level))
           cell->clear_coarsen_flag();
+
+        // decide hp
+        hp::Refinement::choose_p_over_h(*dof_handler);
       }
   }
 
