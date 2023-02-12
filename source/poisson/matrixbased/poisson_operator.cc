@@ -153,6 +153,8 @@ namespace PoissonMatrixBased
   void
   PoissonOperator<dim, LinearAlgebra, spacedim>::vmult(VectorType &dst, const VectorType &src) const
   {
+    TimerOutput::Scope t(getTimer(), "vmult");
+
     system_matrix.vmult(dst, src);
   }
 

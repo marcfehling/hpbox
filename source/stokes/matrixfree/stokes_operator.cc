@@ -112,6 +112,8 @@ namespace StokesMatrixFree
   void
   StokesOperator<dim, LinearAlgebra, spacedim>::vmult(VectorType &dst, const VectorType &src) const
   {
+    TimerOutput::Scope t(getTimer(), "vmult");
+
     this->matrix_free.cell_loop(&StokesOperator::do_cell_integral_range, this, dst, src, true);
   }
 

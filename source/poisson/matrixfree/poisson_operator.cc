@@ -123,6 +123,8 @@ namespace PoissonMatrixFree
   void
   PoissonOperator<dim, LinearAlgebra, spacedim>::vmult(VectorType &dst, const VectorType &src) const
   {
+    TimerOutput::Scope t(getTimer(), "vmult");
+
     this->matrix_free.cell_loop(&PoissonOperator::do_cell_integral_range, this, dst, src, true);
   }
 
