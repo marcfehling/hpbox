@@ -183,8 +183,9 @@ namespace StokesMatrixFree
 
         DoFTools::make_hanging_node_constraints(dof_handler, constraint);
         // TODO: externalize this
+        const Functions::ZeroFunction<dim> zero (dim);
         VectorTools::interpolate_boundary_values(
-          mapping_collection, dof_handler, 0, Functions::ZeroFunction<dim>(dim), constraint);
+          mapping_collection, dof_handler, {{0, &zero}, {1, &zero}, {2, &zero}, {3, &zero}}, constraint);
 
         constraint.close();
 
