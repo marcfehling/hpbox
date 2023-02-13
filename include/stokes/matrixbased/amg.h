@@ -92,11 +92,15 @@ namespace StokesMatrixBased
     // set up solver
     dealii::PrimitiveVectorMemory<typename LinearAlgebra::BlockVector> mem;
 
-    typename dealii::SolverFGMRES<typename LinearAlgebra::BlockVector>::AdditionalData fgmres_data(
-      50);
-    dealii::SolverFGMRES<typename LinearAlgebra::BlockVector> solver(solver_control_refined,
-                                                                     mem,
-                                                                     fgmres_data);
+    // TODO: Peter suggested using GMRES when using cheap preconditioner,
+    //       but it takes more iterations so rather time results
+    // typename dealii::SolverFGMRES<typename LinearAlgebra::BlockVector>::AdditionalData fgmres_data(
+    //   50);
+    // dealii::SolverFGMRES<typename LinearAlgebra::BlockVector> solver(solver_control_refined,
+    //                                                                  mem,
+    //                                                                  fgmres_data);
+    typename dealii::SolverGMRES<typename LinearAlgebra::BlockVector>::AdditionalData gmres_data(50);
+    dealii::SolverGMRES<typename LinearAlgebra::BlockVector> solver (solver_control_refined, mem, gmres_data);
 
     //
     // TODO: Is this part necessary? Or shall we just keep it matrixbased?
