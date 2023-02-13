@@ -129,6 +129,21 @@ namespace StokesMatrixFree
 
 
   template <int dim, typename LinearAlgebra, int spacedim>
+  void
+  SchurBlockOperator<dim, LinearAlgebra, spacedim>::precondition_Jacobi(VectorType       &dst,
+                                                                        const VectorType &src,
+                                                                        const value_type  omega) const
+  {
+    if (diagonal_matrix.m() == 0 && diagonal_matrix.n() == 0)
+      this->compute_inverse_diagonal(diagonal_matrix.get_vector());
+
+    diagonal_matrix.vmult(dst, src);
+    dst *= omega;
+  }
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
   const typename LinearAlgebra::SparseMatrix &
   SchurBlockOperator<dim, LinearAlgebra, spacedim>::get_system_matrix() const
   {
