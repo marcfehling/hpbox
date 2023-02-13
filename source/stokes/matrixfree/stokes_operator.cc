@@ -189,23 +189,21 @@ namespace StokesMatrixFree
 
         for (unsigned int q = 0; q < velocity.n_q_points; ++q)
           {
-            SymmetricTensor<2, dim, VectorizedArray<double> > sym_grad_u =
-              velocity.get_symmetric_gradient (q);
+            Tensor<1, dim, Tensor<1, dim, VectorizedArray<double>>> grad_u =
+              velocity.get_gradient (q);
             VectorizedArray<double> pres = pressure.get_value(q);
-            VectorizedArray<double> div = -trace(sym_grad_u);
-            pressure.submit_value (div, q);
+            VectorizedArray<double> div_u = velocity.get_divergence (q);
+            pressure.submit_value (-div_u, q);
 
             // TODO: Move viscosity to class member
             constexpr double viscosity = 0.1;
-            // Times two because we ask for symmetric gradient
-            constexpr double viscosity_times_two = viscosity * 2;
-            sym_grad_u *= viscosity_times_two;
+            grad_u *= viscosity;
 
             // subtract p * I
             for (unsigned int d=0; d<dim; ++d)
-              sym_grad_u[d][d] -= pres;
+              grad_u[d][d] -= pres;
 
-            velocity.submit_symmetric_gradient(sym_grad_u, q);
+            velocity.submit_gradient(grad_u, q);
          }
 
         velocity.integrate_scatter (EvaluationFlags::gradients, dst.block(0));

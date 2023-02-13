@@ -163,16 +163,14 @@ namespace StokesMatrixFree
 
     for (unsigned int q = 0; q < velocity.n_q_points; ++q)
       {
-        SymmetricTensor<2, dim, VectorizedArray<double> > sym_grad_u =
-          velocity.get_symmetric_gradient (q);
+        Tensor<1, dim, Tensor<1, dim, VectorizedArray<double>>> grad_u =
+          velocity.get_gradient (q);
 
         // TODO: Move viscosity to class member
         constexpr double viscosity = 0.1;
-        // Times two because we ask for symmetric gradient
-        constexpr double viscosity_times_two = viscosity * 2;
-        sym_grad_u *= viscosity_times_two;
+        grad_u *= viscosity;
 
-        velocity.submit_symmetric_gradient(sym_grad_u, q);
+        velocity.submit_gradient(grad_u, q);
       }
 
     velocity.integrate(EvaluationFlags::gradients);
@@ -191,16 +189,14 @@ namespace StokesMatrixFree
 
     for (unsigned int q = 0; q < velocity.n_q_points; ++q)
       {
-        SymmetricTensor<2, dim, VectorizedArray<double> > sym_grad_u =
-          velocity.get_symmetric_gradient (q);
+        Tensor<1, dim, Tensor<1, dim, VectorizedArray<double>>> grad_u =
+          velocity.get_gradient (q);
 
         // TODO: Move viscosity to class member
         constexpr double viscosity = 0.1;
-        // Times two because we ask for symmetric gradient
-        constexpr double viscosity_times_two = viscosity * 2;
-        sym_grad_u *= viscosity_times_two;
+        grad_u *= viscosity;
 
-        velocity.submit_symmetric_gradient(sym_grad_u, q);
+        velocity.submit_gradient(grad_u, q);
       }
 
     velocity.integrate_scatter(EvaluationFlags::gradients, dst);

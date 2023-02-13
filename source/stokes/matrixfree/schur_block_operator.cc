@@ -167,7 +167,7 @@ namespace StokesMatrixFree
 
     for (unsigned int q = 0; q < pressure.n_q_points; ++q)
       {
-        auto value = pressure.get_value(q);
+        VectorizedArray<double> value = pressure.get_value(q);
 
         // TODO: move to class member
         constexpr double viscosity = 0.1;
@@ -193,7 +193,7 @@ namespace StokesMatrixFree
 
     for (unsigned int q = 0; q < pressure.n_q_points; ++q)
       {
-        auto value = pressure.get_value(q);
+        VectorizedArray<double> value = pressure.get_value(q);
 
         // TODO: move to class member
         constexpr double viscosity = 0.1;
