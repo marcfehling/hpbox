@@ -65,11 +65,6 @@ namespace StokesMatrixFree
     void
     compute_inverse_diagonal(VectorType &diagonal) const override;
 
-    void
-    precondition_Jacobi(VectorType       &dst,
-                        const VectorType &src,
-                        const value_type omega) const;
-
     const typename LinearAlgebra::SparseMatrix &
     get_system_matrix() const override;
 
@@ -105,9 +100,6 @@ namespace StokesMatrixFree
     dealii::MatrixFree<dim, value_type> matrix_free;
 
     mutable typename LinearAlgebra::SparseMatrix schur_block_matrix;
-
-    // test jacobi
-    mutable dealii::DiagonalMatrix<VectorType> diagonal_matrix;
   };
 } // namespace StokesMatrixFree
 

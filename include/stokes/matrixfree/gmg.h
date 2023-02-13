@@ -35,6 +35,33 @@
 namespace StokesMatrixFree
 {
   template <int dim, typename LinearAlgebra, int spacedim = dim>
+  class InverseDiagonalMatrix : public dealii::Subscriptor
+  {
+  public:
+    using VectorType = typename LinearAlgebra::Vector;
+    using value_type = typename VectorType::value_type;
+
+    InverseDiagonalMatrix(const OperatorType<dim, LinearAlgebra, spacedim> &an_operator)
+    {
+      an_operator.compute_inverse_diagonal(diagonal_matrix.get_vector());
+    };
+
+    void
+    precondition_Jacobi(VectorType       &dst,
+                        const VectorType &src,
+                        const value_type omega) const
+    {
+      diagonal_matrix.vmult(dst, src);
+      dst *= omega;
+    };
+
+  private:
+    dealii::DiagonalMatrix<VectorType> diagonal_matrix;
+  };
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim = dim>
   static void
   solve_gmg(dealii::SolverControl                                        &solver_control_refined,
             const StokesMatrixFree::StokesOperator<dim, LinearAlgebra, spacedim> &stokes_operator,
@@ -280,10 +307,11 @@ namespace StokesMatrixFree
     // Convert it to a preconditioner.
     PreconditionerType a_block_preconditioner(dof_handler, mg_a_block, transfer);
 
-    // TODO: use something more/less complex?
-    // PreconditionIdentity precon_schur;
-    typename LinearAlgebra::PreconditionJacobi schur_block_preconditioner;
-    schur_block_preconditioner.initialize(schur_block_operator.get_system_matrix());
+
+    InverseDiagonalMatrix<dim, LinearAlgebra, spacedim> inv_diagonal (schur_block_operator);
+    PreconditionJacobi<InverseDiagonalMatrix<dim, LinearAlgebra, spacedim>> schur_block_preconditioner;
+    schur_block_preconditioner.initialize(inv_diagonal);
+
 
     const LinearSolversMatrixFree::BlockSchurPreconditioner<
       LinearAlgebra,
@@ -291,7 +319,7 @@ namespace StokesMatrixFree
       OperatorType<dim, LinearAlgebra, spacedim>,
       OperatorType<dim, LinearAlgebra, spacedim>,
       PreconditionerType,
-      typename LinearAlgebra::PreconditionJacobi>
+      PreconditionJacobi<InverseDiagonalMatrix<dim, LinearAlgebra, spacedim>>>
       preconditioner(stokes_operator,
                      a_block_operator,
                      schur_block_operator,
