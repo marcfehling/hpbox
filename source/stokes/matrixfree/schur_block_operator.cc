@@ -87,6 +87,8 @@ namespace StokesMatrixFree
   SchurBlockOperator<dim, LinearAlgebra, spacedim>::vmult(VectorType       &dst,
                                                           const VectorType &src) const
   {
+    TimerOutput::Scope t(getTimer(), "vmult_SchurBlockOperator");
+
     this->matrix_free.cell_loop(&SchurBlockOperator::do_cell_integral_range, this, dst, src, true);
   }
 

@@ -17,6 +17,8 @@
 #define stokes_matrixfree_gmg_h
 
 
+#include <deal.II/base/convergence_table.h>
+
 #include <deal.II/dofs/dof_handler.h>
 
 #include <deal.II/lac/affine_constraints.h>
@@ -34,6 +36,7 @@
 
 namespace StokesMatrixFree
 {
+  // TODO: Move to schur_block_preconditioner.h/cc
   template <int dim, typename LinearAlgebra, int spacedim = dim>
   class InverseDiagonalMatrix : public dealii::Subscriptor
   {
@@ -51,6 +54,8 @@ namespace StokesMatrixFree
                         const VectorType &src,
                         const value_type omega) const
     {
+      dealii::TimerOutput::Scope t(getTimer(), "vmult_SchurBlockDiagonal");
+
       diagonal_matrix.vmult(dst, src);
       dst *= omega;
     };
@@ -70,7 +75,8 @@ namespace StokesMatrixFree
             typename LinearAlgebra::BlockVector                          &dst,
             const typename LinearAlgebra::BlockVector                    &src,
             const dealii::hp::MappingCollection<dim, spacedim>           &mapping_collection,
-            const std::vector<const dealii::DoFHandler<dim, spacedim> *> &stokes_dof_handlers)
+            const std::vector<const dealii::DoFHandler<dim, spacedim> *> &stokes_dof_handlers,
+            const std::string                                            filename_mg_timers)
   {
     // poisson has mappingcollection and dofhandler as additional parameters
 
@@ -304,6 +310,45 @@ namespace StokesMatrixFree
     // Create multigrid object.
     Multigrid<VectorType> mg_a_block(mg_matrix, *mg_coarse, transfer, mg_smoother, mg_smoother);
 
+
+    // ----------
+    // TODO: timing based on peters dealii-multigrid
+    // https://github.com/peterrum/dealii-multigrid/blob/c50581883c0dbe35c83132699e6de40da9b1b255/multigrid_throughput.cc#L1183-L1192
+    std::vector<std::vector<
+      std::pair<double, std::chrono::time_point<std::chrono::system_clock>>>>
+      all_mg_timers(max_level - min_level + 1);
+
+    for (unsigned int i = 0; i < all_mg_timers.size(); ++i)
+      all_mg_timers[i].resize(7);
+
+    const auto create_mg_timer_function = [&](const unsigned int i,
+                                              const std::string &label) {
+      return [i, label, &all_mg_timers](const bool         flag,
+                                        const unsigned int level) {
+        // if (false && flag)
+        //   std::cout << label << " " << level << std::endl;
+        if (flag)
+          all_mg_timers[level][i].second =
+            std::chrono::system_clock::now();
+        else
+          all_mg_timers[level][i].first +=
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+              std::chrono::system_clock::now() -
+              all_mg_timers[level][i].second)
+              .count() /
+            1e9;
+      };
+    };
+
+    mg_a_block.connect_pre_smoother_step(create_mg_timer_function(0, "pre_smoother_step"));
+    mg_a_block.connect_residual_step(create_mg_timer_function(1, "residual_step"));
+    mg_a_block.connect_restriction(create_mg_timer_function(2, "restriction"));
+    mg_a_block.connect_coarse_solve(create_mg_timer_function(3, "coarse_solve"));
+    mg_a_block.connect_prolongation(create_mg_timer_function(4, "prolongation"));
+    mg_a_block.connect_edge_prolongation(create_mg_timer_function(5, "edge_prolongation"));
+    mg_a_block.connect_post_smoother_step(create_mg_timer_function(6, "post_smoother_step"));
+    // ----------
+
     // Convert it to a preconditioner.
     PreconditionerType a_block_preconditioner(dof_handler, mg_a_block, transfer);
 
@@ -338,6 +383,28 @@ namespace StokesMatrixFree
                                                                      fgmres_data);
 
     solver.solve(stokes_operator, dst, src, preconditioner);
+
+
+    // ----------
+    // dump to Table and then file system
+    if (Utilities::MPI::this_mpi_process(dof_handler.get_communicator()) == 0)
+      {
+        dealii::ConvergenceTable table;
+        for(unsigned int level = 0; level < all_mg_timers.size(); ++level)
+          {
+            table.add_value("level", level);
+            table.add_value("pre_smoother_step", all_mg_timers[level][0].first);
+            table.add_value("residual_step", all_mg_timers[level][1].first);
+            table.add_value("restriction", all_mg_timers[level][2].first);
+            table.add_value("coarse_solve", all_mg_timers[level][3].first);
+            table.add_value("prolongation", all_mg_timers[level][4].first);
+            table.add_value("edge_prolongation", all_mg_timers[level][5].first);
+            table.add_value("post_smoother_step", all_mg_timers[level][6].first);
+          }
+        std::ofstream mg_timers_stream(filename_mg_timers);
+        table.write_text(mg_timers_stream);
+      }
+    // ----------
   }
 } // namespace StokesMatrixFree
 

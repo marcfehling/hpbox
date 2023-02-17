@@ -52,6 +52,8 @@ namespace LinearSolversMatrixFree
     vmult(typename LinearAlgebra::BlockVector       &dst,
           const typename LinearAlgebra::BlockVector &src) const
     {
+      dealii::TimerOutput::Scope t(getTimer(), "vmult_BlockSchurPreconditioner");
+
       // This needs to be done explicitly, as GMRES does not initialize the data of the vector dst
       // before calling us. Otherwise we might use random data as our initial guess.
       // See also: https://github.com/geodynamics/aspect/pull/4973

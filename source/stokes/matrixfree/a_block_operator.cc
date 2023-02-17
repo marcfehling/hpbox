@@ -85,6 +85,8 @@ namespace StokesMatrixFree
   void
   ABlockOperator<dim, LinearAlgebra, spacedim>::vmult(VectorType &dst, const VectorType &src) const
   {
+    TimerOutput::Scope t(getTimer(), "vmult_ABlockOperator");
+
     this->matrix_free.cell_loop(&ABlockOperator::do_cell_integral_range, this, dst, src, true);
   }
 

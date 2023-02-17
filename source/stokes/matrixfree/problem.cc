@@ -88,8 +88,9 @@ namespace StokesMatrixFree
       time_t             now = time(nullptr);
       tm                *ltm = localtime(&now);
       std::ostringstream oss;
-      oss << prm.file_stem << "-" << std::put_time(ltm, "%Y%m%d-%H%M%S") << ".log";
-      filename_log = oss.str();
+      oss << prm.file_stem << "-" << std::put_time(ltm, "%Y%m%d-%H%M%S");
+      filename_stem = oss.str();
+      filename_log = filename_stem + ".log";
     }
 
     // prepare collections
@@ -422,7 +423,8 @@ namespace StokesMatrixFree
                                                 completely_distributed_solution,
                                                 system_rhs,
                                                 mapping_collection,
-                                                dof_handlers);
+                                                dof_handlers,
+                                                filename_stem + "-mgtimes-cycle_" + std::to_string(cycle) + ".log");
       }
     else
       {
