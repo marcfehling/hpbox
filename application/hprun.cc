@@ -38,7 +38,7 @@ main(int argc, char *argv[])
                  << dealii::Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD)
                  << " MPI rank(s)..." << std::endl;
 
-      std::unique_ptr<ProblemBase> problem = Factory::create_application(
+      std::unique_ptr<ProblemInterface> problem = Factory::create_application(
         prm.problem_type, prm.dimension, prm.linear_algebra, prm);
       problem->run();
     }

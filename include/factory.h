@@ -113,7 +113,7 @@ namespace Factory
 
 
   template <int dim, typename LinearAlgebra, int spacedim = dim, typename... Args>
-  std::unique_ptr<ProblemBase>
+  std::unique_ptr<ProblemInterface>
   create_problem(const std::string &type, Args &&...args)
   {
     if (type == "Poisson")
@@ -140,13 +140,13 @@ namespace Factory
       }
 
     AssertThrow(false, dealii::ExcNotImplemented());
-    return std::unique_ptr<ProblemBase>();
+    return std::unique_ptr<ProblemInterface>();
   }
 
 
 
   template <typename... Args>
-  std::unique_ptr<ProblemBase>
+  std::unique_ptr<ProblemInterface>
   create_application(const std::string &type,
                      const unsigned int dimension,
                      const std::string &linear_algebra,
@@ -193,7 +193,7 @@ namespace Factory
       }
 
     AssertThrow(false, dealii::ExcNotImplemented());
-    return std::unique_ptr<ProblemBase>();
+    return std::unique_ptr<ProblemInterface>();
   }
 } // namespace Factory
 

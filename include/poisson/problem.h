@@ -31,7 +31,7 @@
 namespace Poisson
 {
   template <int dim, typename LinearAlgebra, int spacedim = dim>
-  class Problem : public ProblemBase
+  class Problem : public ProblemBase<dim, LinearAlgebra, spacedim>
   {
   public:
     Problem(const Parameter &prm);
@@ -40,8 +40,8 @@ namespace Poisson
     run() override;
 
   private:
-    void
-    initialize_grid();
+//    void
+//    initialize_grid();
     void
     setup_system();
     void
@@ -50,34 +50,22 @@ namespace Poisson
     void
     solve();
 
-    void
-    compute_errors();
-    void
-    output_results();
+//    void
+//    compute_errors();
+//    void
+//    output_results();
 
-    void
-    resume_from_checkpoint();
-    void
-    write_to_checkpoint();
+//    void
+//    resume_from_checkpoint();
+//    void
+//    write_to_checkpoint();
 
-    MPI_Comm mpi_communicator;
-
-    const Parameter &prm;
     std::string      filename_log;
 
-    dealii::parallel::distributed::Triangulation<dim> triangulation;
-    dealii::DoFHandler<dim, spacedim>                 dof_handler;
-
-    dealii::hp::MappingCollection<dim, spacedim> mapping_collection;
-    dealii::hp::FECollection<dim, spacedim>      fe_collection;
-    dealii::hp::QCollection<dim>                 quadrature_collection;
-
     std::unique_ptr<dealii::hp::FEValues<dim, spacedim>> fe_values_collection;
-    std::unique_ptr<Adaptation::Base>                    adaptation_strategy;
     dealii::parallel::CellWeights<dim, spacedim>         cell_weights;
 
     std::unique_ptr<dealii::Function<dim>> boundary_function;
-    std::unique_ptr<dealii::Function<dim>> solution_function;
     std::unique_ptr<dealii::Function<dim>> rhs_function;
 
     Partitioning partitioning;
@@ -86,10 +74,7 @@ namespace Poisson
 
     std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>> poisson_operator;
 
-    typename LinearAlgebra::Vector locally_relevant_solution;
     typename LinearAlgebra::Vector system_rhs;
-
-    unsigned int cycle;
   };
 } // namespace Poisson
 

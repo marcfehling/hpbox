@@ -33,7 +33,7 @@
 namespace StokesMatrixFree
 {
   template <int dim, typename LinearAlgebra, int spacedim = dim>
-  class Problem : public ProblemBase
+  class Problem : public ProblemInterface
   {
   public:
     Problem(const Parameter &prm);
