@@ -50,14 +50,15 @@ ProblemBase<dim, LinearAlgebra, spacedim>::Problem(const Parameter &prm)
   }
 
   // prepare collections
-  mapping_collection.push_back(MappingQ1<dim, spacedim>());
+  // mapping_collection.push_back(MappingQ1<dim, spacedim>());
 
-  for (unsigned int degree = 1; degree <= prm.prm_adaptation.max_p_degree; ++degree)
-    {
-      fe_collection.push_back(FE_Q<dim, spacedim>(degree));
-      quadrature_collection.push_back(QGauss<dim>(degree + 1));
-    }
+  // for (unsigned int degree = 1; degree <= prm.prm_adaptation.max_p_degree; ++degree)
+  //   {
+  //     fe_collection.push_back(FE_Q<dim, spacedim>(degree));
+  //     quadrature_collection.push_back(QGauss<dim>(degree + 1));
+  //   }
 
+  // prepare hierarchy
   const unsigned int min_fe_index = prm.prm_adaptation.min_p_degree - 1;
   fe_collection.set_hierarchy(
     /*next_index=*/
@@ -116,6 +117,76 @@ ProblemBase<dim, LinearAlgebra, spacedim>::initialize_grid()
 
       triangulation.refine_global(adaptation_strategy->get_n_initial_refinements());
     }
+}
+
+
+
+template <int dim, typename LinearAlgebra, int spacedim>
+void
+ProblemBased<dim, LinearAlgebra, spacedim>::solve()
+{
+  TimerOutput::Scope t(getTimer(), "solve");
+
+  // We need to introduce a vector that does not contain all ghost elements.
+  typename LinearAlgebra::Vector completely_distributed_solution;
+  poisson_operator.initialize_dof_vector(completely_distributed_solution);
+
+  SolverControl solver_control(system_rhs.size(), prm.solver_tolerance_factor * system_rhs.l2_norm());
+
+  if (prm.solver_type == "AMG")
+    {
+      solve_amg(completely_distributed_solution);
+      // solve_amg<dim, LinearAlgebra, spacedim>(solver_control,
+      //                                         *poisson_operator,
+      //                                         completely_distributed_solution,
+      //                                         system_rhs);
+    }
+  else if (prm.solver_type == "GMG")
+    {
+      if constexpr (std::is_same_v<LinearAlgebra, dealiiTrilinos>)
+        {
+          solve_gmg(completely_distributed_solution);
+          // solve_gmg<dim, LinearAlgebra, spacedim>(solver_control,
+          //                                         *poisson_operator,
+          //                                         completely_distributed_solution,
+          //                                         system_rhs,
+          //                                         /*boundary_values=*/mapping_collection,
+          //                                         dof_handler);
+        }
+      else
+        {
+          AssertThrow(false, ExcMessage("GMG is only available with dealii & Trilinos!"));
+        }
+    }
+  else
+    {
+      Assert(false, ExcNotImplemented());
+    }
+
+  Log::log_iterations(solver_control);
+
+  constraints.distribute(completely_distributed_solution);
+
+  locally_relevant_solution = completely_distributed_solution;
+  locally_relevant_solution.update_ghost_values();
+}
+
+
+
+template <int dim, typename LinearAlgebra, int spacedim>
+void
+ProblemBase<dim, LinearAlgebra, spacedim>::solve_amg()
+{
+  Assert(false, ExcNotImplemented());
+}
+
+
+
+template <int dim, typename LinearAlgebra, int spacedim>
+void
+ProblemBase<dim, LinearAlgebra, spacedim>::solve_gmg()
+{
+  Assert(false, ExcNotImplemented());
 }
 
 
@@ -234,58 +305,51 @@ ProblemBase<dim, LinearAlgebra, spacedim>::write_to_checkpoint()
 
 
 
-//template <int dim, typename LinearAlgebra, int spacedim>
-//void
-//ProblemBase<dim, LinearAlgebra, spacedim>::run()
-//{
-//  getTable().set_auto_fill_mode(true);
-//
-//  for (cycle = 0; cycle < adaptation_strategy->get_n_cycles(); ++cycle)
-//    {
-//      {
-//        TimerOutput::Scope t(getTimer(), "full_cycle");
-//
-//        if (cycle == 0)
-//          {
-//            initialize_grid();
-//          }
-//        else
-//          {
-//            adaptation_strategy->refine();
-//
-//            if ((prm.checkpoint_frequency > 0) && (cycle % prm.checkpoint_frequency == 0))
-//              write_to_checkpoint();
-//          }
-//
-//        Log::log_cycle(cycle, prm);
-//
-//        setup_system();
-//
-//        Log::log_hp_diagnostics(triangulation, dof_handler, constraints);
-//
-//        poisson_operator->reinit(partitioning, dof_handler, constraints, system_rhs, nullptr);
-//
-//        if (prm.operator_type == "MatrixBased")
-//          Log::log_nonzero_elements(poisson_operator->get_system_matrix());
-//
-//        solve();
-//
-//        compute_errors();
-//        adaptation_strategy->estimate_mark();
-//
-//        if ((prm.output_frequency > 0) && (cycle % prm.output_frequency == 0))
-//          output_results();
-//      }
-//
-//      Log::log_timings();
-//
-//      if (Utilities::MPI::this_mpi_process(mpi_communicator) == 0)
-//        {
-//          std::ofstream logstream(filename_log);
-//          getTable().write_text(logstream);
-//        }
-//
-//      getTimer().reset();
-//      getTable().start_new_row();
-//    }
-//}
+template <int dim, typename LinearAlgebra, int spacedim>
+void
+ProblemBase<dim, LinearAlgebra, spacedim>::run()
+{
+ getTable().set_auto_fill_mode(true);
+
+ for (cycle = 0; cycle < adaptation_strategy->get_n_cycles(); ++cycle)
+   {
+     {
+       TimerOutput::Scope t(getTimer(), "full_cycle");
+
+       if (cycle == 0)
+         {
+           initialize_grid();
+         }
+       else
+         {
+           adaptation_strategy->refine();
+
+           if ((prm.checkpoint_frequency > 0) && (cycle % prm.checkpoint_frequency == 0))
+             write_to_checkpoint();
+         }
+
+       Log::log_cycle(cycle, prm);
+
+       setup_system();
+
+       solve();
+
+       compute_errors();
+       adaptation_strategy->estimate_mark();
+
+       if ((prm.output_frequency > 0) && (cycle % prm.output_frequency == 0))
+         output_results();
+     }
+
+     Log::log_timings();
+
+     if (Utilities::MPI::this_mpi_process(mpi_communicator) == 0)
+       {
+         std::ofstream logstream(filename_log);
+         getTable().write_text(logstream);
+       }
+
+     getTimer().reset();
+     getTable().start_new_row();
+   }
+}

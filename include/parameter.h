@@ -49,6 +49,9 @@ struct Parameter : public dealii::ParameterAcceptor
     solver_type = "GMG";
     add_parameter("solver type", solver_type);
 
+    solver_tolerance_factor = 1e-12;
+    add_parameter("solver tolerance factor", solver_tolerance_factor);
+
     // subsection inputoutput
     file_stem = "my_problem";
     add_parameter("file stem", file_stem);
@@ -71,6 +74,7 @@ struct Parameter : public dealii::ParameterAcceptor
   std::string grid_type;
   std::string operator_type;
   std::string solver_type;
+  double      solver_tolerance_factor;
 
   std::string  file_stem;
   unsigned int output_frequency;
