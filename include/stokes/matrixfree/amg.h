@@ -25,7 +25,7 @@
 
 #include <base/linear_algebra.h>
 #include <base/partitioning.h>
-// #include <stokes/matrixfree/stokes_operator.h>
+#include <stokes/matrixfree/stokes_operator.h>
 #include <stokes/matrixfree/block_schur_preconditioner.h>
 
 

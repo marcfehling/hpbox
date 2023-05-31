@@ -26,7 +26,7 @@
 #include <operator.h>
 // #include <parameter.h>
 #include <problem.h>
-#include <poisson/problem/poisson_operator.h>
+#include <poisson/matrixbased/poisson_operator.h>
 
 
 namespace Poisson
@@ -39,17 +39,15 @@ namespace Poisson
     public:
       Problem(const Parameter &prm);
 
-      // void
-      // run() override;
+//      virtual void
+//      run();
 
     protected: // turn private?
-      virtual void
-      setup_system() = 0;
+      void
+      setup_system() override;
 
-      virtual void
-      solve_with_amg() = 0;
-      virtual void
-      solve_with_gmg() = 0;
+      void
+      solve() override;
 
       std::unique_ptr<dealii::hp::FEValues<dim, spacedim>> fe_values_collection;
 

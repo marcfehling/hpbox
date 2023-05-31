@@ -20,7 +20,6 @@
 #include <deal.II/lac/solver_control.h>
 
 #include <base/linear_algebra.h>
-#include <operator.h>
 
 
 namespace Poisson

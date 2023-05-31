@@ -23,11 +23,11 @@
 #include <base/linear_algebra.h>
 #include <base/log.h>
 #include <factory.h>
-#include <poisson/amg.h>
-#include <poisson/gmg.h>
+#include <poisson/matrixbased/amg.h>
+//#include <poisson/gmg.h>
 #include <poisson/matrixbased/poisson_operator.h>
-#include <poisson/matrixfree/poisson_operator.h>
-#include <poisson/problem.h>
+//#include <poisson/matrixfree/poisson_operator.h>
+#include <poisson/matrixbased/problem.h>
 
 #include <ctime>
 #include <iomanip>
@@ -38,12 +38,32 @@ using namespace dealii;
 
 namespace Poisson
 {
+  namespace MatrixBased
+  {
   template <int dim, typename LinearAlgebra, int spacedim>
-  ProblemMatrixBased<dim, LinearAlgebra, spacedim>::ProblemMatrixBased(const Parameter &prm)
+  Problem<dim, LinearAlgebra, spacedim>::Problem(const Parameter &prm)
     : ProblemBase<dim, LinearAlgebra, spacedim>(prm)
     , poisson_operator(this->mapping_collection, this->quadrature_collection, this->fe_collection)
   {
     TimerOutput::Scope t(getTimer(), "initialize_problem");
+
+    // prepare collections
+    this->mapping_collection.push_back(MappingQ1<dim, spacedim>());
+
+     for (unsigned int degree = 1; degree <= prm.prm_adaptation.max_p_degree; ++degree)
+       {
+         this->fe_collection.push_back(FE_Q<dim, spacedim>(degree));
+         this->quadrature_collection.push_back(QGauss<dim>(degree + 1));
+       }
+
+     // choose adaptation strategy
+       this->adaptation_strategy = Factory::create_adaptation<dim, typename LinearAlgebra::Vector, spacedim>(
+           this->prm.adaptation_type,
+           this->prm.prm_adaptation,
+           this->locally_relevant_solution,
+           this->fe_collection,
+           this->dof_handler,
+           this->triangulation);
 
     // choose functions
     if (this->prm.grid_type == "reentrant corner")
@@ -62,7 +82,7 @@ namespace Poisson
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  ProblemMatrixBased<dim, LinearAlgebra, spacedim>::setup_system()
+  Problem<dim, LinearAlgebra, spacedim>::setup_system()
   {
     TimerOutput::Scope t(getTimer(), "setup_system");
 
@@ -85,7 +105,7 @@ namespace Poisson
       TimerOutput::Scope t(getTimer(), "make_constraints");
 
       this->constraints.clear();
-      this->constraints.reinit(partitioning.get_relevant_dofs());
+      this->constraints.reinit(this->partitioning.get_relevant_dofs());
 
       DoFTools::make_hanging_node_constraints(this->dof_handler, this->constraints);
 
@@ -124,7 +144,7 @@ namespace Poisson
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  ProblemMatrixBased<dim, LinearAlgebra, spacedim>::solve()
+  Problem<dim, LinearAlgebra, spacedim>::solve()
   {
     TimerOutput::Scope t(getTimer(), "solve");
 
@@ -132,42 +152,43 @@ namespace Poisson
     typename LinearAlgebra::Vector completely_distributed_solution;
     poisson_operator.initialize_dof_vector(completely_distributed_solution);
 
-    SolverControl solver_control(system_rhs.size(), 1e-12 * system_rhs.l2_norm());
+    SolverControl solver_control(this->system_rhs.size(), 1e-12 * this->system_rhs.l2_norm());
 
-    if (prm.solver_type == "AMG")
-      {
+    Assert(this->prm.solver_type == "AMG", ExcNotImplemented());
+//    if (this->prm.solver_type == "AMG")
+//      {
         solve_amg<dim, LinearAlgebra, spacedim>(solver_control,
-                                                *poisson_operator,
+                                                poisson_operator,
                                                 completely_distributed_solution,
-                                                system_rhs);
-      }
-    else if (prm.solver_type == "GMG")
-      {
-        if constexpr (std::is_same_v<LinearAlgebra, dealiiTrilinos>)
-          {
-            solve_gmg<dim, LinearAlgebra, spacedim>(solver_control,
-                                                    *poisson_operator,
-                                                    completely_distributed_solution,
-                                                    system_rhs,
-                                                    /*boundary_values=*/mapping_collection,
-                                                    dof_handler);
-          }
-        else
-          {
-            AssertThrow(false, ExcMessage("GMG is only available with dealii & Trilinos!"));
-          }
-      }
-    else
-      {
-        Assert(false, ExcNotImplemented());
-      }
+                                                this->system_rhs);
+//      }
+//    else if (this->prm.solver_type == "GMG")
+//      {
+//        if constexpr (std::is_same_v<LinearAlgebra, dealiiTrilinos>)
+//          {
+//            solve_gmg<dim, LinearAlgebra, spacedim>(solver_control,
+//                                                    poisson_operator,
+//                                                    completely_distributed_solution,
+//                                                    this->system_rhs,
+//                                                    /*boundary_values=*/this->mapping_collection,
+//                                                    this->dof_handler);
+//          }
+//        else
+//          {
+//            AssertThrow(false, ExcMessage("GMG is only available with dealii & Trilinos!"));
+//          }
+//      }
+//    else
+//      {
+//        Assert(false, ExcNotImplemented());
+//      }
 
     Log::log_iterations(solver_control);
 
-    constraints.distribute(completely_distributed_solution);
+    this->constraints.distribute(completely_distributed_solution);
 
-    locally_relevant_solution = completely_distributed_solution;
-    locally_relevant_solution.update_ghost_values();
+    this->locally_relevant_solution = completely_distributed_solution;
+    this->locally_relevant_solution.update_ghost_values();
   }
 
 
@@ -184,4 +205,5 @@ namespace Poisson
   template class Problem<2, PETSc, 2>;
   template class Problem<3, PETSc, 3>;
 #endif
+  }
 } // namespace Poisson

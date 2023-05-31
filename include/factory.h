@@ -25,12 +25,13 @@
 #include <adaptation/hp_history.h>
 #include <adaptation/hp_legendre.h>
 #include <adaptation/p.h>
-#include <base/linear_algebra.h>
+//#include <base/linear_algebra.h>
 #include <function.h>
 #include <grid.h>
-#include <poisson/problem.h>
-#include <stokes/matrixbased/problem.h>
-#include <stokes/matrixfree/problem.h>
+//#include <poisson/matrixbased/problem.h>
+//#include <poisson/matrixfree/problem.h>
+//#include <stokes/matrixbased/problem.h>
+//#include <stokes/matrixfree/problem.h>
 
 #include <memory>
 
@@ -108,92 +109,6 @@ namespace Factory
       Grid::y_pipe(std::forward<Args>(args)...);
     else
       AssertThrow(false, dealii::ExcNotImplemented());
-  }
-
-
-
-  template <int dim, typename LinearAlgebra, int spacedim = dim, typename... Args>
-  std::unique_ptr<ProblemInterface>
-  create_problem(const std::string &type, Args &&...args)
-  {
-    if (type == "Poisson")
-      {
-        return std::make_unique<Poisson::Problem<dim, LinearAlgebra, spacedim>>(
-          std::forward<Args>(args)...);
-      }
-    else if (type == "Stokes")
-      {
-        return std::make_unique<StokesMatrixBased::Problem<dim, LinearAlgebra, spacedim>>(
-          std::forward<Args>(args)...);
-      }
-    else if (type == "StokesMatrixFree")
-      {
-        if constexpr (std::is_same_v<LinearAlgebra, dealiiTrilinos>)
-          {
-            return std::make_unique<StokesMatrixFree::Problem<dim, LinearAlgebra, spacedim>>(
-                std::forward<Args>(args)...);
-          }
-        else
-          {
-            AssertThrow(false, dealii::ExcMessage("MatrixFree only available with dealii & Trilinos!"));
-          }
-      }
-
-    AssertThrow(false, dealii::ExcNotImplemented());
-    return std::unique_ptr<ProblemInterface>();
-  }
-
-
-
-  template <typename... Args>
-  std::unique_ptr<ProblemInterface>
-  create_application(const std::string &type,
-                     const unsigned int dimension,
-                     const std::string &linear_algebra,
-                     Args &&...args)
-  {
-    if (linear_algebra == "dealii & Trilinos")
-      {
-#ifdef DEAL_II_WITH_TRILINOS
-        if (dimension == 2)
-          return create_problem<2, dealiiTrilinos, 2>(type, std::forward<Args>(args)...);
-        else if (dimension == 3)
-          return create_problem<3, dealiiTrilinos, 3>(type, std::forward<Args>(args)...);
-        else
-          AssertThrow(false, dealii::ExcNotImplemented());
-#else
-        AssertThrow(false, dealii::ExcMessage("deal.II has not been configured with Trilinos!"));
-#endif
-      }
-    else if (linear_algebra == "Trilinos")
-      {
-#ifdef DEAL_II_WITH_TRILINOS
-        if (dimension == 2)
-          return create_problem<2, Trilinos, 2>(type, std::forward<Args>(args)...);
-        else if (dimension == 3)
-          return create_problem<3, Trilinos, 3>(type, std::forward<Args>(args)...);
-        else
-          AssertThrow(false, dealii::ExcNotImplemented());
-#else
-        AssertThrow(false, dealii::ExcMessage("deal.II has not been configured with Trilinos!"));
-#endif
-      }
-    else if (linear_algebra == "PETSc")
-      {
-#ifdef DEAL_II_WITH_PETSC
-        if (dimension == 2)
-          return create_problem<2, PETSc, 2>(type, std::forward<Args>(args)...);
-        else if (dimension == 3)
-          return create_problem<3, PETSc, 3>(type, std::forward<Args>(args)...);
-        else
-          AssertThrow(false, dealii::ExcNotImplemented());
-#else
-        AssertThrow(false, dealii::ExcMessage("deal.II has not been configured with PETSc!"));
-#endif
-      }
-
-    AssertThrow(false, dealii::ExcNotImplemented());
-    return std::unique_ptr<ProblemInterface>();
   }
 } // namespace Factory
 
