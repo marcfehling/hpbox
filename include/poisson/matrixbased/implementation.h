@@ -13,8 +13,8 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef poisson_matrixbased_problem_h
-#define poisson_matrixbased_problem_h
+#ifndef poisson_matrixbased_implementation_h
+#define poisson_matrixbased_implementation_h
 
 
 // #include <deal.II/distributed/cell_weights.h>
@@ -34,27 +34,29 @@ namespace Poisson
   namespace MatrixBased
   {
     template <int dim, typename LinearAlgebra, int spacedim = dim>
-    class Problem : public ProblemBase<dim, LinearAlgebra, spacedim>
+    class Implementation : public ImplementationBase
     {
     public:
-      Problem(const Parameter &prm);
-
-//      virtual void
-//      run();
+      Implementation(Problem<dim, LinearAlgebra, spacedim> &problem);
 
     protected: // turn private?
+      void
+      reinit() override;
+
       void
       setup_system() override;
 
       void
       solve() override;
 
+      Problem<dim, LinearAlgebra, spacedim> &problem;
+
+      std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>> poisson_operator;
+
       std::unique_ptr<dealii::hp::FEValues<dim, spacedim>> fe_values_collection;
 
-      Partitioning partitioning;
-
       // std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>> poisson_operator;
-      PoissonMatrixBased::PoissonOperator<dim, LinearAlgebra, spacedim> poisson_operator;
+      // PoissonMatrixBased::PoissonOperator<dim, LinearAlgebra, spacedim> poisson_operator;
     };
   }
 } // namespace Poisson
