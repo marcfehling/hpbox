@@ -13,29 +13,18 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef grid_h
-#define grid_h
+#ifndef problem_base_h
+#define problem_base_h
 
 
-#include <deal.II/base/exceptions.h>
-
-#include <deal.II/grid/tria.h>
-
-
-namespace Grid
+class ProblemBase
 {
-  template <int dim, int spacedim = dim>
-  void
-  reentrant_corner(dealii::Triangulation<dim, spacedim> &triangulation);
+public:
+  virtual ~ProblemBase() = default;
 
-  template <int dim, int spacedim = dim>
-  void
-  kovasznay(dealii::Triangulation<dim, spacedim> &triangulation);
-
-  template <int dim, int spacedim = dim>
-  void
-  y_pipe(dealii::Triangulation<dim, spacedim> &triangulation);
-} // namespace Grid
+  virtual void
+  run() = 0;
+};
 
 
 #endif

@@ -13,29 +13,41 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef grid_h
-#define grid_h
+
+#include <deal.II/base/mpi.h>
+
+#include <global.h>
+
+#include <iostream>
+
+using namespace dealii;
 
 
-#include <deal.II/base/exceptions.h>
-
-#include <deal.II/grid/tria.h>
-
-
-namespace Grid
+ConditionalOStream &
+getPCOut()
 {
-  template <int dim, int spacedim = dim>
-  void
-  reentrant_corner(dealii::Triangulation<dim, spacedim> &triangulation);
-
-  template <int dim, int spacedim = dim>
-  void
-  kovasznay(dealii::Triangulation<dim, spacedim> &triangulation);
-
-  template <int dim, int spacedim = dim>
-  void
-  y_pipe(dealii::Triangulation<dim, spacedim> &triangulation);
-} // namespace Grid
+  static ConditionalOStream pcout(std::cout,
+                                  (Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0));
+  return pcout;
+}
 
 
-#endif
+
+TimerOutput &
+getTimer()
+{
+  static TimerOutput computing_timer(MPI_COMM_WORLD,
+                                     getPCOut(),
+                                     TimerOutput::never,
+                                     TimerOutput::wall_times);
+  return computing_timer;
+}
+
+
+
+TableHandler &
+getTable()
+{
+  static TableHandler table_handler;
+  return table_handler;
+}

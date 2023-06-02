@@ -13,29 +13,31 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef grid_h
-#define grid_h
+#ifndef global_h
+#define global_h
 
 
-#include <deal.II/base/exceptions.h>
+#include <deal.II/base/conditional_ostream.h>
+#include <deal.II/base/table_handler.h>
+#include <deal.II/base/timer.h>
 
-#include <deal.II/grid/tria.h>
 
+// Use 'construct on first use' idiom for global static variables.
+//
+// As we need to wait for mpi initialization to finish before calling
+// `this_mpi_process`, we need these singletons. TimerOutput copies the
+// ostream object and does not take a reference. We could set the condition for
+// the ConditionalOStream object after construction, but no longer once passed
+// to TimerOutput.
 
-namespace Grid
-{
-  template <int dim, int spacedim = dim>
-  void
-  reentrant_corner(dealii::Triangulation<dim, spacedim> &triangulation);
+dealii::ConditionalOStream &
+getPCOut();
 
-  template <int dim, int spacedim = dim>
-  void
-  kovasznay(dealii::Triangulation<dim, spacedim> &triangulation);
+dealii::TimerOutput &
+getTimer();
 
-  template <int dim, int spacedim = dim>
-  void
-  y_pipe(dealii::Triangulation<dim, spacedim> &triangulation);
-} // namespace Grid
+dealii::TableHandler &
+getTable();
 
 
 #endif

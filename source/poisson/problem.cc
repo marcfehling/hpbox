@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2021 - 2022 by the deal.II authors
+// Copyright (C) 2021 - 2023 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -16,18 +16,19 @@
 
 #include <deal.II/fe/fe_q.h>
 
+#include <deal.II/matrix_free/tools.h>
+
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
 
-#include <base/global.h>
-#include <base/linear_algebra.h>
-#include <base/log.h>
 #include <factory.h>
-#include <poisson/amg.h>
-#include <poisson/gmg.h>
-#include <poisson/matrixbased/poisson_operator.h>
-#include <poisson/matrixfree/poisson_operator.h>
+#include <global.h>
+#include <linear_algebra.h>
+#include <log.h>
+#include <poisson/matrixbased_operator.h>
+#include <poisson/matrixfree_operator.h>
 #include <poisson/problem.h>
+#include <poisson/solvers.h>
 
 #include <ctime>
 #include <iomanip>
@@ -36,35 +37,31 @@
 using namespace dealii;
 
 
-namespace
+template <int dim, typename LinearAlgebra, int spacedim = dim, typename... Args>
+static std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>
+create_operator(const std::string type, Args &&...args)
 {
-  template <int dim, typename LinearAlgebra, int spacedim = dim, typename... Args>
-  std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>
-  create_operator(const std::string type, Args &&...args)
-  {
-    if (type == "MatrixBased")
-      {
-        return std::make_unique<PoissonMatrixBased::PoissonOperator<dim, LinearAlgebra, spacedim>>(
-          std::forward<Args>(args)...);
-      }
-    else if (type == "MatrixFree")
-      {
-        if constexpr (std::is_same_v<LinearAlgebra, dealiiTrilinos>)
-          {
-            return std::make_unique<
-              PoissonMatrixFree::PoissonOperator<dim, LinearAlgebra, spacedim>>(
-              std::forward<Args>(args)...);
-          }
-        else
-          {
-            AssertThrow(false, ExcMessage("MatrixFree only available with dealii & Trilinos!"));
-          }
-      }
+  if (type == "MatrixBased")
+    {
+      return std::make_unique<PoissonMatrixBased::PoissonOperator<dim, LinearAlgebra, spacedim>>(
+        std::forward<Args>(args)...);
+    }
+  else if (type == "MatrixFree")
+    {
+      if constexpr (std::is_same_v<LinearAlgebra, dealiiTrilinos>)
+        {
+          return std::make_unique<PoissonMatrixFree::PoissonOperator<dim, LinearAlgebra, spacedim>>(
+            std::forward<Args>(args)...);
+        }
+      else
+        {
+          AssertThrow(false, ExcMessage("MatrixFree only available with dealii & Trilinos!"));
+        }
+    }
 
-    AssertThrow(false, ExcNotImplemented());
-    return std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>();
-  }
-} // namespace
+  AssertThrow(false, ExcNotImplemented());
+  return std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>();
+}
 
 
 
@@ -74,7 +71,10 @@ namespace Poisson
   Problem<dim, LinearAlgebra, spacedim>::Problem(const Parameter &prm)
     : mpi_communicator(MPI_COMM_WORLD)
     , prm(prm)
-    , triangulation(mpi_communicator)
+    , triangulation(mpi_communicator,
+                    typename Triangulation<dim>::MeshSmoothing(
+                      Triangulation<dim>::smoothing_on_refinement |
+                      Triangulation<dim>::smoothing_on_coarsening))
     , dof_handler(triangulation)
   {
     TimerOutput::Scope t(getTimer(), "initialize_problem");

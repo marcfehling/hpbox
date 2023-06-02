@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2021 - 2023 by the deal.II authors
+// Copyright (C) 2022 - 2023 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -13,21 +13,24 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef poisson_problem_h
-#define poisson_problem_h
+#ifndef stokes_matrixbased_problem_h
+#define stokes_matrixbased_problem_h
 
 
 #include <deal.II/distributed/cell_weights.h>
 #include <deal.II/distributed/tria.h>
 
+#include <deal.II/fe/fe_values_extractors.h>
+
+#include <deal.II/hp/fe_values.h>
+
 #include <adaptation/base.h>
-#include <operator_base.h>
 #include <parameter.h>
 #include <problem_base.h>
+#include <stokes_matrixbased/operators.h>
 
 
-
-namespace Poisson
+namespace StokesMatrixBased
 {
   template <int dim, typename LinearAlgebra, int spacedim = dim>
   class Problem : public ProblemBase
@@ -43,8 +46,13 @@ namespace Poisson
     initialize_grid();
     void
     setup_system();
-    void
-    initialize_system();
+
+    // TODO: we go with the classical matrix based way for now
+    // template <typename OperatorType>
+    // void
+    // solve(const OperatorType                        &system_matrix,
+    //       typename LinearAlgebra::BlockVector &locally_relevant_solution,
+    //       const typename LinearAlgebra::BlockVector &system_rhs);
 
     void
     solve();
@@ -67,12 +75,18 @@ namespace Poisson
     dealii::parallel::distributed::Triangulation<dim> triangulation;
     dealii::DoFHandler<dim, spacedim>                 dof_handler;
 
+    // or in operator class, or in both?
+    const dealii::FEValuesExtractors::Vector velocities;
+    const dealii::FEValuesExtractors::Scalar pressure;
+
     dealii::hp::MappingCollection<dim, spacedim> mapping_collection;
     dealii::hp::FECollection<dim, spacedim>      fe_collection;
     dealii::hp::QCollection<dim>                 quadrature_collection;
+    dealii::hp::QCollection<dim>                 quadrature_collection_for_errors;
 
-    std::unique_ptr<Adaptation::Base>            adaptation_strategy;
-    dealii::parallel::CellWeights<dim, spacedim> cell_weights;
+    std::unique_ptr<dealii::hp::FEValues<dim, spacedim>> fe_values_collection;
+    std::unique_ptr<Adaptation::Base>                    adaptation_strategy;
+    dealii::parallel::CellWeights<dim, spacedim>         cell_weights;
 
     std::unique_ptr<dealii::Function<dim>> boundary_function;
     std::unique_ptr<dealii::Function<dim>> solution_function;
@@ -82,14 +96,16 @@ namespace Poisson
 
     dealii::AffineConstraints<double> constraints;
 
-    std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>> poisson_operator;
+    std::unique_ptr<StokesOperator<dim, LinearAlgebra, spacedim>>     stokes_operator;
+    std::unique_ptr<ABlockOperator<dim, LinearAlgebra, spacedim>>     a_block_operator;
+    std::unique_ptr<SchurBlockOperator<dim, LinearAlgebra, spacedim>> schur_block_operator;
 
-    typename LinearAlgebra::Vector locally_relevant_solution;
-    typename LinearAlgebra::Vector system_rhs;
+    typename LinearAlgebra::BlockVector locally_relevant_solution;
+    typename LinearAlgebra::BlockVector system_rhs;
 
     unsigned int cycle;
   };
-} // namespace Poisson
+} // namespace StokesMatrixBased
 
 
 #endif
