@@ -14,8 +14,8 @@
 // ---------------------------------------------------------------------
 
 
-#include <base/global.h>
 #include <factory.h>
+#include <global.h>
 #include <parameter.h>
 
 
@@ -24,9 +24,7 @@ main(int argc, char *argv[])
 {
   try
     {
-      dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc,
-                                                                  argv,
-                                                                  1);
+      dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
 
       Parameter prm;
 
@@ -35,24 +33,22 @@ main(int argc, char *argv[])
       dealii::ParameterAcceptor::initialize(filename, output_filename);
 
       getPCOut() << "Running with " << prm.linear_algebra << " on "
-                 << dealii::Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD)
-                 << " MPI rank(s)..." << std::endl;
+                 << dealii::Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD) << " MPI rank(s)..."
+                 << std::endl;
 
-      std::unique_ptr<ProblemBase> problem = Factory::create_application(
-        prm.problem_type, prm.dimension, prm.linear_algebra, prm);
+      std::unique_ptr<ProblemBase> problem =
+        Factory::create_application(prm.problem_type, prm.dimension, prm.linear_algebra, prm);
       problem->run();
     }
   catch (std::exception &exc)
     {
       std::cerr << std::endl
                 << std::endl
-                << "----------------------------------------------------"
-                << std::endl;
+                << "----------------------------------------------------" << std::endl;
       std::cerr << "Exception on processing: " << std::endl
                 << exc.what() << std::endl
                 << "Aborting!" << std::endl
-                << "----------------------------------------------------"
-                << std::endl;
+                << "----------------------------------------------------" << std::endl;
 
       return 1;
     }
@@ -60,12 +56,10 @@ main(int argc, char *argv[])
     {
       std::cerr << std::endl
                 << std::endl
-                << "----------------------------------------------------"
-                << std::endl;
+                << "----------------------------------------------------" << std::endl;
       std::cerr << "Unknown exception!" << std::endl
                 << "Aborting!" << std::endl
-                << "----------------------------------------------------"
-                << std::endl;
+                << "----------------------------------------------------" << std::endl;
       return 1;
     }
 

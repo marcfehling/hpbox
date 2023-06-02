@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2020 - 2022 by the deal.II authors
+// Copyright (C) 2020 - 2023 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -25,12 +25,12 @@
 #include <adaptation/hp_history.h>
 #include <adaptation/hp_legendre.h>
 #include <adaptation/p.h>
-#include <base/linear_algebra.h>
 #include <function.h>
 #include <grid.h>
+#include <linear_algebra.h>
 #include <poisson/problem.h>
-#include <stokes/matrixbased/problem.h>
-#include <stokes/matrixfree/problem.h>
+#include <stokes_matrixbased/problem.h>
+#include <stokes_matrixfree/problem.h>
 
 #include <memory>
 
@@ -131,11 +131,12 @@ namespace Factory
         if constexpr (std::is_same_v<LinearAlgebra, dealiiTrilinos>)
           {
             return std::make_unique<StokesMatrixFree::Problem<dim, LinearAlgebra, spacedim>>(
-                std::forward<Args>(args)...);
+              std::forward<Args>(args)...);
           }
         else
           {
-            AssertThrow(false, dealii::ExcMessage("MatrixFree only available with dealii & Trilinos!"));
+            AssertThrow(false,
+                        dealii::ExcMessage("MatrixFree only available with dealii & Trilinos!"));
           }
       }
 
