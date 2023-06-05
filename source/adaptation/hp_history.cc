@@ -46,9 +46,6 @@ namespace Adaptation
     , dof_handler(&dof_handler)
     , triangulation(&triangulation)
     , component_mask(component_mask)
-    , cell_weights(dof_handler,
-                   parallel::CellWeights<dim>::ndofs_weighting(
-                     {prm.weighting_factor, prm.weighting_exponent}))
     , data_transfer(triangulation,
                     /*transfer_variable_size_data=*/false,
                     &AdaptationStrategies::Refinement::l2_norm<dim, spacedim, float>,
@@ -159,12 +156,11 @@ namespace Adaptation
               indicator -= decrement;
           }
 
-        // decide hp
+        // set future fe indices
         hp::Refinement::p_adaptivity_fixed_number(*dof_handler,
                                                   hp_indicators,
                                                   prm.p_refine_fraction,
                                                   prm.p_coarsen_fraction);
-        hp::Refinement::choose_p_over_h(*dof_handler);
 
         // limit levels
         Assert(triangulation->n_levels() >= prm.min_h_level + 1 &&
@@ -177,6 +173,9 @@ namespace Adaptation
 
         for (const auto &cell : triangulation->active_cell_iterators_on_level(prm.min_h_level))
           cell->clear_coarsen_flag();
+
+        // decide hp
+        hp::Refinement::choose_p_over_h(*dof_handler);
       }
   }
 

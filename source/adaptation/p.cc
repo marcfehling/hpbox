@@ -45,9 +45,6 @@ namespace Adaptation
     , dof_handler(&dof_handler)
     , triangulation(&triangulation)
     , component_mask(component_mask)
-    , cell_weights(dof_handler,
-                   parallel::CellWeights<dim>::ndofs_weighting(
-                     {prm.weighting_factor, prm.weighting_exponent}))
   {
     Assert(prm.min_h_level <= prm.max_h_level,
            ExcMessage("Triangulation level limits have been incorrectly set up."));

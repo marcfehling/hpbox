@@ -25,32 +25,26 @@
 namespace StokesMatrixFree
 {
   template <int dim, typename LinearAlgebra, int spacedim = dim>
-  class StokesOperator : public BlockOperatorType<dim, LinearAlgebra, spacedim>
+  class StokesOperator
+    : public dealii::MGSolverOperatorBase<dim,
+                                          typename LinearAlgebra::BlockVector,
+                                          typename LinearAlgebra::BlockSparseMatrix>
   {
   public:
     using VectorType = typename LinearAlgebra::BlockVector;
     using value_type = typename VectorType::value_type;
 
-    using FECellIntegrator = dealii::FEEvaluation<dim, -1, 0, dim + 1, value_type>;
+    // using FECellIntegrator = dealii::FEEvaluation<dim, -1, 0, dim + 1, value_type>;
 
     StokesOperator(const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
-                   const dealii::hp::QCollection<dim>                 &quadrature_collection,
-                   const dealii::hp::FECollection<dim, spacedim>      &fe_collection);
-
-    std::unique_ptr<BlockOperatorType<dim, LinearAlgebra, spacedim>>
-    replicate() const override;
+                   const std::vector<dealii::hp::QCollection<dim>>    &quadrature_collections);
 
     void
-    reinit(const Partitioning                          &partitioning,
-           const dealii::DoFHandler<dim, spacedim>     &dof_handler,
-           const dealii::AffineConstraints<value_type> &constraints) override;
-
-    void
-    reinit(const Partitioning                          &partitioning,
-           const dealii::DoFHandler<dim, spacedim>     &dof_handler,
-           const dealii::AffineConstraints<value_type> &constraints,
-           VectorType                                  &system_rhs,
-           const dealii::Function<spacedim>            *rhs_function) override;
+    reinit(const std::vector<const Partitioning *>                          &partitionings,
+           const std::vector<const dealii::DoFHandler<dim, spacedim> *>     &dof_handlers,
+           const std::vector<const dealii::AffineConstraints<value_type> *> &constraints,
+           VectorType                                                       &system_rhs,
+           const std::vector<const dealii::Function<spacedim> *>            &rhs_functions);
 
     void
     vmult(VectorType &dst, const VectorType &src) const override;
@@ -74,18 +68,21 @@ namespace StokesMatrixFree
     // const Parameters &prm;
 
     dealii::SmartPointer<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
-    dealii::SmartPointer<const dealii::hp::QCollection<dim>>                 quadrature_collection;
-    dealii::SmartPointer<const dealii::AffineConstraints<value_type>>        constraints;
-
-    // TODO: Add RHS function to constructor
-    //       Grab and set as RHS in reinit
-    // dealii::Function<dim> rhs_function;
+    const std::vector<dealii::hp::QCollection<dim>> * quadrature_collections;
+    const std::vector<const dealii::AffineConstraints<value_type> *> * constraints;
+    const std::vector<const dealii::Function<spacedim> *> * rhs_functions;
 
     void
     do_cell_integral_range(const dealii::MatrixFree<dim, value_type>   &matrix_free,
                            VectorType                                  &dst,
                            const VectorType                            &src,
                            const std::pair<unsigned int, unsigned int> &range) const;
+
+    void
+    do_cell_rhs_function_range(const dealii::MatrixFree<dim, value_type>   &matrix_free,
+                               VectorType                                  &dst,
+                               const VectorType                            &src,
+                               const std::pair<unsigned int, unsigned int> &range) const;
 
     // TODO: Make partitioning a pointer? Or leave it like this?
     Partitioning                        partitioning;

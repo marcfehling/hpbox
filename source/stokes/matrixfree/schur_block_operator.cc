@@ -31,13 +31,10 @@ namespace StokesMatrixFree
   template <int dim, typename LinearAlgebra, int spacedim>
   SchurBlockOperator<dim, LinearAlgebra, spacedim>::SchurBlockOperator(
     const hp::MappingCollection<dim, spacedim> &mapping_collection,
-    const hp::QCollection<dim>                 &quadrature_collection,
-    const hp::FECollection<dim, spacedim>      &fe_collection)
+    const hp::QCollection<dim>                 &quadrature_collection)
     : mapping_collection(&mapping_collection)
     , quadrature_collection(&quadrature_collection)
-  {
-    (void)fe_collection; // unused, only here for matching interface to matrixbased
-  }
+  {}
 
 
   template <int dim, typename LinearAlgebra, int spacedim>
@@ -45,7 +42,7 @@ namespace StokesMatrixFree
   SchurBlockOperator<dim, LinearAlgebra, spacedim>::replicate() const
   {
     return std::make_unique<SchurBlockOperator<dim, LinearAlgebra, spacedim>>(
-      *mapping_collection, *quadrature_collection, hp::FECollection<dim, spacedim>());
+      *mapping_collection, *quadrature_collection);
   }
 
 
@@ -57,7 +54,18 @@ namespace StokesMatrixFree
     const DoFHandler<dim, spacedim>     &dof_handler,
     const AffineConstraints<value_type> &constraints)
   {
-    Assert(false, ExcNotImplemented());
+
+    TimerOutput::Scope t(getTimer(), "setup_system");
+
+    this->schur_block_matrix.clear();
+
+    this->partitioning = partitioning;
+    this->constraints  = &constraints;
+
+    typename MatrixFree<dim, value_type>::AdditionalData data;
+    data.mapping_update_flags = update_gradients;
+
+    matrix_free.reinit(*mapping_collection, dof_handler, constraints, *quadrature_collection, data);
   }
 
 
@@ -79,7 +87,9 @@ namespace StokesMatrixFree
   SchurBlockOperator<dim, LinearAlgebra, spacedim>::vmult(VectorType       &dst,
                                                           const VectorType &src) const
   {
-    Assert(false, ExcNotImplemented());
+    TimerOutput::Scope t(getTimer(), "vmult_SchurBlockOperator");
+
+    this->matrix_free.cell_loop(&SchurBlockOperator::do_cell_integral_range, this, dst, src, true);
   }
 
 
@@ -88,7 +98,7 @@ namespace StokesMatrixFree
   void
   SchurBlockOperator<dim, LinearAlgebra, spacedim>::initialize_dof_vector(VectorType &vec) const
   {
-    Assert(false, ExcNotImplemented());
+    matrix_free.initialize_dof_vector(vec);
   }
 
 
@@ -97,7 +107,7 @@ namespace StokesMatrixFree
   types::global_dof_index
   SchurBlockOperator<dim, LinearAlgebra, spacedim>::m() const
   {
-    return numbers::invalid_dof_index;
+    return matrix_free.get_dof_handler().n_dofs();
   }
 
 
@@ -107,7 +117,15 @@ namespace StokesMatrixFree
   SchurBlockOperator<dim, LinearAlgebra, spacedim>::compute_inverse_diagonal(
     VectorType &diagonal) const
   {
-    Assert(false, ExcNotImplemented());
+    matrix_free.initialize_dof_vector(diagonal);
+    MatrixFreeTools::compute_diagonal(matrix_free,
+                                      diagonal,
+                                      &SchurBlockOperator::do_cell_integral_local,
+                                      this);
+
+    // invert diagonal
+    for (auto &i : diagonal)
+      i = (std::abs(i) > 1.0e-10) ? (1.0 / i) : 1.0;
   }
 
 
@@ -116,8 +134,18 @@ namespace StokesMatrixFree
   const typename LinearAlgebra::SparseMatrix &
   SchurBlockOperator<dim, LinearAlgebra, spacedim>::get_system_matrix() const
   {
-    Assert(false, ExcNotImplemented());
-    return typename LinearAlgebra::SparseMatrix();
+    // Check if matrix has already been set up.
+    if (schur_block_matrix.m() == 0 && schur_block_matrix.n() == 0)
+      {
+        const auto &dof_handler = this->matrix_free.get_dof_handler();
+
+        initialize_sparse_matrix(schur_block_matrix, dof_handler, *constraints, partitioning);
+
+        MatrixFreeTools::compute_matrix(
+          matrix_free, *constraints, schur_block_matrix, &SchurBlockOperator::do_cell_integral_local, this);
+      }
+
+    return this->schur_block_matrix;
   }
 
 
@@ -127,7 +155,77 @@ namespace StokesMatrixFree
   SchurBlockOperator<dim, LinearAlgebra, spacedim>::Tvmult(VectorType       &dst,
                                                            const VectorType &src) const
   {
-    Assert(false, ExcNotImplemented());
+    this->vmult(dst, src);
+  }
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
+  void
+  SchurBlockOperator<dim, LinearAlgebra, spacedim>::do_cell_integral_local(
+    FECellIntegrator &pressure) const
+  {
+    pressure.evaluate(EvaluationFlags::values);
+
+    for (unsigned int q = 0; q < pressure.n_q_points; ++q)
+      {
+        VectorizedArray<double> value = pressure.get_value(q);
+
+        // TODO: move to class member
+        constexpr double viscosity = 0.1;
+        constexpr double inv_viscosity = 1/viscosity;
+        value *= inv_viscosity;
+
+        pressure.submit_value(value, q);
+      }
+
+    pressure.integrate(EvaluationFlags::values);
+  }
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
+  void
+  SchurBlockOperator<dim, LinearAlgebra, spacedim>::do_cell_integral_global(
+    FECellIntegrator &pressure,
+    VectorType       &dst,
+    const VectorType &src) const
+  {
+    pressure.gather_evaluate(src, EvaluationFlags::values);
+
+    for (unsigned int q = 0; q < pressure.n_q_points; ++q)
+      {
+        VectorizedArray<double> value = pressure.get_value(q);
+
+        // TODO: move to class member
+        constexpr double viscosity = 0.1;
+        constexpr double inv_viscosity = 1/viscosity;
+        value *= inv_viscosity;
+
+        pressure.submit_value(value, q);
+      }
+
+    pressure.integrate_scatter(EvaluationFlags::values, dst);
+  }
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
+  void
+  SchurBlockOperator<dim, LinearAlgebra, spacedim>::do_cell_integral_range(
+    const MatrixFree<dim, value_type>           &matrix_free,
+    VectorType                                  &dst,
+    const VectorType                            &src,
+    const std::pair<unsigned int, unsigned int> &range) const
+  {
+    FECellIntegrator pressure(matrix_free, range);
+
+    for (unsigned int cell = range.first; cell < range.second; ++cell)
+      {
+        pressure.reinit(cell);
+
+        do_cell_integral_global(pressure, dst, src);
+      }
   }
 
 
@@ -136,13 +234,6 @@ namespace StokesMatrixFree
 #ifdef DEAL_II_WITH_TRILINOS
   template class SchurBlockOperator<2, dealiiTrilinos, 2>;
   template class SchurBlockOperator<3, dealiiTrilinos, 3>;
-  template class SchurBlockOperator<2, Trilinos, 2>;
-  template class SchurBlockOperator<3, Trilinos, 3>;
-#endif
-
-#ifdef DEAL_II_WITH_PETSC
-  template class SchurBlockOperator<2, PETSc, 2>;
-  template class SchurBlockOperator<3, PETSc, 3>;
 #endif
 
 } // namespace StokesMatrixFree

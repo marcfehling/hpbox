@@ -30,13 +30,12 @@
 #include <base/linear_algebra.h>
 #include <base/log.h>
 #include <factory.h>
-#include <stokes/amg.h>
-#include <stokes/block_schur_preconditioner.h>
 #include <stokes/matrixbased/a_block_operator.h>
+#include <stokes/matrixbased/amg.h>
+#include <stokes/matrixbased/block_schur_preconditioner.h>
+#include <stokes/matrixbased/problem.h>
 #include <stokes/matrixbased/schur_block_operator.h>
 #include <stokes/matrixbased/stokes_operator.h>
-#include <stokes/matrixfree/stokes_operator.h>
-#include <stokes/problem.h>
 
 // #include <ctime>
 // #include <iomanip>
@@ -64,18 +63,6 @@ namespace
         return std::make_unique<StokesMatrixBased::StokesOperator<dim, LinearAlgebra, spacedim>>(
           std::forward<Args>(args)...);
       }
-    else if (type == "MatrixFree")
-      {
-        if constexpr (std::is_same<LinearAlgebra, dealiiTrilinos>::value)
-          {
-            return std::make_unique<StokesMatrixFree::StokesOperator<dim, LinearAlgebra, spacedim>>(
-              std::forward<Args>(args)...);
-          }
-        else
-          {
-            AssertThrow(false, ExcMessage("MatrixFree only available with dealii & Trilinos!"));
-          }
-      }
 
     AssertThrow(false, ExcNotImplemented());
     return std::unique_ptr<BlockOperatorType<dim, LinearAlgebra, spacedim>>();
@@ -84,7 +71,7 @@ namespace
 
 
 
-namespace Stokes
+namespace StokesMatrixBased
 {
   template <int dim, typename LinearAlgebra, int spacedim>
   Problem<dim, LinearAlgebra, spacedim>::Problem(const Parameter &prm)
@@ -99,6 +86,8 @@ namespace Stokes
     , velocities(0)
     , pressure(dim)
   {
+    AssertThrow(prm.operator_type == "MatrixBased", ExcNotImplemented());
+
     //
     // TODO!!!
     // nearly identical to Poisson
@@ -193,13 +182,11 @@ namespace Stokes
     else if (prm.grid_type == "y-pipe")
       {
         // boundary_function = Factory::create_function<dim>("zero");
-        // solution_function = Factory::create_function<dim>("zero");
-        // rhs_function      = Factory::create_function<dim>("zero");
 
-        solution_function = std::make_unique<dealii::Functions::ZeroFunction<dim>>(
-          /*n_components=*/dim + 1);
-        rhs_function = std::make_unique<dealii::Functions::ZeroFunction<dim>>(
-          /*n_components=*/dim + 1);
+        // solution_function = Factory::create_function<dim>("zero", /*n_components=*/dim + 1);
+        // rhs_function = Factory::create_function<dim>("zero", /*n_components=*/dim + 1);
+        solution_function = std::make_unique<Functions::ZeroFunction<dim>>(dim + 1);
+        rhs_function      = std::make_unique<Functions::ZeroFunction<dim>>(dim + 1);
       }
     else
       {
@@ -216,6 +203,15 @@ namespace Stokes
         dof_handler,
         triangulation,
         fe_collection.component_mask(pressure));
+
+    // cell weighting
+    if (prm.adaptation_type != "h")
+      {
+        cell_weights.reinit(dof_handler,
+                            parallel::CellWeights<dim, spacedim>::ndofs_weighting(
+                              {prm.prm_adaptation.weighting_factor,
+                               prm.prm_adaptation.weighting_exponent}));
+      }
   }
 
 
@@ -689,4 +685,4 @@ namespace Stokes
   template class Problem<3, PETSc, 3>;
 #endif
 
-} // namespace Stokes
+} // namespace StokesMatrixBased

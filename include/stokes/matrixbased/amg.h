@@ -13,8 +13,8 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef stokes_amg_h
-#define stokes_amg_h
+#ifndef stokes_matrixbased_amg_h
+#define stokes_matrixbased_amg_h
 
 
 #include <deal.II/dofs/dof_handler.h>
@@ -25,10 +25,10 @@
 
 #include <base/linear_algebra.h>
 #include <base/partitioning.h>
-#include <stokes/block_schur_preconditioner.h>
+#include <stokes/matrixbased/block_schur_preconditioner.h>
 
 
-namespace Stokes
+namespace StokesMatrixBased
 {
   template <int dim, typename LinearAlgebra, int spacedim = dim>
   static void
@@ -76,16 +76,18 @@ namespace Stokes
     //
     // TODO: System Matrix or operator? See below
     //
-    const LinearSolvers::BlockSchurPreconditioner<LinearAlgebra,
-                                                  typename LinearAlgebra::BlockSparseMatrix,
-                                                  typename LinearAlgebra::SparseMatrix,
-                                                  typename LinearAlgebra::SparseMatrix>
+    const LinearSolversMatrixBased::BlockSchurPreconditioner<
+      LinearAlgebra,
+      typename LinearAlgebra::BlockSparseMatrix,
+      typename LinearAlgebra::SparseMatrix,
+      typename LinearAlgebra::SparseMatrix>
       preconditioner(stokes_operator.get_system_matrix(),
                      a_block_operator.get_system_matrix(),
                      schur_block_operator.get_system_matrix(),
                      Amg_preconditioner,
                      Mp_preconditioner,
-                     true);
+                     false,
+                     false);
 
     // set up solver
     dealii::PrimitiveVectorMemory<typename LinearAlgebra::BlockVector> mem;
@@ -108,7 +110,7 @@ namespace Stokes
         solver.solve(stokes_operator.get_system_matrix(), dst, src, preconditioner);
       }
   }
-} // namespace Stokes
+} // namespace StokesMatrixBased
 
 
 #endif

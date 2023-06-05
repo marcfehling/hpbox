@@ -49,7 +49,7 @@ namespace
       }
     else if (type == "MatrixFree")
       {
-        if constexpr (std::is_same<LinearAlgebra, dealiiTrilinos>::value)
+        if constexpr (std::is_same_v<LinearAlgebra, dealiiTrilinos>)
           {
             return std::make_unique<
               PoissonMatrixFree::PoissonOperator<dim, LinearAlgebra, spacedim>>(
@@ -137,6 +137,15 @@ namespace Poisson
       fe_collection,
       dof_handler,
       triangulation);
+
+    // cell weighting
+    if (prm.adaptation_type != "h")
+      {
+        cell_weights.reinit(dof_handler,
+                            parallel::CellWeights<dim, spacedim>::ndofs_weighting(
+                              {prm.prm_adaptation.weighting_factor,
+                               prm.prm_adaptation.weighting_exponent}));
+      }
   }
 
 

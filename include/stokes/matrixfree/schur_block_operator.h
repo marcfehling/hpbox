@@ -17,9 +17,9 @@
 #define stokes_matrixfree_schur_block_operator_h
 
 
-#include <deal.II/base/partitioner.h>
+#include <deal.II/lac/diagonal_matrix.h>
 
-#include <deal.II/hp/fe_values.h>
+#include <deal.II/matrix_free/tools.h>
 
 #include <operator.h>
 
@@ -33,13 +33,10 @@ namespace StokesMatrixFree
     using VectorType = typename LinearAlgebra::Vector;
     using value_type = typename VectorType::value_type;
 
-    SchurBlockOperator(const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
-                       const dealii::hp::QCollection<dim>                 &quadrature_collection,
-                       const dealii::hp::FECollection<dim, spacedim>      &fe_collection);
+    using FECellIntegrator = dealii::FEEvaluation<dim, -1, 0, 1, value_type>;
 
     SchurBlockOperator(const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
-                       const dealii::hp::QCollection<dim>                 &quadrature_collection,
-                       const dealii::hp::FEValues<dim, spacedim>          &fe_values_collection);
+                       const dealii::hp::QCollection<dim>                 &quadrature_collection);
 
     std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>
     replicate() const override;
@@ -79,17 +76,30 @@ namespace StokesMatrixFree
 
     dealii::SmartPointer<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
     dealii::SmartPointer<const dealii::hp::QCollection<dim>>                 quadrature_collection;
+    dealii::SmartPointer<const dealii::AffineConstraints<value_type>>        constraints;
+
+    void
+    do_cell_integral_local(FECellIntegrator &integrator) const;
+
+    void
+    do_cell_integral_global(FECellIntegrator &integrator,
+                            VectorType       &dst,
+                            const VectorType &src) const;
+
+    void
+    do_cell_integral_range(const dealii::MatrixFree<dim, value_type>   &matrix_free,
+                           VectorType                                  &dst,
+                           const VectorType                            &src,
+                           const std::pair<unsigned int, unsigned int> &range) const;
 
     // TODO: Add RHS function to constructor
     //       Grab and set as RHS in reinit
     // dealii::Function<dim> rhs_function;
 
-    typename LinearAlgebra::BlockSparseMatrix schur_block_matrix;
+    Partitioning                        partitioning;
+    dealii::MatrixFree<dim, value_type> matrix_free;
 
-    MPI_Comm     communicator;
-    Partitioning partitioning;
-
-    std::shared_ptr<const dealii::Utilities::MPI::Partitioner> dealii_partitioner;
+    mutable typename LinearAlgebra::SparseMatrix schur_block_matrix;
   };
 } // namespace StokesMatrixFree
 

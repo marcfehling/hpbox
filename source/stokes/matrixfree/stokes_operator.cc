@@ -31,95 +31,76 @@ namespace StokesMatrixFree
   template <int dim, typename LinearAlgebra, int spacedim>
   StokesOperator<dim, LinearAlgebra, spacedim>::StokesOperator(
     const hp::MappingCollection<dim, spacedim> &mapping_collection,
-    const hp::QCollection<dim>                 &quadrature_collection,
-    const hp::FECollection<dim, spacedim>      &fe_collection)
+    const std::vector<hp::QCollection<dim>>    &quadrature_collections)
     : mapping_collection(&mapping_collection)
-    , quadrature_collection(&quadrature_collection)
-  {
-    (void)fe_collection; // unused, only here for matching interface to matrixbased
-  }
-
-
-  template <int dim, typename LinearAlgebra, int spacedim>
-  std::unique_ptr<BlockOperatorType<dim, LinearAlgebra, spacedim>>
-  StokesOperator<dim, LinearAlgebra, spacedim>::replicate() const
-  {
-    return std::make_unique<StokesOperator<dim, LinearAlgebra, spacedim>>(
-      *mapping_collection, *quadrature_collection, hp::FECollection<dim, spacedim>());
-  }
+    , quadrature_collections(&quadrature_collections)
+  {}
 
 
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
   StokesOperator<dim, LinearAlgebra, spacedim>::reinit(
-    const Partitioning                  &partitioning,
-    const DoFHandler<dim, spacedim>     &dof_handler,
-    const AffineConstraints<value_type> &constraints)
-  {
-    this->partitioning = partitioning;
-    this->constraints  = &constraints;
-
-    typename MatrixFree<dim, value_type>::AdditionalData data;
-    data.mapping_update_flags = update_gradients;
-    // TODO: more?
-
-    matrix_free.reinit(*mapping_collection, dof_handler, constraints, *quadrature_collection, data);
-  }
-
-
-  template <int dim, typename LinearAlgebra, int spacedim>
-  void
-  StokesOperator<dim, LinearAlgebra, spacedim>::reinit(
-    const Partitioning                  &partitioning,
-    const DoFHandler<dim, spacedim>     &dof_handler,
-    const AffineConstraints<value_type> &constraints,
-    VectorType                          &system_rhs,
-    const dealii::Function<spacedim>    *rhs_function)
+    const std::vector<const Partitioning *>                  &partitionings,
+    const std::vector<const DoFHandler<dim, spacedim> *>     &dof_handlers,
+    const std::vector<const AffineConstraints<value_type> *> &constraints,
+    VectorType                                               &system_rhs,
+    const std::vector<const dealii::Function<spacedim> *>    &rhs_functions)
   {
     TimerOutput::Scope t(getTimer(), "reinit");
 
-    this->partitioning = partitioning;
-    this->constraints  = &constraints;
+    this->constraints = &constraints;
+    this->rhs_functions = &rhs_functions;
 
     typename MatrixFree<dim, value_type>::AdditionalData data;
     data.mapping_update_flags = update_gradients;
     // TODO: more?
 
-    matrix_free.reinit(*mapping_collection, dof_handler, constraints, *quadrature_collection, data);
-
+    matrix_free.reinit(*mapping_collection, dof_handlers, constraints, *quadrature_collections, data);
 
     this->initialize_dof_vector(system_rhs);
 
-    // !!! TODO !!!
-    // add rhs here
-    // how to do this in a matrix free fashion? --- check tutorials (step-67)
-    (void)rhs_function;
-
+    // residual: r = f - Au0
+    // TODO: that is just the -Au0 part. add the rhs function part (check step-37/step-67)
     {
-      AffineConstraints<value_type> constraints_without_dbc;
+      AffineConstraints<value_type> constraints_v_without_dbc;
+      constraints_v_without_dbc.reinit(partitionings[0]->get_relevant_dofs());
+      DoFTools::make_hanging_node_constraints(*dof_handlers[0], constraints_v_without_dbc);
+      constraints_v_without_dbc.close();
 
-      constraints_without_dbc.reinit(partitioning.get_relevant_dofs());
+      AffineConstraints<value_type> constraints_p_without_dbc;
+      constraints_p_without_dbc.reinit(partitionings[1]->get_relevant_dofs());
+      DoFTools::make_hanging_node_constraints(*dof_handlers[1], constraints_p_without_dbc);
+      constraints_p_without_dbc.close();
 
-      DoFTools::make_hanging_node_constraints(dof_handler, constraints_without_dbc);
-      constraints_without_dbc.close();
-
-      VectorType b, x;
+      const std::vector<const AffineConstraints<value_type> *> constraints_without_dbc = {&constraints_v_without_dbc, &constraints_p_without_dbc};
 
       MatrixFree<dim, value_type> matrix_free;
       matrix_free.reinit(
-        *mapping_collection, dof_handler, constraints_without_dbc, *quadrature_collection, data);
+        *mapping_collection, dof_handlers, constraints_without_dbc, *quadrature_collections, data);
 
-      // matrix_free.initialize_dof_vector(b);
-      // matrix_free.initialize_dof_vector(x);
-      this->initialize_dof_vector(b);
-      this->initialize_dof_vector(x);
+      VectorType b;
+      b.reinit(2);
+      matrix_free.initialize_dof_vector(b.block(0), 0);
+      matrix_free.initialize_dof_vector(b.block(1), 1);
+      b.collect_sizes();
 
-      constraints.distribute(x);
+      VectorType x;
+      x.reinit(2);
+      matrix_free.initialize_dof_vector(x.block(0), 0);
+      matrix_free.initialize_dof_vector(x.block(1), 1);
+      x.collect_sizes();
+
+      constraints[0]->distribute(x.block(0));
+      constraints[1]->distribute(x.block(1));
+
+      // only zero rhs function supported for now
+      // TODO: evaluate rhs function here
 
       matrix_free.cell_loop(&StokesOperator::do_cell_integral_range, this, b, x);
 
-      constraints.set_zero(b);
+      constraints[0]->set_zero(b.block(0));
+      constraints[1]->set_zero(b.block(1));
 
       system_rhs -= b;
     }
@@ -131,6 +112,8 @@ namespace StokesMatrixFree
   void
   StokesOperator<dim, LinearAlgebra, spacedim>::vmult(VectorType &dst, const VectorType &src) const
   {
+    TimerOutput::Scope t(getTimer(), "vmult_StokesOperator");
+
     this->matrix_free.cell_loop(&StokesOperator::do_cell_integral_range, this, dst, src, true);
   }
 
@@ -140,8 +123,10 @@ namespace StokesMatrixFree
   void
   StokesOperator<dim, LinearAlgebra, spacedim>::initialize_dof_vector(VectorType &vec) const
   {
+    vec.reinit(2);
     matrix_free.initialize_dof_vector(vec.block(0), 0);
     matrix_free.initialize_dof_vector(vec.block(1), 1);
+    vec.collect_sizes();
   }
 
 
@@ -150,9 +135,7 @@ namespace StokesMatrixFree
   types::global_dof_index
   StokesOperator<dim, LinearAlgebra, spacedim>::m() const
   {
-    // TODO
-    // of each dofhandler
-    return matrix_free.get_dof_handler().n_dofs();
+    return matrix_free.get_dof_handler(0).n_dofs() + matrix_free.get_dof_handler(1).n_dofs();
   }
 
 
@@ -194,18 +177,71 @@ namespace StokesMatrixFree
     const VectorType                            &src,
     const std::pair<unsigned int, unsigned int> &range) const
   {
-    Assert(false, ExcNotImplemented());
-
-    (void)dst;
-    (void)src;
-
-    FECellIntegrator integrator(matrix_free, range);
+    FEEvaluation<dim, -1, 0, dim, value_type> velocity (matrix_free, range, 0);
+    FEEvaluation<dim, -1, 0, 1  , value_type> pressure (matrix_free, range, 1);
 
     for (unsigned int cell = range.first; cell < range.second; ++cell)
       {
-        integrator.reinit(cell);
+        velocity.reinit (cell);
+        velocity.gather_evaluate (src.block(0), EvaluationFlags::gradients);
+        pressure.reinit (cell);
+        pressure.gather_evaluate (src.block(1), EvaluationFlags::values);
 
-        // ...
+        for (unsigned int q = 0; q < velocity.n_q_points; ++q)
+          {
+            Tensor<1, dim, Tensor<1, dim, VectorizedArray<double>>> grad_u =
+              velocity.get_gradient (q);
+            VectorizedArray<double> pres = pressure.get_value(q);
+            VectorizedArray<double> div_u = velocity.get_divergence (q);
+            pressure.submit_value (-div_u, q);
+
+            // TODO: Move viscosity to class member
+            constexpr double viscosity = 0.1;
+            grad_u *= viscosity;
+
+            // subtract p * I
+            for (unsigned int d=0; d<dim; ++d)
+              grad_u[d][d] -= pres;
+
+            velocity.submit_gradient(grad_u, q);
+         }
+
+        velocity.integrate_scatter (EvaluationFlags::gradients, dst.block(0));
+        pressure.integrate_scatter (EvaluationFlags::values, dst.block(1));
+      }
+  }
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
+  void
+  StokesOperator<dim, LinearAlgebra, spacedim>::do_cell_rhs_function_range(
+      const MatrixFree<dim, value_type>           &matrix_free,
+      VectorType                                  &dst,
+      const VectorType                            &src,
+      const std::pair<unsigned int, unsigned int> &range) const
+  {
+    FEEvaluation<dim, -1, 0, dim, value_type> velocity (matrix_free, range, 0);
+    FEEvaluation<dim, -1, 0, 1  , value_type> pressure (matrix_free, range, 1);
+
+    for (unsigned int cell = range.first; cell < range.second; ++cell)
+      {
+        velocity.reinit (cell);
+        velocity.read_dof_values (src.block(0));
+        velocity.evaluate (EvaluationFlags::values | EvaluationFlags::gradients);
+        pressure.reinit (cell);
+        pressure.read_dof_values (src.block(1));
+        pressure.evaluate (EvaluationFlags::values);
+
+        for (unsigned int q = 0; q < velocity.n_q_points; ++q)
+          {
+            // do something like step-67
+         }
+
+        velocity.integrate (EvaluationFlags::values | EvaluationFlags::gradients);
+        velocity.distribute_local_to_global (dst.block(0));
+        pressure.integrate (EvaluationFlags::values);
+        pressure.distribute_local_to_global (dst.block(1));
       }
   }
 

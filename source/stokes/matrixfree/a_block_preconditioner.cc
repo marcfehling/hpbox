@@ -14,7 +14,7 @@
 // ---------------------------------------------------------------------
 
 
-#include <stokes/matrixbased/a_block_preconditioner.h>
+#include <stokes/matrixfree/a_block_preconditioner.h>
 
 
 namespace Stokes

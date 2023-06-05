@@ -13,10 +13,11 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef stokes_problem_h
-#define stokes_problem_h
+#ifndef stokes_matrixbased_problem_h
+#define stokes_matrixbased_problem_h
 
 
+#include <deal.II/distributed/cell_weights.h>
 #include <deal.II/distributed/tria.h>
 
 #include <deal.II/fe/fe_values_extractors.h>
@@ -28,7 +29,7 @@
 #include <problem.h>
 
 
-namespace Stokes
+namespace StokesMatrixBased
 {
   template <int dim, typename LinearAlgebra, int spacedim = dim>
   class Problem : public ProblemBase
@@ -84,6 +85,7 @@ namespace Stokes
 
     std::unique_ptr<dealii::hp::FEValues<dim, spacedim>> fe_values_collection;
     std::unique_ptr<Adaptation::Base>                    adaptation_strategy;
+    dealii::parallel::CellWeights<dim, spacedim>         cell_weights;
 
     std::unique_ptr<dealii::Function<dim>> boundary_function;
     std::unique_ptr<dealii::Function<dim>> solution_function;
@@ -102,7 +104,7 @@ namespace Stokes
 
     unsigned int cycle;
   };
-} // namespace Stokes
+} // namespace StokesMatrixBased
 
 
 #endif
