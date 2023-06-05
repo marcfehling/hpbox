@@ -25,7 +25,7 @@ subsection problem
   set grid type               = y-pipe
   set linear algebra          = dealii & Trilinos
   set operator type           = MatrixFree
-  set problem type            = StokesMatrixFree
+  set problem type            = Stokes
   set solver tolerance factor = 1e-8
   set solver type             = GMG
 end

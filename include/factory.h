@@ -114,29 +114,32 @@ namespace Factory
 
   template <int dim, typename LinearAlgebra, int spacedim = dim, typename... Args>
   std::unique_ptr<ProblemBase>
-  create_problem(const std::string &type, Args &&...args)
+  create_problem(const std::string &problem_type, const std::string operator_type, Args &&...args)
   {
-    if (type == "Poisson")
+    if (problem_type == "Poisson")
       {
         return std::make_unique<Poisson::Problem<dim, LinearAlgebra, spacedim>>(
           std::forward<Args>(args)...);
       }
-    else if (type == "Stokes")
+    else if (problem_type == "Stokes")
       {
-        return std::make_unique<StokesMatrixBased::Problem<dim, LinearAlgebra, spacedim>>(
-          std::forward<Args>(args)...);
-      }
-    else if (type == "StokesMatrixFree")
-      {
-        if constexpr (std::is_same_v<LinearAlgebra, dealiiTrilinos>)
+        if (operator_type == "MatrixBased")
           {
-            return std::make_unique<StokesMatrixFree::Problem<dim, LinearAlgebra, spacedim>>(
+            return std::make_unique<StokesMatrixBased::Problem<dim, LinearAlgebra, spacedim>>(
               std::forward<Args>(args)...);
           }
-        else
+        else if (operator_type == "MatrixFree")
           {
-            AssertThrow(false,
-                        dealii::ExcMessage("MatrixFree only available with dealii & Trilinos!"));
+            if constexpr (std::is_same_v<LinearAlgebra, dealiiTrilinos>)
+              {
+                return std::make_unique<StokesMatrixFree::Problem<dim, LinearAlgebra, spacedim>>(
+                  std::forward<Args>(args)...);
+              }
+            else
+              {
+                AssertThrow(
+                  false, dealii::ExcMessage("MatrixFree only available with dealii & Trilinos!"));
+              }
           }
       }
 
@@ -148,7 +151,8 @@ namespace Factory
 
   template <typename... Args>
   std::unique_ptr<ProblemBase>
-  create_application(const std::string &type,
+  create_application(const std::string &problem_type,
+                     const std::string &operator_type,
                      const unsigned int dimension,
                      const std::string &linear_algebra,
                      Args &&...args)
@@ -157,9 +161,13 @@ namespace Factory
       {
 #ifdef DEAL_II_WITH_TRILINOS
         if (dimension == 2)
-          return create_problem<2, dealiiTrilinos, 2>(type, std::forward<Args>(args)...);
+          return create_problem<2, dealiiTrilinos, 2>(problem_type,
+                                                      operator_type,
+                                                      std::forward<Args>(args)...);
         else if (dimension == 3)
-          return create_problem<3, dealiiTrilinos, 3>(type, std::forward<Args>(args)...);
+          return create_problem<3, dealiiTrilinos, 3>(problem_type,
+                                                      operator_type,
+                                                      std::forward<Args>(args)...);
         else
           AssertThrow(false, dealii::ExcNotImplemented());
 #else
@@ -170,9 +178,13 @@ namespace Factory
       {
 #ifdef DEAL_II_WITH_TRILINOS
         if (dimension == 2)
-          return create_problem<2, Trilinos, 2>(type, std::forward<Args>(args)...);
+          return create_problem<2, Trilinos, 2>(problem_type,
+                                                operator_type,
+                                                std::forward<Args>(args)...);
         else if (dimension == 3)
-          return create_problem<3, Trilinos, 3>(type, std::forward<Args>(args)...);
+          return create_problem<3, Trilinos, 3>(problem_type,
+                                                operator_type,
+                                                std::forward<Args>(args)...);
         else
           AssertThrow(false, dealii::ExcNotImplemented());
 #else
@@ -183,9 +195,13 @@ namespace Factory
       {
 #ifdef DEAL_II_WITH_PETSC
         if (dimension == 2)
-          return create_problem<2, PETSc, 2>(type, std::forward<Args>(args)...);
+          return create_problem<2, PETSc, 2>(problem_type,
+                                             operator_type,
+                                             std::forward<Args>(args)...);
         else if (dimension == 3)
-          return create_problem<3, PETSc, 3>(type, std::forward<Args>(args)...);
+          return create_problem<3, PETSc, 3>(problem_type,
+                                             operator_type,
+                                             std::forward<Args>(args)...);
         else
           AssertThrow(false, dealii::ExcNotImplemented());
 #else
