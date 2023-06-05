@@ -12,16 +12,20 @@ subsection adaptation
   set weighting exponent                   = 1.0
   set weighting factor                     = 1.0
 end
+subsection input output
+  set checkpoint each n steps = 3
+  set file stem               = stokes_weights
+  set log nonzero elements    = false
+  set output each n steps     = 0
+  set resume from filename    = 
+end
 subsection problem
   set adaptation type         = hp Legendre
-  set checkpoint each n steps = 3
   set dimension               = 3
-  set file stem               = stokes_weights
   set grid type               = y-pipe
   set linear algebra          = Trilinos
   set operator type           = MatrixBased
-  set output each n steps     = 0
   set problem type            = Stokes
-  set resume from filename    = 
+  set solver tolerance factor = 1e-8
   set solver type             = AMG
 end

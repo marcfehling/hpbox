@@ -372,7 +372,8 @@ namespace StokesMatrixFree
     typename LinearAlgebra::BlockVector completely_distributed_solution;
     stokes_operator->initialize_dof_vector(completely_distributed_solution);
 
-    SolverControl solver_control_refined(system_rhs.size(), 1e-8 * system_rhs.l2_norm());
+    SolverControl solver_control_refined(system_rhs.size(),
+                                         prm.solver_tolerance_factor * system_rhs.l2_norm());
 
     if (prm.solver_type == "AMG")
       {
@@ -647,7 +648,8 @@ namespace StokesMatrixFree
           stokes_operator->reinit(
             partitionings, dof_handlers, constraints, system_rhs, rhs_functions);
 
-          // TODO: Add num of nonzero elements on demand
+          if (prm.log_nonzero_elements)
+            Log::log_nonzero_elements(stokes_operator->get_system_matrix());
 
           solve();
 

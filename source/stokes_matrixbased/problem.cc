@@ -296,7 +296,8 @@ namespace StokesMatrixBased
     typename LinearAlgebra::BlockVector completely_distributed_solution;
     stokes_operator->initialize_dof_vector(completely_distributed_solution);
 
-    SolverControl solver_control_refined(system_rhs.size(), 1e-8 * system_rhs.l2_norm());
+    SolverControl solver_control_refined(system_rhs.size(),
+                                         prm.solver_tolerance_factor * system_rhs.l2_norm());
 
     if (prm.solver_type == "AMG")
       {

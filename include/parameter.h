@@ -25,9 +25,13 @@
 struct Parameter : public dealii::ParameterAcceptor
 {
   Parameter()
-    : dealii::ParameterAcceptor("problem")
+    : dealii::ParameterAcceptor()
   {
-    // subsection problem
+    std::string *subsection = const_cast<std::string *>(&section_name);
+
+
+    *subsection = "problem";
+
     dimension = 2;
     add_parameter("dimension", dimension);
 
@@ -49,7 +53,12 @@ struct Parameter : public dealii::ParameterAcceptor
     solver_type = "GMG";
     add_parameter("solver type", solver_type);
 
-    // subsection inputoutput
+    solver_tolerance_factor = 1e-12;
+    add_parameter("solver tolerance factor", solver_tolerance_factor);
+
+
+    *subsection = "input output";
+
     file_stem = "my_problem";
     add_parameter("file stem", file_stem);
 
@@ -61,6 +70,9 @@ struct Parameter : public dealii::ParameterAcceptor
 
     checkpoint_frequency = 0;
     add_parameter("checkpoint each n steps", checkpoint_frequency);
+
+    log_nonzero_elements = false;
+    add_parameter("log nonzero elements", log_nonzero_elements);
   }
 
   unsigned int dimension;
@@ -71,11 +83,13 @@ struct Parameter : public dealii::ParameterAcceptor
   std::string grid_type;
   std::string operator_type;
   std::string solver_type;
+  double      solver_tolerance_factor;
 
   std::string  file_stem;
   unsigned int output_frequency;
   std::string  resume_filename;
   unsigned int checkpoint_frequency;
+  bool         log_nonzero_elements;
 
   Adaptation::Parameter prm_adaptation;
 };

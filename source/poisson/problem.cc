@@ -247,7 +247,8 @@ namespace Poisson
     typename LinearAlgebra::Vector completely_distributed_solution;
     poisson_operator->initialize_dof_vector(completely_distributed_solution);
 
-    SolverControl solver_control(system_rhs.size(), 1e-12 * system_rhs.l2_norm());
+    SolverControl solver_control(system_rhs.size(),
+                                 prm.solver_tolerance_factor * system_rhs.l2_norm());
 
     if (prm.solver_type == "AMG")
       {
@@ -432,7 +433,7 @@ namespace Poisson
 
           poisson_operator->reinit(partitioning, dof_handler, constraints, system_rhs, nullptr);
 
-          if (prm.operator_type == "MatrixBased")
+          if (prm.operator_type == "MatrixBased" || prm.log_nonzero_elements)
             Log::log_nonzero_elements(poisson_operator->get_system_matrix());
 
           solve();

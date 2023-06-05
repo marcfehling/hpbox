@@ -14,7 +14,7 @@ subsection adaptation
 end
 subsection input output
   set checkpoint each n steps = 0
-  set file stem               = stokes_matrixfree_amg_ypipe
+  set file stem               = stokes_dealiitrilinos_ypipe
   set log nonzero elements    = false
   set output each n steps     = 0
   set resume from filename    = 
@@ -24,8 +24,8 @@ subsection problem
   set dimension               = 3
   set grid type               = y-pipe
   set linear algebra          = dealii & Trilinos
-  set operator type           = MatrixFree
-  set problem type            = StokesMatrixFree
+  set operator type           = MatrixBased
+  set problem type            = Stokes
   set solver tolerance factor = 1e-8
   set solver type             = AMG
 end

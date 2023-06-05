@@ -12,16 +12,20 @@ subsection adaptation
   set weighting exponent                   = 1.9
   set weighting factor                     = 1.0
 end
+subsection input output
+  set checkpoint each n steps = 0
+  set file stem               = poisson_cycles
+  set log nonzero elements    = false
+  set output each n steps     = 0
+  set resume from filename    = 
+end
 subsection problem
   set adaptation type         = hp Legendre
-  set checkpoint each n steps = 0
   set dimension               = 2
-  set file stem               = poisson_cycles
   set grid type               = reentrant corner
   set linear algebra          = Trilinos
   set operator type           = MatrixBased
-  set output each n steps     = 0
   set problem type            = Poisson
-  set resume from filename    = 
+  set solver tolerance factor = 1e-12
   set solver type             = AMG
 end
