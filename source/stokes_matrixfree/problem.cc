@@ -560,7 +560,19 @@ namespace StokesMatrixFree
   void
   Problem<dim, LinearAlgebra, spacedim>::resume_from_checkpoint()
   {
-    // TODO: same as Poisson
+    // extract cycle from filename
+    const auto pos = prm.resume_filename.rfind(".cycle-");
+    AssertThrow(pos != std::string::npos,
+                ExcMessage("Checkpoint: filename misses information about cycle!"));
+    const auto substring = prm.resume_filename.substr(pos + 7);
+    try
+      {
+        cycle = std::stoul(substring);
+      }
+    catch (...)
+      {
+        AssertThrow(false, ExcMessage("Checkpoint: invalid cycle!"));
+      }
 
     triangulation.load(prm.resume_filename);
 
@@ -588,19 +600,13 @@ namespace StokesMatrixFree
   void
   Problem<dim, LinearAlgebra, spacedim>::write_to_checkpoint()
   {
-    // TODO: same as Poisson
-
     // write triangulation and data
     dof_handler_p.prepare_for_serialization_of_active_fe_indices();
     adaptation_strategy_p->prepare_for_serialization();
 
-    const std::string filename = prm.file_stem + "-checkpoint";
+    const std::string filename =
+      prm.file_stem + ".cycle-" + Utilities::to_string(cycle, 2) + ".checkpoint";
     triangulation.save(filename);
-
-    // write metadata
-    std::ofstream                   file(filename + ".metadata", std::ios::binary);
-    boost::archive::binary_oarchive oa(file);
-    oa << cycle;
 
     getPCOut() << "Checkpoint written." << std::endl;
   }

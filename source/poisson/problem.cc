@@ -363,6 +363,20 @@ namespace Poisson
   void
   Problem<dim, LinearAlgebra, spacedim>::resume_from_checkpoint()
   {
+    // extract cycle from filename
+    const auto pos = prm.resume_filename.rfind(".cycle-");
+    AssertThrow(pos != std::string::npos,
+                ExcMessage("Checkpoint: filename misses information about cycle!"));
+    const auto substring = prm.resume_filename.substr(pos + 7);
+    try
+      {
+        cycle = std::stoul(substring);
+      }
+    catch (...)
+      {
+        AssertThrow(false, ExcMessage("Checkpoint: invalid cycle!"));
+      }
+
     triangulation.load(prm.resume_filename);
 
     // custom repartitioning using DoFs requires correctly assigned FEs
@@ -372,11 +386,6 @@ namespace Poisson
 
     // unpack after repartitioning to avoid unnecessary data transfer
     adaptation_strategy->unpack_after_serialization();
-
-    // load metadata
-    std::ifstream                   file(prm.resume_filename + ".metadata", std::ios::binary);
-    boost::archive::binary_iarchive ia(file);
-    ia >> cycle;
   }
 
 
@@ -389,13 +398,9 @@ namespace Poisson
     dof_handler.prepare_for_serialization_of_active_fe_indices();
     adaptation_strategy->prepare_for_serialization();
 
-    const std::string filename = prm.file_stem + "-checkpoint";
+    const std::string filename =
+      prm.file_stem + ".cycle-" + Utilities::to_string(cycle, 2) + ".checkpoint";
     triangulation.save(filename);
-
-    // write metadata
-    std::ofstream                   file(filename + ".metadata", std::ios::binary);
-    boost::archive::binary_oarchive oa(file);
-    oa << cycle;
 
     getPCOut() << "Checkpoint written." << std::endl;
   }

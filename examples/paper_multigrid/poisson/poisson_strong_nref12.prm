@@ -17,7 +17,7 @@ subsection input output
   set file stem               = poisson_strong_nref12
   set log nonzero elements    = false
   set output each n steps     = 0
-  set resume from filename    = poisson_strong_nref12-checkpoint
+  set resume from filename    = poisson_strong_nref12.cycle-05.checkpoint
 end
 subsection problem
   set adaptation type         = hp Legendre
