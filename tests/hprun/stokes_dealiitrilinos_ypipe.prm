@@ -4,7 +4,7 @@ subsection adaptation
   set max level                            = 4
   set min degree                           = 3
   set min level                            = 1
-  set n cycles                             = 3
+  set n cycles                             = 2
   set p-coarsen fraction                   = 0.5
   set p-refine fraction                    = 0.5
   set total coarsen fraction               = 0.03
