@@ -152,11 +152,11 @@ namespace Adaptation
                                               prm.p_coarsen_fraction);
 
     // limit levels
-    Assert(triangulation->n_levels() >= prm.min_h_level + 1 &&
-             triangulation->n_levels() <= prm.max_h_level + 1,
+    Assert(triangulation->n_global_levels() >= prm.min_h_level + 1 &&
+             triangulation->n_global_levels() <= prm.max_h_level + 1,
            ExcInternalError());
 
-    if (triangulation->n_levels() > prm.max_h_level)
+    if (triangulation->n_global_levels() > prm.max_h_level)
       for (const auto &cell : triangulation->active_cell_iterators_on_level(prm.max_h_level))
         cell->clear_refine_flag();
 
