@@ -164,8 +164,8 @@ namespace StokesMatrixBased
                      schur_block_operator.get_system_matrix(),
                      Amg_preconditioner,
                      Mp_preconditioner,
-                     false,
-                     false);
+                     /*do_solve_A=*/false,
+                     /*do_solve_Schur_complement=*/true);
 
     // set up solver
     dealii::PrimitiveVectorMemory<typename LinearAlgebra::BlockVector> mem;
