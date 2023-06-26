@@ -32,7 +32,6 @@
 
 namespace StokesMatrixFree
 {
-  // TODO: Move to schur_block_preconditioner.h/cc
   template <int dim, typename LinearAlgebra, int spacedim = dim>
   class InverseDiagonalMatrix : public dealii::Subscriptor
   {
@@ -42,7 +41,7 @@ namespace StokesMatrixFree
 
     InverseDiagonalMatrix(const OperatorType<dim, LinearAlgebra, spacedim> &op)
     {
-      op.compute_inverse_diagonal(diagonal_matrix.get_vector());
+      op.compute_inverse_diagonal(inverse_diagonal.get_vector());
     };
 
     void
@@ -50,12 +49,12 @@ namespace StokesMatrixFree
     {
       dealii::TimerOutput::Scope t(getTimer(), "vmult_SchurBlockDiagonal");
 
-      diagonal_matrix.vmult(dst, src);
+      inverse_diagonal.vmult(dst, src);
       dst *= omega;
     };
 
   private:
-    dealii::DiagonalMatrix<VectorType> diagonal_matrix;
+    dealii::DiagonalMatrix<VectorType> inverse_diagonal;
   };
 
 
