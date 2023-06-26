@@ -450,7 +450,7 @@ namespace Poisson
             output_results();
         }
 
-        Log::log_timings();
+        Log::log_timing_statistics(mpi_communicator);
 
         if (Utilities::MPI::this_mpi_process(mpi_communicator) == 0)
           {

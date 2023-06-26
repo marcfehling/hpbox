@@ -54,7 +54,7 @@ namespace Log
   log_nonzero_elements(const MatrixType &matrix);
 
   void
-  log_timings();
+  log_timing_statistics(const MPI_Comm mpi_communicator);
 } // namespace Log
 
 

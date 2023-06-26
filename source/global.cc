@@ -36,8 +36,7 @@ getPCOut()
 TimerOutput &
 getTimer()
 {
-  static TimerOutput computing_timer(MPI_COMM_WORLD,
-                                     getPCOut(),
+  static TimerOutput computing_timer(getPCOut(),
                                      TimerOutput::never,
                                      TimerOutput::wall_times);
   return computing_timer;

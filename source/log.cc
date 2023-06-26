@@ -193,15 +193,22 @@ namespace Log
 
 
   void
-  log_timings()
+  log_timing_statistics(const MPI_Comm mpi_communicator)
   {
-    getTimer().print_summary();
+    getTimer().print_wall_time_statistics(mpi_communicator);
     getPCOut() << std::endl;
 
     for (const auto &summary : getTimer().get_summary_data(TimerOutput::total_wall_time))
       {
-        getTable().add_value(summary.first, summary.second);
-        getTable().set_scientific(summary.first, true);
+        const Utilities::MPI::MinMaxAvg data =
+          Utilities::MPI::min_max_avg(summary.second, mpi_communicator);
+
+        getTable().add_value(summary.first + "_min", data.min);
+        getTable().add_value(summary.first + "_max", data.max);
+        getTable().add_value(summary.first + "_avg", data.avg);
+        getTable().set_scientific(summary.first + "_min", true);
+        getTable().set_scientific(summary.first + "_max", true);
+        getTable().set_scientific(summary.first + "_avg", true);
       }
   }
 
