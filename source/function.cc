@@ -72,7 +72,7 @@ namespace Function
   KovasznayExactVelocity<dim>::KovasznayExactVelocity()
     : dealii::Function<dim>(dim)
   {
-    Assert(dim == 2, ExcNotImplemented());
+    Assert(dim >= 2, ExcNotImplemented());
   }
 
   template <int dim>
@@ -95,9 +95,7 @@ namespace Function
   template <int dim>
   KovasznayExactPressure<dim>::KovasznayExactPressure()
     : dealii::Function<dim>(1)
-  {
-    Assert(dim == 2, ExcNotImplemented());
-  }
+  {}
 
   template <int dim>
   double
@@ -126,16 +124,14 @@ namespace Function
   template <int dim>
   KovasznayExact<dim>::KovasznayExact()
     : dealii::Function<dim>(dim + 1)
-  {
-    Assert(dim == 2, ExcNotImplemented());
-  }
+  {}
 
   template <int dim>
   void
   KovasznayExact<dim>::vector_value(const Point<dim> &p, Vector<double> &values) const
   {
     velocity_function.vector_value(p, values);
-    values[2] = pressure_function.value(p);
+    values[dim] = pressure_function.value(p);
   }
 
 
@@ -144,7 +140,7 @@ namespace Function
   KovasznayRHSVelocity<dim>::KovasznayRHSVelocity()
     : dealii::Function<dim>(dim)
   {
-    Assert(dim == 2, ExcNotImplemented());
+    Assert(dim >= 2, ExcNotImplemented());
   }
 
   template <int dim>
@@ -174,16 +170,14 @@ namespace Function
   template <int dim>
   KovasznayRHS<dim>::KovasznayRHS()
     : dealii::Function<dim>(dim + 1)
-  {
-    Assert(dim == 2, ExcNotImplemented());
-  }
+  {}
 
   template <int dim>
   void
   KovasznayRHS<dim>::vector_value(const Point<dim> &p, Vector<double> &values) const
   {
     velocity_function.vector_value(p, values);
-    values[2] = 0.;
+    values[dim] = 0.;
   }
 
 

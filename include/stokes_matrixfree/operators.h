@@ -237,8 +237,8 @@ namespace StokesMatrixFree
 
     void
     do_cell_rhs_function_range(const dealii::MatrixFree<dim, value_type>   &matrix_free,
-                               VectorType                                  &dst,
-                               const VectorType                            &src,
+                               VectorType                                  &system_rhs,
+                               const VectorType                            &/*dummy*/,
                                const std::pair<unsigned int, unsigned int> &range) const;
 
     // TODO: Make partitioning a pointer? Or leave it like this?

@@ -56,7 +56,7 @@ namespace Grid
   void
   kovasznay(Triangulation<dim, spacedim> &triangulation)
   {
-    GridGenerator::hyper_cube(triangulation, -0.5, 1.5);
+    GridGenerator::subdivided_hyper_cube(triangulation, 2, -0.5, 1.5);
   }
 
 

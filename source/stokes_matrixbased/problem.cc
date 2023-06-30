@@ -553,7 +553,8 @@ namespace StokesMatrixBased
 
           solve();
 
-          // compute_errors();
+          if (prm.grid_type == "kovasznay")
+            compute_errors();
           adaptation_strategy->estimate_mark();
 
           if ((prm.output_frequency > 0) && (cycle % prm.output_frequency == 0))

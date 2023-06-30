@@ -654,7 +654,8 @@ namespace StokesMatrixFree
 
           solve();
 
-          // compute_errors();
+          if (prm.grid_type == "kovasznay")
+            compute_errors();
           adaptation_strategy_p->estimate_mark();
 
           if ((prm.output_frequency > 0) && (cycle % prm.output_frequency == 0))
