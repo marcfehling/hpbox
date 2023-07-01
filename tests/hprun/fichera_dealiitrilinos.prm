@@ -14,7 +14,7 @@ subsection adaptation
 end
 subsection input output
   set checkpoint each n steps = 0
-  set file stem               = poisson_dealiitrilinos
+  set file stem               = fichera_dealiitrilinos
   set log nonzero elements    = false
   set output each n steps     = 0
   set resume from filename    = 

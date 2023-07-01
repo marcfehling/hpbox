@@ -14,7 +14,7 @@ subsection adaptation
 end
 subsection input output
   set checkpoint each n steps = 0
-  set file stem               = poisson_petsc
+  set file stem               = fichera_matrixfree_gmg
   set log nonzero elements    = false
   set output each n steps     = 0
   set resume from filename    = 
@@ -23,9 +23,9 @@ subsection problem
   set adaptation type         = hp Legendre
   set dimension               = 2
   set grid type               = reentrant corner
-  set linear algebra          = PETSc
-  set operator type           = MatrixBased
+  set linear algebra          = dealii & Trilinos
+  set operator type           = MatrixFree
   set problem type            = Poisson
   set solver tolerance factor = 1e-12
-  set solver type             = AMG
+  set solver type             = GMG
 end

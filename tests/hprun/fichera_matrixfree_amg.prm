@@ -14,7 +14,7 @@ subsection adaptation
 end
 subsection input output
   set checkpoint each n steps = 0
-  set file stem               = poisson_matrixfree_gmg
+  set file stem               = fichera_matrixfree_amg
   set log nonzero elements    = false
   set output each n steps     = 0
   set resume from filename    = 
@@ -27,5 +27,5 @@ subsection problem
   set operator type           = MatrixFree
   set problem type            = Poisson
   set solver tolerance factor = 1e-12
-  set solver type             = GMG
+  set solver type             = AMG
 end
