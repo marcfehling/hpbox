@@ -189,7 +189,7 @@ namespace StokesMatrixBased
     // LA::distributed::Vector needs to know about ghost indices,
     // but Trilinos/PETSc::MPI::Vector must remain non-ghosted.
 
-    Assert(dealii_partitioner->ghost_indices_initialized(), ExcInternalError());
+    Assert(dealii_partitioner->n_mpi_processes() == 1 || dealii_partitioner->ghost_indices_initialized(), ExcInternalError());
     vec.reinit(dealii_partitioner, /*make_ghosted*/ false);
   }
 
@@ -398,7 +398,7 @@ namespace StokesMatrixBased
     // LA::distributed::Vector needs to know about ghost indices,
     // but Trilinos/PETSc::MPI::Vector must remain non-ghosted.
 
-    Assert(dealii_partitioner->ghost_indices_initialized(), ExcInternalError());
+    Assert(dealii_partitioner->n_mpi_processes() == 1 || dealii_partitioner->ghost_indices_initialized(), ExcInternalError());
     vec.reinit(dealii_partitioner, /*make_ghosted*/ false);
   }
 
@@ -657,7 +657,7 @@ namespace StokesMatrixBased
 
 #ifdef DEBUG
     for (const auto &partitioner : dealii_partitioners)
-      Assert(partitioner->ghost_indices_initialized(), ExcInternalError());
+      Assert(partitioner->n_mpi_processes() == 1 || partitioner->ghost_indices_initialized(), ExcInternalError());
 #endif
     vec.reinit(dealii_partitioners, /*make_ghosted=*/false);
   }
