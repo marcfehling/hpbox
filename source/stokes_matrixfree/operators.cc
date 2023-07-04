@@ -499,8 +499,12 @@ namespace StokesMatrixFree
       matrix_free.initialize_dof_vector(x.block(1), 1);
       x.collect_sizes();
 
-      constraints[0]->distribute(x.block(0));
-      constraints[1]->distribute(x.block(1));
+      {
+        TimerOutput::Scope t(getTimer(), "distribute_constraints_in_reinit");
+
+        constraints[0]->distribute(x.block(0));
+        constraints[1]->distribute(x.block(1));
+      }
 
       // only zero rhs function supported for now
       // TODO: evaluate rhs function here
