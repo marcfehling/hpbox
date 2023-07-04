@@ -155,7 +155,9 @@ namespace StokesMatrixFree
             const OperatorType<dim, LinearAlgebra, spacedim>                     &a_block_operator,
             const OperatorType<dim, LinearAlgebra, spacedim> &schur_block_operator,
             typename LinearAlgebra::BlockVector              &dst,
-            const typename LinearAlgebra::BlockVector        &src)
+            const typename LinearAlgebra::BlockVector        &src,
+            const bool do_solve_A,
+            const bool do_solve_Schur_complement)
   {
     typename LinearAlgebra::PreconditionAMG::AdditionalData Amg_data;
     if constexpr (std::is_same<LinearAlgebra, PETSc>::value)
@@ -197,8 +199,8 @@ namespace StokesMatrixFree
                      schur_block_operator.get_system_matrix(),
                      Amg_preconditioner,
                      Mp_preconditioner,
-                     /*do_solve_A=*/false,
-                     /*do_solve_Schur_complement=*/true);
+                     do_solve_A,
+                     do_solve_Schur_complement);
 
     // set up solver
     dealii::PrimitiveVectorMemory<typename LinearAlgebra::BlockVector> mem;
@@ -224,7 +226,9 @@ namespace StokesMatrixFree
             const typename LinearAlgebra::BlockVector                    &src,
             const dealii::hp::MappingCollection<dim, spacedim>           &mapping_collection,
             const std::vector<const dealii::DoFHandler<dim, spacedim> *> &stokes_dof_handlers,
-            const std::string                                             filename_mg_timers)
+            const std::string                                             filename_mg_timers,
+            const bool do_solve_A,
+            const bool do_solve_Schur_complement)
   {
     // poisson has mappingcollection and dofhandler as additional parameters
 
@@ -516,8 +520,8 @@ namespace StokesMatrixFree
                      schur_block_operator,
                      a_block_preconditioner,
                      schur_block_preconditioner,
-                     /*do_solve_A=*/false,
-                     /*do_solve_Schur_complement=*/true);
+                     do_solve_A,
+                     do_solve_Schur_complement);
 
     // set up solver
     dealii::PrimitiveVectorMemory<typename LinearAlgebra::BlockVector> mem;

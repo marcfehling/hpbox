@@ -387,7 +387,9 @@ namespace StokesMatrixFree
                                                   *a_block_operator,
                                                   *schur_block_operator,
                                                   completely_distributed_solution,
-                                                  system_rhs);
+                                                  system_rhs,
+                                                  prm.solver_a_expensive,
+                                                  prm.solver_schur_expensive);
         }
       else if (prm.solver_type == "GMG")
         {
@@ -400,7 +402,9 @@ namespace StokesMatrixFree
                                                   mapping_collection,
                                                   dof_handlers,
                                                   filename_stem + "-mgtimes-cycle_" +
-                                                    std::to_string(cycle) + ".log");
+                                                    std::to_string(cycle) + ".log",
+                                                  prm.solver_a_expensive,
+                                                  prm.solver_schur_expensive);
         }
       else
         {
