@@ -56,6 +56,12 @@ struct Parameter : public dealii::ParameterAcceptor
     solver_tolerance_factor = 1e-12;
     add_parameter("solver tolerance factor", solver_tolerance_factor);
 
+    solver_a_expensive = false;
+    add_parameter("solver A expensive", solver_a_expensive);
+
+    solver_schur_expensive = true;
+    add_parameter("solver Schur expensive", solver_schur_expensive);
+
 
     *subsection = "input output";
 
@@ -84,6 +90,8 @@ struct Parameter : public dealii::ParameterAcceptor
   std::string operator_type;
   std::string solver_type;
   double      solver_tolerance_factor;
+  bool solver_a_expensive;
+  bool solver_schur_expensive;
 
   std::string  file_stem;
   unsigned int output_frequency;

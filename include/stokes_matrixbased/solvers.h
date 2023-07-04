@@ -117,7 +117,9 @@ namespace StokesMatrixBased
             const OperatorType<dim, LinearAlgebra, spacedim>      &schur_block_operator,
             typename LinearAlgebra::BlockVector                   &dst,
             const typename LinearAlgebra::BlockVector             &src,
-            const dealii::DoFHandler<dim, spacedim>               &dof_handler)
+            const dealii::DoFHandler<dim, spacedim>               &dof_handler,
+            const bool do_solve_A,
+            const bool do_solve_Schur_complement)
   {
     typename LinearAlgebra::PreconditionAMG::AdditionalData Amg_data;
     if constexpr (std::is_same<LinearAlgebra, PETSc>::value)
@@ -164,8 +166,8 @@ namespace StokesMatrixBased
                      schur_block_operator.get_system_matrix(),
                      Amg_preconditioner,
                      Mp_preconditioner,
-                     /*do_solve_A=*/false,
-                     /*do_solve_Schur_complement=*/true);
+                     do_solve_A,
+                     do_solve_Schur_complement);
 
     // set up solver
     dealii::PrimitiveVectorMemory<typename LinearAlgebra::BlockVector> mem;
