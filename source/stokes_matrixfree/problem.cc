@@ -369,49 +369,60 @@ namespace StokesMatrixFree
   void
   Problem<dim, LinearAlgebra, spacedim>::solve()
   {
-    TimerOutput::Scope t(getTimer(), "solve");
-
-    // We need to introduce a vector that does not contain all ghost elements.
     typename LinearAlgebra::BlockVector completely_distributed_solution;
-    stokes_operator->initialize_dof_vector(completely_distributed_solution);
 
-    SolverControl solver_control_refined(system_rhs.size(),
-                                         prm.solver_tolerance_factor * system_rhs.l2_norm());
+    {
+      TimerOutput::Scope t(getTimer(), "solve");
 
-    if (prm.solver_type == "AMG")
-      {
-        solve_amg<dim, LinearAlgebra, spacedim>(solver_control_refined,
-                                                *stokes_operator,
-                                                *a_block_operator,
-                                                *schur_block_operator,
-                                                completely_distributed_solution,
-                                                system_rhs);
-      }
-    else if (prm.solver_type == "GMG")
-      {
-        solve_gmg<dim, LinearAlgebra, spacedim>(solver_control_refined,
-                                                *stokes_operator,
-                                                *a_block_operator,
-                                                *schur_block_operator,
-                                                completely_distributed_solution,
-                                                system_rhs,
-                                                mapping_collection,
-                                                dof_handlers,
-                                                filename_stem + "-mgtimes-cycle_" +
-                                                  std::to_string(cycle) + ".log");
-      }
-    else
-      {
-        Assert(false, ExcNotImplemented());
-      }
+      // We need to introduce a vector that does not contain all ghost elements.
+      stokes_operator->initialize_dof_vector(completely_distributed_solution);
 
-    Log::log_iterations(solver_control_refined);
+      SolverControl solver_control_refined(system_rhs.size(),
+                                           prm.solver_tolerance_factor * system_rhs.l2_norm());
 
-    constraints_v.distribute(completely_distributed_solution.block(0));
-    constraints_p.distribute(completely_distributed_solution.block(1));
+      if (prm.solver_type == "AMG")
+        {
+          solve_amg<dim, LinearAlgebra, spacedim>(solver_control_refined,
+                                                  *stokes_operator,
+                                                  *a_block_operator,
+                                                  *schur_block_operator,
+                                                  completely_distributed_solution,
+                                                  system_rhs);
+        }
+      else if (prm.solver_type == "GMG")
+        {
+          solve_gmg<dim, LinearAlgebra, spacedim>(solver_control_refined,
+                                                  *stokes_operator,
+                                                  *a_block_operator,
+                                                  *schur_block_operator,
+                                                  completely_distributed_solution,
+                                                  system_rhs,
+                                                  mapping_collection,
+                                                  dof_handlers,
+                                                  filename_stem + "-mgtimes-cycle_" +
+                                                    std::to_string(cycle) + ".log");
+        }
+      else
+        {
+          Assert(false, ExcNotImplemented());
+        }
 
-    locally_relevant_solution = completely_distributed_solution;
-    locally_relevant_solution.update_ghost_values();
+      Log::log_iterations(solver_control_refined);
+    }
+
+    {
+      TimerOutput::Scope t(getTimer(), "distribute_constraints");
+
+      constraints_v.distribute(completely_distributed_solution.block(0));
+      constraints_p.distribute(completely_distributed_solution.block(1));
+    }
+
+    {
+      TimerOutput::Scope t(getTimer(), "update_ghost_values");
+
+      locally_relevant_solution = completely_distributed_solution;
+      locally_relevant_solution.update_ghost_values();
+    }
 
 
 
