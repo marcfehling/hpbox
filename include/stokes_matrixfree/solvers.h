@@ -105,6 +105,9 @@ namespace StokesMatrixFree
                        dst.block(1),
                        src.block(1),
                        schur_complement_preconditioner);
+
+          // TODO: (temporary) log S-Block solver iterations
+          getPCOut() << "   S-Block solved in " << solver_control.last_step() << " iterations." << std::endl;
         }
       else
         schur_complement_preconditioner.vmult(dst.block(1), src.block(1));
