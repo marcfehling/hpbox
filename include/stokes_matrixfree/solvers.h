@@ -435,6 +435,33 @@ namespace StokesMatrixFree
         smoother_data[level].eig_cg_n_iterations = mg_data.smoother.eig_cg_n_iterations;
       }
 
+    // Estimate eigenvalues on all levels, i.e., all operators
+    getPCOut() << "Eigenvalue estimation:" << std::endl;
+    for (unsigned int level = min_level; level <= max_level; level++)
+      {
+        SmootherType chebyshev;
+        chebyshev.initialize(*operators[level], smoother_data[level]);
+
+        VectorType vec;
+        operators[level]->initialize_dof_vector(vec);
+        const auto evs = chebyshev.estimate_eigenvalues(vec);
+
+        // const unsigned int smoothing_range = 20;
+
+        // const double alpha =
+        //   (smoothing_range > 1. ?
+        //       evs.max_eigenvalue_estimate / smoothing_range :
+        //       std::min(0.9 * evs.max_eigenvalue_estimate,
+        //               evs.min_eigenvalue_estimate));
+
+        // const double omega = 2.0 / (alpha + evs.max_eigenvalue_estimate);
+
+        getPCOut() << "- level: " << level << std::endl;
+        getPCOut() << "    - min ev: " << evs.min_eigenvalue_estimate << std::endl;
+        getPCOut() << "    - max ev: " << evs.max_eigenvalue_estimate << std::endl;
+        getPCOut() << std::endl;
+      }
+
     MGSmootherPrecondition<LevelMatrixType, SmootherType, VectorType> mg_smoother;
     mg_smoother.initialize(operators, smoother_data);
 
