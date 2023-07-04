@@ -18,6 +18,8 @@
 #include <global.h>
 #include <parameter.h>
 
+#include <deal.II/base/logstream.h>
+
 
 int
 main(int argc, char *argv[])
@@ -25,6 +27,9 @@ main(int argc, char *argv[])
   try
     {
       dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
+
+      if (dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0)      
+        dealii::deallog.attach(std::cout);
 
       Parameter prm;
 
