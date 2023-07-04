@@ -313,8 +313,8 @@ mg_solve(SolverControl                                         &solver_control,
   ReductionControl     coarse_grid_solver_control(mg_data.coarse_solver.maxiter,
                                               mg_data.coarse_solver.abstol,
                                               mg_data.coarse_solver.reltol,
-                                              false,
-                                              false);
+                                              /*log_history=*/true,
+                                              /*log_result=*/true);
   SolverCG<VectorType> coarse_grid_solver(coarse_grid_solver_control);
 
   PreconditionIdentity precondition_identity;
