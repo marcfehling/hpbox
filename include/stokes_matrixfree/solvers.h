@@ -437,7 +437,7 @@ namespace StokesMatrixFree
 
     // Estimate eigenvalues on all levels, i.e., all operators
     getPCOut() << "Eigenvalue estimation:" << std::endl;
-    for (unsigned int level = min_level; level <= max_level; level++)
+    for (unsigned int level = min_level + 1; level <= max_level; level++)
       {
         SmootherType chebyshev;
         chebyshev.initialize(*operators[level], smoother_data[level]);
