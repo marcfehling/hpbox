@@ -401,7 +401,7 @@ namespace StokesMatrixFree
                                                   system_rhs,
                                                   mapping_collection,
                                                   dof_handlers,
-                                                  filename_stem + "-mgtimes-cycle_" +
+                                                  filename_stem + "-mglevel-cycle_" +
                                                     std::to_string(cycle) + ".log",
                                                   prm.solver_a_expensive,
                                                   prm.solver_schur_expensive);
