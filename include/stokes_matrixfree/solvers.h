@@ -229,7 +229,7 @@ namespace StokesMatrixFree
             const typename LinearAlgebra::BlockVector                    &src,
             const dealii::hp::MappingCollection<dim, spacedim>           &mapping_collection,
             const std::vector<const dealii::DoFHandler<dim, spacedim> *> &stokes_dof_handlers,
-            const std::string                                             filename_mg_timers,
+            const std::string                                             filename_mg_level,
             const bool do_solve_A,
             const bool do_solve_Schur_complement)
   {
@@ -435,8 +435,12 @@ namespace StokesMatrixFree
         smoother_data[level].eig_cg_n_iterations = mg_data.smoother.eig_cg_n_iterations;
       }
 
+    // ----------
     // Estimate eigenvalues on all levels, i.e., all operators
-    getPCOut() << "Eigenvalue estimation:" << std::endl;
+    // TODO: based on peter's code
+    // https://github.com/peterrum/dealii-dd-and-schwarz/blob/d998b9b344a19c9d2890e087f953c2f93e6546ae/include/precondition.templates.h#L292-L316
+    std::vector<double> min_eigenvalues(max_level + 1, numbers::signaling_nan<double>());
+    std::vector<double> max_eigenvalues(max_level + 1, numbers::signaling_nan<double>());
     for (unsigned int level = min_level + 1; level <= max_level; level++)
       {
         SmootherType chebyshev;
@@ -446,21 +450,10 @@ namespace StokesMatrixFree
         operators[level]->initialize_dof_vector(vec);
         const auto evs = chebyshev.estimate_eigenvalues(vec);
 
-        // const unsigned int smoothing_range = 20;
-
-        // const double alpha =
-        //   (smoothing_range > 1. ?
-        //       evs.max_eigenvalue_estimate / smoothing_range :
-        //       std::min(0.9 * evs.max_eigenvalue_estimate,
-        //               evs.min_eigenvalue_estimate));
-
-        // const double omega = 2.0 / (alpha + evs.max_eigenvalue_estimate);
-
-        getPCOut() << "- level: " << level << std::endl;
-        getPCOut() << "    - min ev: " << evs.min_eigenvalue_estimate << std::endl;
-        getPCOut() << "    - max ev: " << evs.max_eigenvalue_estimate << std::endl;
-        getPCOut() << std::endl;
+        min_eigenvalues[level] = evs.min_eigenvalue_estimate;
+        max_eigenvalues[level] = evs.max_eigenvalue_estimate;
       }
+    // ----------
 
     MGSmootherPrecondition<LevelMatrixType, SmootherType, VectorType> mg_smoother;
     mg_smoother.initialize(operators, smoother_data);
@@ -580,9 +573,11 @@ namespace StokesMatrixFree
             table.add_value("prolongation", all_mg_timers[level][4].first);
             table.add_value("edge_prolongation", all_mg_timers[level][5].first);
             table.add_value("post_smoother_step", all_mg_timers[level][6].first);
+            table.add_value("min_eigenvalue", min_eigenvalues[level]);
+            table.add_value("max_eigenvalue", max_eigenvalues[level]);
           }
-        std::ofstream mg_timers_stream(filename_mg_timers);
-        table.write_text(mg_timers_stream);
+        std::ofstream mg_level_stream(filename_mg_level);
+        table.write_text(mg_level_stream);
       }
     // ----------
   }
