@@ -438,7 +438,7 @@ namespace StokesMatrixFree
     // ----------
     // Estimate eigenvalues on all levels, i.e., all operators
     // TODO: based on peter's code
-    // https://github.com/peterrum/dealii-dd-and-schwarz/blob/d998b9b344a19c9d2890e087f953c2f93e6546ae/include/precondition.templates.h#L292-L316
+    // https://github.com/peterrum/dealii-asm/blob/d998b9b344a19c9d2890e087f953c2f93e6546ae/include/precondition.templates.h#L292-L316
     std::vector<double> min_eigenvalues(max_level + 1, numbers::signaling_nan<double>());
     std::vector<double> max_eigenvalues(max_level + 1, numbers::signaling_nan<double>());
     for (unsigned int level = min_level + 1; level <= max_level; level++)

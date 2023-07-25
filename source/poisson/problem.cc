@@ -84,8 +84,9 @@ namespace Poisson
       time_t             now = time(nullptr);
       tm                *ltm = localtime(&now);
       std::ostringstream oss;
-      oss << prm.file_stem << "-" << std::put_time(ltm, "%Y%m%d-%H%M%S") << ".log";
-      filename_log = oss.str();
+      oss << prm.file_stem << "-" << std::put_time(ltm, "%Y%m%d-%H%M%S");
+      filename_stem = oss.str();
+      filename_log  = filename_stem + ".log";
     }
 
     // prepare collections
@@ -275,7 +276,9 @@ namespace Poisson
                                                     completely_distributed_solution,
                                                     system_rhs,
                                                     /*boundary_values=*/mapping_collection,
-                                                    dof_handler);
+                                                    dof_handler,
+                                                    filename_stem + "-mglevel-cycle_" +
+                                                      std::to_string(cycle) + ".log");
           }
         else
           {
