@@ -62,6 +62,7 @@ namespace Poisson
     MPI_Comm mpi_communicator;
 
     const Parameter &prm;
+    std::string      filename_stem;
     std::string      filename_log;
 
     dealii::parallel::distributed::Triangulation<dim> triangulation;

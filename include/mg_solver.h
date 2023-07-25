@@ -28,7 +28,9 @@
 
 #include <deal.II/base/config.h>
 
+#include <deal.II/base/convergence_table.h>
 #include <deal.II/base/mg_level_object.h>
+#include <deal.II/base/signaling_nan.h>
 
 #include <deal.II/lac/diagonal_matrix.h>
 #include <deal.II/lac/precondition.h>
@@ -277,7 +279,8 @@ mg_solve(SolverControl                                         &solver_control,
          const DoFHandler<dim>                                 &dof,
          const SystemMatrixType                                &fine_matrix,
          const MGLevelObject<std::unique_ptr<LevelMatrixType>> &mg_matrices,
-         const MGTransferType                                  &mg_transfer)
+         const MGTransferType                                  &mg_transfer,
+         const std::string                                     &filename_mg_level)
 {
   AssertThrow(mg_data.smoother.type == "chebyshev", ExcNotImplemented());
 
@@ -305,6 +308,26 @@ mg_solve(SolverControl                                         &solver_control,
       smoother_data[level].degree              = mg_data.smoother.degree;
       smoother_data[level].eig_cg_n_iterations = mg_data.smoother.eig_cg_n_iterations;
     }
+
+  // ----------
+  // Estimate eigenvalues on all levels, i.e., all operators
+  // TODO: based on peter's code
+  // https://github.com/peterrum/dealii-asm/blob/d998b9b344a19c9d2890e087f953c2f93e6546ae/include/precondition.templates.h#L292-L316
+  std::vector<double> min_eigenvalues(max_level + 1, numbers::signaling_nan<double>());
+  std::vector<double> max_eigenvalues(max_level + 1, numbers::signaling_nan<double>());
+  for (unsigned int level = min_level + 1; level <= max_level; level++)
+    {
+      SmootherType chebyshev;
+      chebyshev.initialize(*mg_matrices[level], smoother_data[level]);
+
+      VectorType vec;
+      mg_matrices[level]->initialize_dof_vector(vec);
+      const auto evs = chebyshev.estimate_eigenvalues(vec);
+
+      min_eigenvalues[level] = evs.min_eigenvalue_estimate;
+      max_eigenvalues[level] = evs.max_eigenvalue_estimate;
+    }
+  // ----------
 
   MGSmootherPrecondition<LevelMatrixType, SmootherType, VectorType> mg_smoother;
   mg_smoother.initialize(mg_matrices, smoother_data);
@@ -389,11 +412,68 @@ mg_solve(SolverControl                                         &solver_control,
   // Create multigrid object.
   Multigrid<VectorType> mg(mg_matrix, *mg_coarse, mg_transfer, mg_smoother, mg_smoother);
 
+  // ----------
+  // TODO: timing based on peters dealii-multigrid
+  // https://github.com/peterrum/dealii-multigrid/blob/c50581883c0dbe35c83132699e6de40da9b1b255/multigrid_throughput.cc#L1183-L1192
+  std::vector<std::vector<std::pair<double, std::chrono::time_point<std::chrono::system_clock>>>>
+    all_mg_timers(max_level - min_level + 1);
+
+  for (unsigned int i = 0; i < all_mg_timers.size(); ++i)
+    all_mg_timers[i].resize(7);
+
+  const auto create_mg_timer_function = [&](const unsigned int i, const std::string &label) {
+    return [i, label, &all_mg_timers](const bool flag, const unsigned int level) {
+      // if (false && flag)
+      //   std::cout << label << " " << level << std::endl;
+      if (flag)
+        all_mg_timers[level][i].second = std::chrono::system_clock::now();
+      else
+        all_mg_timers[level][i].first +=
+          std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now() -
+                                                                all_mg_timers[level][i].second)
+            .count() /
+          1e9;
+    };
+  };
+
+  mg.connect_pre_smoother_step(create_mg_timer_function(0, "pre_smoother_step"));
+  mg.connect_residual_step(create_mg_timer_function(1, "residual_step"));
+  mg.connect_restriction(create_mg_timer_function(2, "restriction"));
+  mg.connect_coarse_solve(create_mg_timer_function(3, "coarse_solve"));
+  mg.connect_prolongation(create_mg_timer_function(4, "prolongation"));
+  mg.connect_edge_prolongation(create_mg_timer_function(5, "edge_prolongation"));
+  mg.connect_post_smoother_step(create_mg_timer_function(6, "post_smoother_step"));
+  // ----------
+
   // Convert it to a preconditioner.
   PreconditionerType preconditioner(dof, mg, mg_transfer);
 
   // Finally, solve.
   SolverCG<VectorType>(solver_control).solve(fine_matrix, dst, src, preconditioner);
+
+
+  // ----------
+  // dump to Table and then file system
+  if (Utilities::MPI::this_mpi_process(dof.get_communicator()) == 0)
+    {
+      dealii::ConvergenceTable table;
+      for (unsigned int level = 0; level < all_mg_timers.size(); ++level)
+        {
+          table.add_value("level", level);
+          table.add_value("pre_smoother_step", all_mg_timers[level][0].first);
+          table.add_value("residual_step", all_mg_timers[level][1].first);
+          table.add_value("restriction", all_mg_timers[level][2].first);
+          table.add_value("coarse_solve", all_mg_timers[level][3].first);
+          table.add_value("prolongation", all_mg_timers[level][4].first);
+          table.add_value("edge_prolongation", all_mg_timers[level][5].first);
+          table.add_value("post_smoother_step", all_mg_timers[level][6].first);
+          table.add_value("min_eigenvalue", min_eigenvalues[level]);
+          table.add_value("max_eigenvalue", max_eigenvalues[level]);
+        }
+      std::ofstream mg_level_stream(filename_mg_level);
+      table.write_text(mg_level_stream);
+    }
+  // ----------
 }
 
 #ifndef DOXYGEN

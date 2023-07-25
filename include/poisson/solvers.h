@@ -70,7 +70,8 @@ namespace Poisson
             typename LinearAlgebra::Vector                     &dst,
             const typename LinearAlgebra::Vector               &src,
             const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
-            const dealii::DoFHandler<dim, spacedim>            &dof_handler)
+            const dealii::DoFHandler<dim, spacedim>            &dof_handler,
+            const std::string                                  &filename_mg_level)
   {
     using namespace dealii;
 
@@ -232,7 +233,8 @@ namespace Poisson
     });
 
     // Proceed to solve the problem with multigrid.
-    mg_solve(solver_control, dst, src, mg_data, dof_handler, poisson_operator, operators, transfer);
+    mg_solve(solver_control, dst, src, mg_data, dof_handler, poisson_operator, operators, transfer,
+             filename_mg_level);
   }
 } // namespace Poisson
 
