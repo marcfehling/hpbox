@@ -97,6 +97,11 @@ namespace Log
     }
 
     {
+      pcout << "   Number of global levels:      " << triangulation.n_global_levels() << std::endl;
+      table.add_value("global_levels", triangulation.n_global_levels());
+    }
+
+    {
       // log active fe indices only for the first dof_handler
       const DoFHandler<dim, spacedim>       &dof_handler   = *dof_handlers[0];
       const hp::FECollection<dim, spacedim> &fe_collection = dof_handler.get_fe_collection();
@@ -107,6 +112,16 @@ namespace Log
           ++n_fe_indices[cell->active_fe_index()];
 
       Utilities::MPI::sum(n_fe_indices, mpi_communicator, n_fe_indices);
+
+      const auto max_nonzero = std::find_if(std::crbegin(n_fe_indices),
+                                            std::crend(n_fe_indices),
+                                            [](const auto &i) { return i > 0; });
+      Assert(max_nonzero != std::crend(n_fe_indices), ExcInternalError());
+      const types::fe_index max_nonzero_fe_index =
+        std::distance(n_fe_indices.cbegin(), (max_nonzero + 1).base());
+
+      pcout << "   Max active FE index in use  : " << max_nonzero_fe_index << std::endl;
+      table.add_value("max_fe_index", max_nonzero_fe_index);
 
       pcout << "   Frequencies of poly. degrees:";
       for (unsigned int i = 0; i < fe_collection.size(); ++i)
