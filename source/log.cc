@@ -85,6 +85,11 @@ namespace Log
     };
 
     {
+      pcout << "   Number of global levels:      " << triangulation.n_global_levels() << std::endl;
+      table.add_value("global_levels", triangulation.n_global_levels());
+    }
+
+    {
       pcout << "   Number of active cells:       " << triangulation.n_global_active_cells()
             << std::endl;
       table.add_value("active_cells", triangulation.n_global_active_cells());
@@ -94,11 +99,6 @@ namespace Log
 
       pcout << "     by partition:              ";
       pcout_first_n(n_active_cells_per_subdomain);
-    }
-
-    {
-      pcout << "   Number of global levels:      " << triangulation.n_global_levels() << std::endl;
-      table.add_value("global_levels", triangulation.n_global_levels());
     }
 
     {
