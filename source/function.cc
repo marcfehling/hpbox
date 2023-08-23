@@ -41,29 +41,30 @@ namespace Function
   double
   ReentrantCorner<dim>::value(const Point<dim> &p, const unsigned int /*component*/) const
   {
-    const std::array<double, dim> p_sphere = GeometricUtilities::Coordinates::to_spherical(p);
+    const std::array<double, 2> polar =
+      GeometricUtilities::Coordinates::to_spherical(Point<2>(p[0], p[1]));
 
-    return std::pow(p_sphere[0], alpha) * std::sin(alpha * p_sphere[1]);
+    return std::pow(polar[0], alpha) * std::sin(alpha * polar[1]);
   }
 
   template <int dim>
   Tensor<1, dim>
   ReentrantCorner<dim>::gradient(const Point<dim> &p, const unsigned int /*component*/) const
   {
-    const std::array<double, dim> p_sphere = GeometricUtilities::Coordinates::to_spherical(p);
+    const std::array<double, 2> polar =
+      GeometricUtilities::Coordinates::to_spherical(Point<2>(p[0], p[1]));
 
-    std::array<double, dim> ret_sphere;
-    // only for polar coordinates
-    const double fac = alpha * std::pow(p_sphere[0], alpha - 1);
-    ret_sphere[0]    = fac * std::sin(alpha * p_sphere[1]);
-    ret_sphere[1]    = fac * std::cos(alpha * p_sphere[1]);
+    // gradient in polar coordinates
+    Tensor<1, 2> result_polar;
+    const double factor = alpha * std::pow(polar[0], alpha - 1);
+    result_polar[0]     = factor * std::sin(alpha * polar[1]);
+    result_polar[1]     = factor * std::cos(alpha * polar[1]);
 
-    // transform back to cartesian coordinates
-    // by considering polar unit vectors
-    Tensor<1, dim> ret;
-    ret[0] = ret_sphere[0] * std::cos(p_sphere[1]) - ret_sphere[1] * std::sin(p_sphere[1]);
-    ret[1] = ret_sphere[0] * std::sin(p_sphere[1]) + ret_sphere[1] * std::cos(p_sphere[1]);
-    return ret;
+    // transform back to cartesian coordinates by considering polar unit vectors
+    Tensor<1, dim> result;
+    result[0] = result_polar[0] * std::cos(polar[1]) - result_polar[1] * std::sin(polar[1]);
+    result[1] = result_polar[0] * std::sin(polar[1]) + result_polar[1] * std::cos(polar[1]);
+    return result;
   }
 
 
