@@ -348,6 +348,12 @@ namespace Poisson
       if (cell->is_locally_owned())
         fe_degrees(cell->active_cell_index()) = cell->get_fe().degree;
 
+    // TODO: Also write out future fe degree
+    Vector<float> future_fe_degrees(triangulation.n_active_cells());
+    for (const auto &cell : dof_handler.active_cell_iterators())
+      if (cell->is_locally_owned())
+        future_fe_degrees(cell->active_cell_index()) = fe_collection[cell->future_fe_index()].degree;
+
     Vector<float> subdomain(triangulation.n_active_cells());
     for (auto &subd : subdomain)
       subd = triangulation.locally_owned_subdomain();
@@ -357,6 +363,7 @@ namespace Poisson
 
     data_out.add_data_vector(locally_relevant_solution, "solution");
     data_out.add_data_vector(fe_degrees, "fe_degree");
+    data_out.add_data_vector(future_fe_degrees, "future_fe_degree");
     data_out.add_data_vector(subdomain, "subdomain");
 
     if (adaptation_strategy->get_error_estimates().size() > 0)
