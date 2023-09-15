@@ -455,7 +455,7 @@ namespace StokesMatrixFree
       }
     // ----------
 
-    MGSmootherPrecondition<LevelMatrixType, SmootherType, VectorType> mg_smoother;
+    MGSmootherRelaxation<LevelMatrixType, SmootherType, VectorType> mg_smoother;
     mg_smoother.initialize(operators, smoother_data);
 
     // Initialize coarse-grid solver.
