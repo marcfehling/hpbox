@@ -329,7 +329,7 @@ mg_solve(SolverControl                                         &solver_control,
     }
   // ----------
 
-  MGSmootherPrecondition<LevelMatrixType, SmootherType, VectorType> mg_smoother;
+  MGSmootherRelaxation<LevelMatrixType, SmootherType, VectorType> mg_smoother;
   mg_smoother.initialize(mg_matrices, smoother_data);
 
   // Initialize coarse-grid solver.
