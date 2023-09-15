@@ -452,6 +452,10 @@ namespace StokesMatrixFree
 
         min_eigenvalues[level] = evs.min_eigenvalue_estimate;
         max_eigenvalues[level] = evs.max_eigenvalue_estimate;
+
+        // We already computed eigenvalues, reset the one in the actual smoother
+        smoother_data[level].eig_cg_n_iterations = 0;
+        smoother_data[level].max_eigenvalue = evs.max_eigenvalue_estimate * 1.1;
       }
     // ----------
 
