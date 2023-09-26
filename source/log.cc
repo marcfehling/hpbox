@@ -163,6 +163,9 @@ namespace Log
 
       pcout << "     by partition:              ";
       pcout_first_n(n_constraints_per_subdomain);
+
+      const float fraction = static_cast<float>(global_constraints) / global_dofs;
+      pcout << "   Fraction of constraints:      " << 100 * fraction << "%" << std::endl;
     }
 
     {
