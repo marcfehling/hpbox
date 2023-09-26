@@ -19,6 +19,8 @@
 
 #include <deal.II/distributed/grid_refinement.h>
 
+#include <deal.II/grid/filtered_iterator.h>
+
 #include <deal.II/hp/refinement.h>
 
 #include <deal.II/numerics/error_estimator.h>
@@ -29,6 +31,71 @@
 #include <linear_algebra.h>
 
 using namespace dealii;
+
+
+namespace // TODO: Testing environment
+{
+  template <int dim, int spacedim>
+  void
+  prepare_c_and_r_prototype(DoFHandler<dim, spacedim>&    dof_handler,
+                            Triangulation<dim, spacedim>& triangulation)
+  {
+    // store backup of refine flags
+    std::vector<bool> refine_flags;
+    std::vector<bool> coarsen_flags;
+    triangulation.save_refine_flags(refine_flags);
+    triangulation.save_coarsen_flags(coarsen_flags);
+
+    // translate future FE indices into flags
+    for (const auto& cell : dof_handler.active_cell_iterators() | IteratorFilters::LocallyOwnedCell())
+      {
+        cell->clear_refine_flag();
+        cell->clear_coarsen_flag();
+
+        // TODO: This works just for my application,
+        //       general implementation needs a more general conditional
+        if (cell->future_fe_index() > cell->active_fe_index())
+          cell->set_refine_flag();
+        else if (cell->future_fe_index() < cell->active_fe_index())
+          cell->set_coarsen_flag();
+      }
+
+    // call prepare coarsening and refinement
+    triangulation.prepare_coarsening_and_refinement();
+    // If you comment this line out, no refinement flags should be altered in the end
+
+    // translate flags back to future FE indices
+    for (const auto& cell : dof_handler.active_cell_iterators() | IteratorFilters::LocallyOwnedCell())
+      {
+        cell->clear_future_fe_index();
+
+        if (cell->refine_flag_set())
+          {
+            const unsigned int super_fe_index =
+              dof_handler.get_fe_collection().next_in_hierarchy(
+                cell->active_fe_index());
+
+            // Reject update if already most superordinate element.
+            if (super_fe_index != cell->active_fe_index())
+              cell->set_future_fe_index(super_fe_index);
+          }
+        else if (cell->coarsen_flag_set())
+          {
+            const unsigned int sub_fe_index =
+              dof_handler.get_fe_collection().previous_in_hierarchy(
+                cell->active_fe_index());
+
+            // Reject update if already least subordinate element.
+            if (sub_fe_index != cell->active_fe_index())
+              cell->set_future_fe_index(sub_fe_index);
+          }
+      }
+
+    // restore backup
+    triangulation.load_refine_flags(refine_flags);
+    triangulation.load_coarsen_flags(coarsen_flags);
+  }
+}
 
 
 namespace Adaptation
@@ -90,6 +157,7 @@ namespace Adaptation
           hp::Refinement::limit_p_level_difference(dof_handler,
                                                    prm.max_p_level_difference,
                                                    /*contains=*/min_fe_index);
+          // prepare_c_and_r_prototype(dof_handler, triangulation);
         });
       }
 
