@@ -9,14 +9,16 @@ parallelization, hp-adaptive methods and matrix-free methods combined.
 All results of the following paper have been generated with this
 program.
 
-	@article{fehling_bangerth_2022,
+	@article{fehling_bangerth_2023,
 	  author  = {Fehling, Marc and Bangerth, Wolfgang},
-	  title   = {Algorithms for Massively Parallel Generic hp--adaptive Finite Element Software},
-	  journal = {?},
-	  volume  = {?},
-	  issue   = {?},
-	  year    = {?},
-	  doi     = {?}
+	  title   = {Algorithms for Parallel Generic hp--adaptive Finite Element Software},
+	  journal = {ACM Transactions on Mathematical Software},
+	  year    = 2023,
+	  volume  = 49,
+	  number  = 3,
+	  pages   = {1--26},
+	  doi     = {10.1145/3603372},
+	  url     = {https://dl.acm.org/doi/10.1145/3603372}
 	}
 
 
