@@ -1,0 +1,31 @@
+subsection adaptation
+  set max degree                           = 3
+  set max difference of polynomial degrees = 1
+  set max level                            = 3
+  set min degree                           = 2
+  set min level                            = 2
+  set n cycles                             = 2
+  set p-coarsen fraction                   = 0
+  set p-refine fraction                    = 0.5
+  set total coarsen fraction               = 0
+  set total refine fraction                = 0.3
+  set weighting exponent                   = 1.0
+  set weighting factor                     = 1.0
+end
+subsection input output
+  set checkpoint each n steps = 0
+  set file stem               = poisson_3d_hp_minimal
+  set log nonzero elements    = false
+  set output each n steps     = 0
+  set resume from filename    = 
+end
+subsection problem
+  set adaptation type         = hp Legendre
+  set dimension               = 3
+  set grid type               = reentrant corner
+  set linear algebra          = dealii & Trilinos
+  set operator type           = MatrixFree
+  set problem type            = Poisson
+  set solver tolerance factor = 1e-12
+  set solver type             = GMG
+end
