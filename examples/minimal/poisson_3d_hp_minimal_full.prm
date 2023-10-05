@@ -6,21 +6,21 @@ subsection adaptation
   set min level                            = 2
   set n cycles                             = 2
   set p-coarsen fraction                   = 0
-  set p-refine fraction                    = 0.6
+  set p-refine fraction                    = 0.5
   set total coarsen fraction               = 0
-  set total refine fraction                = 0.25
+  set total refine fraction                = 0.45
   set weighting exponent                   = 1.0
   set weighting factor                     = 1.0
 end
 subsection input output
   set checkpoint each n steps = 0
-  set file stem               = poisson_3d_hp_minimal
+  set file stem               = poisson_3d_hp_minimal_full
   set log nonzero elements    = false
   set output each n steps     = 1
   set resume from filename    = 
 end
 subsection problem
-  set adaptation type         = hp Legendre
+  set adaptation type         = hp full
   set dimension               = 3
   set grid type               = reentrant corner
   set linear algebra          = dealii & Trilinos
