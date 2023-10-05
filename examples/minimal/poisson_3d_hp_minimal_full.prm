@@ -8,7 +8,7 @@ subsection adaptation
   set p-coarsen fraction                   = 0
   set p-refine fraction                    = 0.5
   set total coarsen fraction               = 0
-  set total refine fraction                = 0.45
+  set total refine fraction                = 0.5
   set weighting exponent                   = 1.0
   set weighting factor                     = 1.0
 end
