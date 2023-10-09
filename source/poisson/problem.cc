@@ -165,6 +165,8 @@ namespace Poisson
     else
       {
         const unsigned int min_fe_index = prm.prm_adaptation.min_p_degree - 1;
+
+        // first, connect fe_collection for CellWeights before refining
         for (const auto &cell : dof_handler.active_cell_iterators())
           if (cell->is_locally_owned())
             cell->set_active_fe_index(min_fe_index);
@@ -172,6 +174,13 @@ namespace Poisson
         dof_handler.distribute_dofs(fe_collection);
 
         triangulation.refine_global(adaptation_strategy->get_n_initial_refinements());
+
+        // second, set up correct FE indices for hpFull
+        for (const auto &cell : dof_handler.active_cell_iterators())
+          if (cell->is_locally_owned())
+            cell->set_active_fe_index(min_fe_index);
+
+        dof_handler.distribute_dofs(fe_collection);
       }
   }
 

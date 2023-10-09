@@ -258,6 +258,11 @@ namespace StokesMatrixFree
       }
     else
       {
+        // no need to call distribute_dofs here.
+        // correct weights are already computed and connected.
+        triangulation.refine_global(adaptation_strategy_p->get_n_initial_refinements());
+
+        // set up correct FE indices for hpFull
         const unsigned int min_fe_index = prm.prm_adaptation.min_p_degree - 1;
 
         for (const auto &cell : dof_handler_v.active_cell_iterators())
@@ -269,8 +274,6 @@ namespace StokesMatrixFree
 
         dof_handler_v.distribute_dofs(fe_collection_v);
         dof_handler_p.distribute_dofs(fe_collection_p);
-
-        triangulation.refine_global(adaptation_strategy_p->get_n_initial_refinements());
       }
   }
 

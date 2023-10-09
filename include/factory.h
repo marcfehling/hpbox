@@ -22,6 +22,7 @@
 
 #include <adaptation/h.h>
 #include <adaptation/hp_fourier.h>
+#include <adaptation/hp_full.h>
 #include <adaptation/hp_history.h>
 #include <adaptation/hp_legendre.h>
 #include <adaptation/p.h>
@@ -49,6 +50,9 @@ namespace Factory
         std::forward<Args>(args)...);
     else if (type == "hp Fourier")
       return std::make_unique<Adaptation::hpFourier<dim, VectorType, spacedim>>(
+        std::forward<Args>(args)...);
+    else if (type == "hp Full")
+      return std::make_unique<Adaptation::hpFull<dim, VectorType, spacedim>>(
         std::forward<Args>(args)...);
     else if (type == "hp History")
       return std::make_unique<Adaptation::hpHistory<dim, VectorType, spacedim>>(
