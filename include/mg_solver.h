@@ -35,6 +35,7 @@
 #include <deal.II/lac/diagonal_matrix.h>
 #include <deal.II/lac/precondition.h>
 #include <deal.II/lac/solver_control.h>
+#include <deal.II/lac/sparse_matrix_tools.h>
 
 #ifdef DEAL_II_WITH_TRILINOS
 #  include <deal.II/lac/trilinos_precondition.h>
@@ -49,9 +50,128 @@
 #include <deal.II/multigrid/mg_transfer_global_coarsening.h>
 #include <deal.II/multigrid/multigrid.h>
 
+#include <linear_algebra.h>
+
 #include <vector>
 
 DEAL_II_NAMESPACE_OPEN
+
+
+
+/**
+ * Adopted from
+ * https://github.com/peterrum/dealii-asm/blob/d998b9b344a19c9d2890e087f953c2f93e6546ae/include/preconditioners.h#L145.
+ */
+template <typename Number, int dim, int spacedim>
+class PreconditionASM
+{
+private:
+  enum class WeightingType
+  {
+    none,
+    left,
+    right,
+    symm
+  };
+
+public:
+  PreconditionASM(const DoFHandler<dim, spacedim> &dof_handler)
+    : dof_handler(dof_handler)
+    , weighting_type(WeightingType::symm)
+  {}
+
+  template <typename GlobalSparseMatrixType, typename GlobalSparsityPattern>
+  void
+  initialize(const GlobalSparseMatrixType &global_sparse_matrix,
+             const GlobalSparsityPattern  &global_sparsity_pattern)
+  {
+    SparseMatrixTools::restrict_to_cells(global_sparse_matrix,
+                                         global_sparsity_pattern,
+                                         dof_handler,
+                                         blocks);
+
+    for (auto &block : blocks)
+      if (block.m() > 0 && block.n() > 0)
+        block.gauss_jordan();
+  }
+
+  template <typename VectorType>
+  void
+  vmult(VectorType &dst, const VectorType &src) const
+  {
+    dst = 0.0;
+    src.update_ghost_values();
+
+    Vector<double> vector_src, vector_dst, vector_weights;
+
+    VectorType weights;
+
+    if (weighting_type != WeightingType::none)
+      {
+        weights.reinit(src);
+
+        for (const auto &cell : dof_handler.active_cell_iterators())
+          {
+            if (cell->is_locally_owned() == false)
+              continue;
+
+            const unsigned int dofs_per_cell = cell->get_fe().n_dofs_per_cell();
+            vector_weights.reinit(dofs_per_cell);
+
+            for (unsigned int i = 0; i < dofs_per_cell; ++i)
+              vector_weights[i] = 1.0;
+
+            cell->distribute_local_to_global(vector_weights, weights);
+          }
+
+        weights.compress(VectorOperation::add);
+        for (auto &i : weights)
+          i = (weighting_type == WeightingType::symm) ? std::sqrt(1.0 / i) :
+                                                        (1.0 / i);
+        weights.update_ghost_values();
+      }
+
+    for (const auto &cell : dof_handler.active_cell_iterators())
+      {
+        if (cell->is_locally_owned() == false)
+          continue;
+
+        const unsigned int dofs_per_cell = cell->get_fe().n_dofs_per_cell();
+
+        vector_src.reinit(dofs_per_cell);
+        vector_dst.reinit(dofs_per_cell);
+        if (weighting_type != WeightingType::none)
+          vector_weights.reinit(dofs_per_cell);
+
+        cell->get_dof_values(src, vector_src);
+        if (weighting_type != WeightingType::none)
+          cell->get_dof_values(weights, vector_weights);
+
+        if (weighting_type == WeightingType::symm ||
+            weighting_type == WeightingType::right)
+          for (unsigned int i = 0; i < dofs_per_cell; ++i)
+            vector_src[i] *= vector_weights[i];
+
+        blocks[cell->active_cell_index()].vmult(vector_dst, vector_src);
+
+        if (weighting_type == WeightingType::symm ||
+            weighting_type == WeightingType::left)
+          for (unsigned int i = 0; i < dofs_per_cell; ++i)
+            vector_dst[i] *= vector_weights[i];
+
+        cell->distribute_local_to_global(vector_dst, dst);
+      }
+
+    src.zero_out_ghost_values();
+    dst.compress(VectorOperation::add);
+  }
+
+private:
+  const DoFHandler<dim, spacedim> &dof_handler;
+  std::vector<FullMatrix<Number>>  blocks;
+
+  const WeightingType weighting_type;
+};
 
 
 
@@ -288,7 +408,8 @@ mg_solve(SolverControl                                         &solver_control,
   const unsigned int max_level = mg_matrices.max_level();
 
   // using value_type                 = typename VectorType::value_type;
-  using SmootherPreconditionerType = DiagonalMatrix<VectorType>;
+  // using SmootherPreconditionerType = DiagonalMatrix<VectorType>;
+  using SmootherPreconditionerType = PreconditionASM<double, dim, dim>;
   using SmootherType =
     PreconditionChebyshev<LevelMatrixType, VectorType, SmootherPreconditionerType>;
   using PreconditionerType = PreconditionMG<dim, VectorType, MGTransferType>;
@@ -301,9 +422,28 @@ mg_solve(SolverControl                                         &solver_control,
 
   for (unsigned int level = min_level; level <= max_level; level++)
     {
-      smoother_data[level].preconditioner = std::make_shared<SmootherPreconditionerType>();
-      mg_matrices[level]->compute_inverse_diagonal(
-        smoother_data[level].preconditioner->get_vector());
+      //smoother_data[level].preconditioner = std::make_shared<SmootherPreconditionerType>();
+      //mg_matrices[level]->compute_inverse_diagonal(
+      //  smoother_data[level].preconditioner->get_vector());
+
+      // TODO: this is a nasty way to get the sparsity pattern
+      const dealii::IndexSet &owned_dofs    = partitioning.get_owned_dofs();
+      const dealii::IndexSet &relevant_dofs = partitioning.get_relevant_dofs();
+
+      const unsigned int myid = dealii::Utilities::MPI::this_mpi_process(communicator);
+
+      dealii::TrilinosWrappers::SparsityPattern dsp(owned_dofs,
+                                                    owned_dofs,
+                                                    relevant_dofs,
+                                                    communicator);
+
+      dealii::DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false, myid);
+
+      dsp.compress();
+
+      smoother_data[level].preconditioner = std::make_shared<SmootherPreconditionerType>(mg_dof_handlers[level]);
+      smoother_data[level].preconditioner->initialize(mg_matrices[level], dsp);
+
       smoother_data[level].smoothing_range     = mg_data.smoother.smoothing_range;
       smoother_data[level].degree              = mg_data.smoother.degree;
       smoother_data[level].eig_cg_n_iterations = mg_data.smoother.eig_cg_n_iterations;

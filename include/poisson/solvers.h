@@ -211,6 +211,8 @@ namespace Poisson
         // ... operator (just like on the finest level)
         operators[level] = poisson_operator.replicate();
         operators[level]->reinit(partitioning, dof_handler, constraint);
+
+        // TODO: Also store sparsity patterns
       }
 
     // Set up intergrid operators.
