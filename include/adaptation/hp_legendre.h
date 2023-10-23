@@ -75,6 +75,8 @@ namespace Adaptation
     const dealii::SmartPointer<dealii::parallel::distributed::Triangulation<dim, spacedim>>
       triangulation;
 
+    dealii::hp::FECollection<dim, spacedim> fe_collection_;
+
     const dealii::ComponentMask component_mask;
 
     // dealii::FESeries::Legendre<dim, spacedim> legendre;

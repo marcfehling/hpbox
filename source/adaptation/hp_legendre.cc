@@ -19,6 +19,8 @@
 
 #include <deal.II/distributed/grid_refinement.h>
 
+#include <deal.II/fe/fe_q.h>
+
 #include <deal.II/grid/filtered_iterator.h>
 
 #include <deal.II/hp/refinement.h>
@@ -125,6 +127,9 @@ namespace Adaptation
 
     // like SmoothnessEstimator::default_fe_series(), but with component_mask
     {
+      for (unsigned int i = 0; i < fe_collection.size(); ++i)
+        fe_collection_.push_back(FE_Q<dim, spacedim>(fe_collection[i].degree));
+
       std::vector<unsigned int> n_coefficients_per_direction;
       for (unsigned int i = 0; i < fe_collection.size(); ++i)
         n_coefficients_per_direction.push_back(fe_collection[i].degree + 2);
@@ -139,13 +144,14 @@ namespace Adaptation
 
       legendre = std::make_unique<dealii::FESeries::Legendre<dim, spacedim>>(
         n_coefficients_per_direction,
-        fe_collection,
+        fe_collection_,
         q_collection,
         component_mask.first_selected_component());
     }
 
     for (unsigned int degree = 1; degree <= prm.max_p_degree; ++degree)
-      face_quadrature_collection.push_back(QGauss<dim - 1>(degree + 1));
+//      face_quadrature_collection.push_back(QGauss<dim - 1>(degree + 1));
+      face_quadrature_collection.push_back(QIterated<dim - 1>(QGauss<1>(2), degree));
 
     // limit p-level difference
     if (prm.max_p_level_difference > 0)

@@ -94,8 +94,11 @@ namespace Poisson
 
     for (unsigned int degree = 1; degree <= prm.prm_adaptation.max_p_degree; ++degree)
       {
-        fe_collection.push_back(FE_Q<dim, spacedim>(degree));
-        quadrature_collection.push_back(QGauss<dim>(degree + 1));
+//        fe_collection.push_back(FE_Q<dim, spacedim>(degree));
+//        quadrature_collection.push_back(QGauss<dim>(degree + 1));
+
+        fe_collection.push_back(FE_Q_iso_Q1<dim, spacedim>(degree));
+        quadrature_collection.push_back(QIterated<dim>(QGauss<1>(2), degree));
       }
 
     const unsigned int min_fe_index = prm.prm_adaptation.min_p_degree - 1;
