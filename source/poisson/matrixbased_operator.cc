@@ -192,8 +192,10 @@ namespace PoissonMatrixBased
   {
     this->initialize_dof_vector(diagonal);
 
-    for (unsigned int n = 0; n < system_matrix.n(); ++n)
+    for (const auto n : diagonal.locally_owned_elements())
       diagonal[n] = 1.0 / system_matrix.diag_element(n);
+
+    diagonal.compress(VectorOperation::values::insert);
   }
 
 
