@@ -71,11 +71,59 @@ namespace PoissonMatrixBased
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  PoissonOperator<dim, LinearAlgebra, spacedim>::reinit(const Partitioning &,
-                                                        const DoFHandler<dim, spacedim> &,
-                                                        const AffineConstraints<value_type> &)
+  PoissonOperator<dim, LinearAlgebra, spacedim>::reinit(const Partitioning                  &partitioning,
+                                                        const DoFHandler<dim, spacedim>     &dof_handler,
+                                                        const AffineConstraints<value_type> &constraints)
   {
-    Assert(false, ExcNotImplemented());
+    {
+      TimerOutput::Scope t(getTimer(), "setup_system");
+
+      this->dealii_partitioner =
+        std::make_shared<const Utilities::MPI::Partitioner>(partitioning.get_owned_dofs(),
+                                                            partitioning.get_relevant_dofs(),
+                                                            dof_handler.get_communicator());
+
+      {
+        TimerOutput::Scope t(getTimer(), "reinit_matrix");
+
+        initialize_sparse_matrix(system_matrix, dof_handler, constraints, partitioning);
+      }
+    }
+
+    {
+      TimerOutput::Scope t(getTimer(), "assemble_system");
+
+      FullMatrix<double>                   cell_matrix;
+      std::vector<types::global_dof_index> local_dof_indices;
+      for (const auto &cell : dof_handler.active_cell_iterators())
+        {
+          if (cell->is_locally_owned() == false)
+            continue;
+
+          const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
+          cell_matrix.reinit(dofs_per_cell, dofs_per_cell);
+          cell_matrix = 0;
+
+          fe_values_collection.reinit(cell);
+          const FEValues<dim> &fe_values = fe_values_collection.get_present_fe_values();
+
+          for (unsigned int q_point = 0; q_point < fe_values.n_quadrature_points; ++q_point)
+            for (unsigned int i = 0; i < dofs_per_cell; ++i)
+              {
+                for (unsigned int j = 0; j < dofs_per_cell; ++j)
+                  cell_matrix(i, j) += (fe_values.shape_grad(i, q_point) * // grad phi_i(x_q)
+                                        fe_values.shape_grad(j, q_point) * // grad phi_j(x_q)
+                                        fe_values.JxW(q_point));           // dx
+              }
+          local_dof_indices.resize(dofs_per_cell);
+          cell->get_dof_indices(local_dof_indices);
+
+          constraints.distribute_local_to_global(
+            cell_matrix, local_dof_indices, system_matrix);
+        }
+
+      system_matrix.compress(VectorOperation::values::add);
+    }
   }
 
 
