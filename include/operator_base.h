@@ -47,6 +47,9 @@ public:
          VectorType                                  &system_rhs,
          const dealii::Function<spacedim>            *rhs_function) = 0;
   // TODO: make rhs function a reference?
+
+  virtual const MatrixType &
+  get_system_matrix() const override = 0;
 };
 
 

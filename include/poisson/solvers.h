@@ -235,7 +235,7 @@ namespace Poisson
     });
 
     // Proceed to solve the problem with multigrid.
-    mg_solve(solver_control, dst, src, mg_data, dof_handler, poisson_operator, operators, transfer,
+    mg_solve(solver_control, dst, src, mg_data, dof_handler, poisson_operator, operators, dof_handlers, constraints, transfer,
              filename_mg_level);
   }
 } // namespace Poisson

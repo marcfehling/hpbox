@@ -33,6 +33,7 @@
 #include <deal.II/base/signaling_nan.h>
 
 #include <deal.II/lac/diagonal_matrix.h>
+#include <deal.II/lac/dynamic_sparsity_pattern.h>
 #include <deal.II/lac/precondition.h>
 #include <deal.II/lac/solver_control.h>
 #include <deal.II/lac/sparse_matrix_tools.h>
@@ -399,6 +400,8 @@ mg_solve(SolverControl                                         &solver_control,
          const DoFHandler<dim>                                 &dof,
          const SystemMatrixType                                &fine_matrix,
          const MGLevelObject<std::unique_ptr<LevelMatrixType>> &mg_matrices,
+         const MGLevelObject<DoFHandler<dim>>                  &mg_dof_handlers,
+         const MGLevelObject<AffineConstraints<double>>        &mg_constraints,
          const MGTransferType                                  &mg_transfer,
          const std::string                                     &filename_mg_level)
 {
@@ -426,23 +429,26 @@ mg_solve(SolverControl                                         &solver_control,
       //mg_matrices[level]->compute_inverse_diagonal(
       //  smoother_data[level].preconditioner->get_vector());
 
+      // ----------
       // TODO: this is a nasty way to get the sparsity pattern
-      const dealii::IndexSet &owned_dofs    = partitioning.get_owned_dofs();
-      const dealii::IndexSet &relevant_dofs = partitioning.get_relevant_dofs();
+      // so far I only created temporary sparsity patterns in the LinearAlgebra namespace,
+      // but they are no longer available here
+      // so for the sake of trying ASM out, I'll just create another one here
+      const auto &dof_handler = mg_dof_handlers[level];
+      const auto &constraints = mg_constraints[level];
 
+      auto communicator = dof_handler.get_communicator();
+      const auto owned_dofs = dof_handler.locally_owned_dofs();
+      const IndexSet relevant_dofs = DoFTools::extract_locally_relevant_dofs(dof_handler);
       const unsigned int myid = dealii::Utilities::MPI::this_mpi_process(communicator);
 
-      dealii::TrilinosWrappers::SparsityPattern dsp(owned_dofs,
-                                                    owned_dofs,
-                                                    relevant_dofs,
-                                                    communicator);
-
-      dealii::DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false, myid);
-
-      dsp.compress();
+      DynamicSparsityPattern dsp(relevant_dofs);
+      DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false, myid);
+      SparsityTools::distribute_sparsity_pattern(dsp, owned_dofs, communicator, relevant_dofs);
 
       smoother_data[level].preconditioner = std::make_shared<SmootherPreconditionerType>(mg_dof_handlers[level]);
-      smoother_data[level].preconditioner->initialize(mg_matrices[level], dsp);
+      smoother_data[level].preconditioner->initialize(mg_matrices[level]->get_system_matrix(), dsp);
+      // ----------
 
       smoother_data[level].smoothing_range     = mg_data.smoother.smoothing_range;
       smoother_data[level].degree              = mg_data.smoother.degree;
@@ -510,21 +516,23 @@ mg_solve(SolverControl                                         &solver_control,
     {
       // CG with Chebyshev as preconditioner
 
-      typename SmootherType::AdditionalData smoother_data;
+      Assert(false, ExcNotImplemented());
 
-      smoother_data.preconditioner = std::make_shared<DiagonalMatrix<VectorType>>();
-      mg_matrices[min_level]->compute_inverse_diagonal(smoother_data.preconditioner->get_vector());
-      smoother_data.smoothing_range     = mg_data.smoother.smoothing_range;
-      smoother_data.degree              = mg_data.smoother.degree;
-      smoother_data.eig_cg_n_iterations = mg_data.smoother.eig_cg_n_iterations;
-
-      precondition_chebyshev.initialize(*mg_matrices[min_level], smoother_data);
-
-      mg_coarse = std::make_unique<MGCoarseGridIterativeSolver<VectorType,
-                                                               SolverCG<VectorType>,
-                                                               LevelMatrixType,
-                                                               decltype(precondition_chebyshev)>>(
-        coarse_grid_solver, *mg_matrices[min_level], precondition_chebyshev);
+//      typename SmootherType::AdditionalData smoother_data;
+//
+//      smoother_data.preconditioner = std::make_shared<DiagonalMatrix<VectorType>>();
+//      mg_matrices[min_level]->compute_inverse_diagonal(smoother_data.preconditioner->get_vector());
+//      smoother_data.smoothing_range     = mg_data.smoother.smoothing_range;
+//      smoother_data.degree              = mg_data.smoother.degree;
+//      smoother_data.eig_cg_n_iterations = mg_data.smoother.eig_cg_n_iterations;
+//
+//      precondition_chebyshev.initialize(*mg_matrices[min_level], smoother_data);
+//
+//      mg_coarse = std::make_unique<MGCoarseGridIterativeSolver<VectorType,
+//                                                               SolverCG<VectorType>,
+//                                                               LevelMatrixType,
+//                                                               decltype(precondition_chebyshev)>>(
+//        coarse_grid_solver, *mg_matrices[min_level], precondition_chebyshev);
     }
   else if (mg_data.coarse_solver.type == "cg_with_amg")
     {
