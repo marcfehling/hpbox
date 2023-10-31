@@ -76,8 +76,10 @@ private:
   };
 
 public:
-  PreconditionASM(const DoFHandler<dim, spacedim> &dof_handler)
+  PreconditionASM(const DoFHandler<dim, spacedim> &dof_handler,
+                  const AffineConstraints<double> &affine_constraints)
     : dof_handler(dof_handler)
+    , affine_constraints(affine_constraints)
     , weighting_type(WeightingType::symm)
   {}
 
@@ -86,14 +88,199 @@ public:
   initialize(const GlobalSparseMatrixType &global_sparse_matrix,
              const GlobalSparsityPattern  &global_sparsity_pattern)
   {
-    SparseMatrixTools::restrict_to_cells(global_sparse_matrix,
-                                         global_sparsity_pattern,
-                                         dof_handler,
-                                         blocks);
+    // patch types
+    //   (0) -> cell-centric patches on cells                       X
+    //
+    //   (1) -> cell-centric patches on cells at refinement levels  X
+    //   (2) -> cell-centric patches on cells with coarser neighbor
+    //   (3) -> cell-centric patches on cells with finer neighbor   X
+    //
+    //   (4) -> face-centric patches on cells at refinement levels  X
+    //   (5) -> face-centric patches on cells with coarser neighbor
+    //   (6) -> face-centric patches on cells with finer neighbor   X
+    //
+    //   (7) -> edge-centric patches on cells at refinement levels
+    //   (8) -> edge-centric patches on cells with coarser neighbor
+    //   (9) -> edge-centric patches on cells with finer neighbor   o
+    //
+    // DoFs not assigned to a patch are implicitly treated as blocks
+    // of size 1x1.
+
+    const unsigned int version = 6;
+
+    const auto push_back =
+      [&](const std::vector<types::global_dof_index> &indices_local) {
+        std::vector<types::global_dof_index> temp;
+
+        for (const auto i : indices_local)
+          if (affine_constraints.is_constrained(i) == false)
+            temp.emplace_back(i);
+
+        if (temp.empty() == false)
+          indices.push_back(temp);
+      };
+
+    if (version == 0)
+      {
+        std::vector<types::global_dof_index> indices_local;
+
+        for (const auto &cell : dof_handler.active_cell_iterators())
+          {
+            if (cell->is_locally_owned() == false)
+              continue;
+
+            indices_local.resize(cell->get_fe().n_dofs_per_cell());
+            cell->get_dof_indices(indices_local);
+            push_back(indices_local);
+          }
+      }
+    else if (version == 1 || version == 2 || version == 3)
+      {
+        std::vector<types::global_dof_index> indices_local;
+
+        for (const auto &cell : dof_handler.active_cell_iterators())
+          {
+            if (cell->is_locally_owned() == false)
+              continue;
+
+            bool flag = false;
+
+            for (const auto f : cell->face_indices())
+              if (cell->at_boundary(f) == false)
+                {
+                  if ((version == 1 || version == 2) &&
+                      (cell->level() > cell->neighbor(f)->level()))
+                    flag = true;
+
+                  if ((version == 1 || version == 3) &&
+                      (cell->neighbor(f)->has_children()))
+                    flag = true;
+                }
+
+            if (flag == false)
+              continue;
+
+            indices_local.resize(cell->get_fe().n_dofs_per_cell());
+            cell->get_dof_indices(indices_local);
+            push_back(indices_local);
+          }
+      }
+    else if (version == 4 || version == 5 || version == 6)
+      {
+        std::vector<types::global_dof_index> indices_local;
+
+        for (const auto &cell : dof_handler.active_cell_iterators())
+          {
+            if (cell->is_locally_owned() == false)
+              continue;
+
+            bool flag = false;
+
+            for (const auto f : cell->face_indices())
+              if (cell->at_boundary(f) == false)
+                {
+                  if ((version == 4 || version == 5) &&
+                      (cell->level() > cell->neighbor(f)->level()))
+                    flag = true;
+
+                  if ((version == 4 || version == 6) &&
+                      (cell->neighbor(f)->has_children()))
+                    flag = true;
+
+                  if (flag == false)
+                    continue;
+
+                  indices_local.resize(cell->get_fe().n_dofs_per_face());
+                  cell->face(f)->get_dof_indices(indices_local,
+                                                 cell->active_fe_index());
+                  push_back(indices_local);
+                }
+          }
+      }
+    else if ((dim == 3) && (version == 7 || version == 8 || version == 9))
+      {
+        std::vector<types::global_dof_index> indices_local;
+        std::set<unsigned int>               processed_lines;
+
+        for (const auto &cell : dof_handler.active_cell_iterators())
+          {
+            if (cell->is_locally_owned() == false)
+              continue;
+
+            bool flag = false;
+
+            for (const auto f : cell->face_indices())
+              if (cell->at_boundary(f) == false)
+                {
+                  if ((version == 7 || version == 8) &&
+                      (cell->level() > cell->neighbor(f)->level()))
+                    flag = true;
+
+                  if ((version == 7 || version == 9) &&
+                      (cell->neighbor(f)->has_children()))
+                    flag = true;
+
+                  if (flag == false)
+                    continue;
+
+                  for (const auto l : cell->face(f)->line_indices())
+                    {
+                      const bool contains = processed_lines.find(cell->face(f)->line(l)->index()) != processed_lines.end();
+                      if (contains)
+                        continue;
+
+                      indices_local.resize(
+                        cell->get_fe().n_dofs_per_line() +
+                        2 * cell->get_fe().n_dofs_per_vertex());
+
+                      cell->face(f)->line(l)->get_dof_indices(
+                        indices_local, cell->active_fe_index());
+
+                      push_back(indices_local);
+
+                      processed_lines.insert(cell->face(f)->line(l)->index());
+                    }
+                }
+          }
+      }
+
+    // treat unprocessed DoFs as blocks of size 1x1
+    std::vector<types::global_dof_index> unprocessed_indices(
+      dof_handler.n_dofs(), 0);
+
+    for (const auto &indices_i : indices)
+      for (const auto i : indices_i)
+        unprocessed_indices[i]++;
+
+    for (unsigned int i = 0; i < unprocessed_indices.size(); ++i)
+      if (unprocessed_indices[i] == 0)
+        indices.emplace_back(std::vector<types::global_dof_index>{i});
+
+    if (false)
+      {
+        for (const auto &indices_i : indices)
+          {
+            for (const auto i : indices_i)
+              std::cout << i << " ";
+            std::cout << std::endl;
+          }
+      }
+
+    SparseMatrixTools::restrict_to_full_matrices(global_sparse_matrix,
+                                                 global_sparsity_pattern,
+                                                 indices,
+                                                 blocks);
 
     for (auto &block : blocks)
-      if (block.m() > 0 && block.n() > 0)
-        block.gauss_jordan();
+      {
+        if (false && (block.m() > 1))
+          {
+            block.print_formatted(std::cout, 2, false, 5, "0.00");
+            std::cout << std::endl;
+          }
+        if (block.m() > 0 && block.n() > 0)
+          block.gauss_jordan();
+      }
   }
 
   template <typename VectorType>
@@ -111,18 +298,16 @@ public:
       {
         weights.reinit(src);
 
-        for (const auto &cell : dof_handler.active_cell_iterators())
+        for (unsigned int c = 0; c < indices.size(); ++c)
           {
-            if (cell->is_locally_owned() == false)
-              continue;
-
-            const unsigned int dofs_per_cell = cell->get_fe().n_dofs_per_cell();
+            const unsigned int dofs_per_cell = indices[c].size();
             vector_weights.reinit(dofs_per_cell);
 
             for (unsigned int i = 0; i < dofs_per_cell; ++i)
               vector_weights[i] = 1.0;
 
-            cell->distribute_local_to_global(vector_weights, weights);
+            for (unsigned int i = 0; i < dofs_per_cell; ++i)
+              weights[indices[c][i]] += vector_weights[i];
           }
 
         weights.compress(VectorOperation::add);
@@ -132,35 +317,36 @@ public:
         weights.update_ghost_values();
       }
 
-    for (const auto &cell : dof_handler.active_cell_iterators())
+    for (unsigned int c = 0; c < indices.size(); ++c)
       {
-        if (cell->is_locally_owned() == false)
-          continue;
-
-        const unsigned int dofs_per_cell = cell->get_fe().n_dofs_per_cell();
+        const unsigned int dofs_per_cell = indices[c].size();
 
         vector_src.reinit(dofs_per_cell);
         vector_dst.reinit(dofs_per_cell);
         if (weighting_type != WeightingType::none)
           vector_weights.reinit(dofs_per_cell);
 
-        cell->get_dof_values(src, vector_src);
+        for (unsigned int i = 0; i < dofs_per_cell; ++i)
+          vector_src[i] += src[indices[c][i]];
+
         if (weighting_type != WeightingType::none)
-          cell->get_dof_values(weights, vector_weights);
+          for (unsigned int i = 0; i < dofs_per_cell; ++i)
+            vector_weights[i] += weights[indices[c][i]];
 
         if (weighting_type == WeightingType::symm ||
             weighting_type == WeightingType::right)
           for (unsigned int i = 0; i < dofs_per_cell; ++i)
             vector_src[i] *= vector_weights[i];
 
-        blocks[cell->active_cell_index()].vmult(vector_dst, vector_src);
+        blocks[c].vmult(vector_dst, vector_src);
 
         if (weighting_type == WeightingType::symm ||
             weighting_type == WeightingType::left)
           for (unsigned int i = 0; i < dofs_per_cell; ++i)
             vector_dst[i] *= vector_weights[i];
 
-        cell->distribute_local_to_global(vector_dst, dst);
+        for (unsigned int i = 0; i < dofs_per_cell; ++i)
+          dst[indices[c][i]] += vector_dst[i];
       }
 
     src.zero_out_ghost_values();
@@ -169,7 +355,10 @@ public:
 
 private:
   const DoFHandler<dim, spacedim> &dof_handler;
-  std::vector<FullMatrix<Number>>  blocks;
+  const AffineConstraints<double> &affine_constraints;
+
+  std::vector<std::vector<types::global_dof_index>> indices;
+  std::vector<FullMatrix<Number>>                   blocks;
 
   const WeightingType weighting_type;
 };
@@ -446,7 +635,7 @@ mg_solve(SolverControl                                         &solver_control,
       DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false, myid);
       SparsityTools::distribute_sparsity_pattern(dsp, owned_dofs, communicator, relevant_dofs);
 
-      smoother_data[level].preconditioner = std::make_shared<SmootherPreconditionerType>(mg_dof_handlers[level]);
+      smoother_data[level].preconditioner = std::make_shared<SmootherPreconditionerType>(mg_dof_handlers[level], mg_constraints[level]);
       smoother_data[level].preconditioner->initialize(mg_matrices[level]->get_system_matrix(), dsp);
       // ----------
 
