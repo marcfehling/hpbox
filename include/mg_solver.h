@@ -83,7 +83,7 @@ public:
     , weighting_type(WeightingType::symm)
   {}
 
-  template <typename GlobalSparseMatrixType, typename GlobalSparsityPattern>
+  template <typename VectorType, typename GlobalSparseMatrixType, typename GlobalSparsityPattern>
   void
   initialize(const GlobalSparseMatrixType &global_sparse_matrix,
              const GlobalSparsityPattern  &global_sparsity_pattern)
@@ -245,14 +245,16 @@ public:
       }
 
     // treat unprocessed DoFs as blocks of size 1x1
-    std::vector<types::global_dof_index> unprocessed_indices(
-      dof_handler.n_dofs(), 0);
+    const IndexSet relevant = DoFTools::extract_locally_relevant_dofs(dof_handler);
+    VectorType unprocessed_indices(dof_handler.locally_owned_dofs(), relevant, dof_handler.get_communicator());
 
     for (const auto &indices_i : indices)
       for (const auto i : indices_i)
         unprocessed_indices[i]++;
 
-    for (unsigned int i = 0; i < unprocessed_indices.size(); ++i)
+    unprocessed_indices.compress(VectorOperation::add);
+
+    for (const auto &i : unprocessed_indices.locally_owned_elements())
       if (unprocessed_indices[i] == 0)
         indices.emplace_back(std::vector<types::global_dof_index>{i});
 
@@ -636,7 +638,7 @@ mg_solve(SolverControl                                         &solver_control,
       SparsityTools::distribute_sparsity_pattern(dsp, owned_dofs, communicator, relevant_dofs);
 
       smoother_data[level].preconditioner = std::make_shared<SmootherPreconditionerType>(mg_dof_handlers[level], mg_constraints[level]);
-      smoother_data[level].preconditioner->initialize(mg_matrices[level]->get_system_matrix(), dsp);
+      smoother_data[level].preconditioner->template initialize<VectorType>(mg_matrices[level]->get_system_matrix(), dsp);
       // ----------
 
       smoother_data[level].smoothing_range     = mg_data.smoother.smoothing_range;
