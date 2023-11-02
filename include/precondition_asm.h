@@ -156,8 +156,17 @@ public:
                     flag = true;
 
                   if ((version == 4 || version == 6) &&
-                      (cell->neighbor(f)->has_children()))
-                    flag = true;
+                      (cell->face(f)->has_children()))
+                    for (unsigned int sf = 0;
+                         sf < cell->face(f)->n_children();
+                         ++sf)
+                      {
+                        const auto n =
+                          cell->neighbor_child_on_subface(f, sf);
+
+                        if(n->get_fe().degree < cell->get_fe().degree)
+                          flag = true;
+                      }
 
                   if (flag == false)
                     continue;
