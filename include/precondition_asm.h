@@ -146,11 +146,11 @@ public:
             if (cell->is_locally_owned() == false)
               continue;
 
-            bool flag = false;
-
             for (const auto f : cell->face_indices())
               if (cell->at_boundary(f) == false)
                 {
+                  bool flag = false;
+
                   if ((version == 4 || version == 5) &&
                       (cell->level() > cell->neighbor(f)->level()))
                     flag = true;
@@ -161,10 +161,10 @@ public:
                          sf < cell->face(f)->n_children();
                          ++sf)
                       {
-                        const auto n =
+                        const auto neighbor_subface =
                           cell->neighbor_child_on_subface(f, sf);
 
-                        if(n->get_fe().degree < cell->get_fe().degree)
+                        if(neighbor_subface->get_fe().degree < cell->get_fe().degree)
                           flag = true;
                       }
 
@@ -188,11 +188,11 @@ public:
             if (cell->is_locally_owned() == false)
               continue;
 
-            bool flag = false;
-
             for (const auto f : cell->face_indices())
               if (cell->at_boundary(f) == false)
                 {
+                  bool flag = false;
+
                   if ((version == 7 || version == 8) &&
                       (cell->level() > cell->neighbor(f)->level()))
                     flag = true;
