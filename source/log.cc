@@ -16,6 +16,7 @@
 
 #include <deal.II/base/mpi.h>
 
+#include <deal.II/grid/filtered_iterator.h>
 #include <deal.II/grid/tria.h>
 
 #include <deal.II/hp/fe_collection.h>
@@ -232,6 +233,44 @@ namespace Log
 
 
 
+  template <int dim, int spacedim>
+  void
+  log_problematic_dofs(const DoFHandler<dim, spacedim> &dof_handler)
+  {
+    types::global_dof_index n_problematic_dofs = 0;
+
+    for(const auto& cell : dof_handler.active_cell_iterators() | IteratorFilters::LocallyOwnedCell())
+      for (const auto f : cell->face_indices())
+        {
+          bool flag = false;
+
+          if (cell->at_boundary(f) == false && cell->face(f)->has_children())
+            for (unsigned int sf = 0;
+                 sf < cell->face(f)->n_children();
+                 ++sf)
+              {
+                const auto neighbor_subface =
+                  cell->neighbor_child_on_subface(f, sf);
+
+                if(neighbor_subface->get_fe().degree < cell->get_fe().degree)
+                  flag = true;
+              }
+
+          if (flag == true)
+            n_problematic_dofs += cell->get_fe().n_dofs_per_face();
+        }
+
+    const types::global_dof_index n_global_problematic_dofs = Utilities::MPI::sum(n_problematic_dofs, dof_handler.get_communicator());
+
+    getPCOut() << "   Number of problematic DoFs:   " << n_global_problematic_dofs << std::endl;
+    getTable().add_value("problematic_dofs", n_global_problematic_dofs);
+
+    const float fraction = static_cast<float>(n_global_problematic_dofs) / dof_handler.n_dofs();
+    getPCOut() << "   Fraction of problematic DoFs: " << 100 * fraction << "%" << std::endl;
+  }
+
+
+
   // explicit instantiations
   template void
   log_hp_diagnostics<2, double, 2>(const parallel::distributed::Triangulation<2, 2> &,
@@ -241,6 +280,11 @@ namespace Log
   log_hp_diagnostics<3, double, 3>(const parallel::distributed::Triangulation<3, 3> &,
                                    const DoFHandler<3, 3> &,
                                    const AffineConstraints<double> &);
+
+  template void
+  log_problematic_dofs<2, 2>(const DoFHandler<2 ,2> &);
+  template void
+  log_problematic_dofs<3, 3>(const DoFHandler<3 ,3> &);
 
 #ifdef DEAL_II_WITH_TRILINOS
   template void

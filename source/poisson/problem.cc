@@ -454,6 +454,7 @@ namespace Poisson
           setup_system();
 
           Log::log_hp_diagnostics(triangulation, dof_handler, constraints);
+          Log::log_problematic_dofs(dof_handler);
 
           poisson_operator->reinit(partitioning, dof_handler, constraints, system_rhs, nullptr);
 
