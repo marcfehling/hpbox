@@ -30,6 +30,8 @@
 #include <deal.II/lac/affine_constraints.h>
 #include <deal.II/lac/sparse_matrix_tools.h>
 
+#include <global.h>
+
 #include <vector>
 
 DEAL_II_NAMESPACE_OPEN
@@ -301,6 +303,8 @@ public:
   void
   vmult(VectorType &dst, const VectorType &src) const
   {
+    TimerOutput::Scope t(getTimer(), "vmult_asm");
+
     dst = 0.0;
     src.update_ghost_values();
 
