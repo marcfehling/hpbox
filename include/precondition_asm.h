@@ -35,7 +35,7 @@
 DEAL_II_NAMESPACE_OPEN
 
 
-template <typename Number, int dim, int spacedim>
+template <typename VectorType, int dim, int spacedim>
 class PreconditionASM
 {
 private:
@@ -55,7 +55,7 @@ public:
     , weighting_type(WeightingType::symm)
   {}
 
-  template <typename VectorType, typename GlobalSparseMatrixType, typename GlobalSparsityPattern>
+  template <typename GlobalSparseMatrixType, typename GlobalSparsityPattern>
   void
   initialize(const GlobalSparseMatrixType &global_sparse_matrix,
              const GlobalSparsityPattern  &global_sparsity_pattern)
@@ -250,6 +250,9 @@ public:
           }
       }
 
+    //
+    // build blocks
+    //
     SparseMatrixTools::restrict_to_full_matrices(global_sparse_matrix,
                                                  global_sparsity_pattern,
                                                  indices,
@@ -265,22 +268,15 @@ public:
         if (block.m() > 0 && block.n() > 0)
           block.gauss_jordan();
       }
-  }
 
-  template <typename VectorType>
-  void
-  vmult(VectorType &dst, const VectorType &src) const
-  {
-    dst = 0.0;
-    src.update_ghost_values();
-
-    Vector<double> vector_src, vector_dst, vector_weights;
-
-    VectorType weights;
-
+    //
+    // prepare weights
+    //
+    Vector<double> vector_weights;
     if (weighting_type != WeightingType::none)
       {
-        weights.reinit(src);
+        const IndexSet relevant = DoFTools::extract_locally_relevant_dofs(dof_handler);
+        weights.reinit(dof_handler.locally_owned_dofs(), relevant, dof_handler.get_communicator());
 
         for (unsigned int c = 0; c < indices.size(); ++c)
           {
@@ -300,6 +296,15 @@ public:
                                                         (1.0 / i);
         weights.update_ghost_values();
       }
+  }
+
+  void
+  vmult(VectorType &dst, const VectorType &src) const
+  {
+    dst = 0.0;
+    src.update_ghost_values();
+
+    Vector<double> vector_src, vector_dst, vector_weights;
 
     for (unsigned int c = 0; c < indices.size(); ++c)
       {
@@ -341,10 +346,11 @@ private:
   const DoFHandler<dim, spacedim> &dof_handler;
   const AffineConstraints<double> &affine_constraints;
 
-  std::vector<std::vector<types::global_dof_index>> indices;
-  std::vector<FullMatrix<Number>>                   blocks;
+  std::vector<std::vector<types::global_dof_index>>        indices;
+  std::vector<FullMatrix<typename VectorType::value_type>> blocks;
 
   const WeightingType weighting_type;
+  VectorType          weights;
 };
 
 DEAL_II_NAMESPACE_CLOSE

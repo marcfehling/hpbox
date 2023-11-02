@@ -414,7 +414,7 @@ namespace StokesMatrixFree
     using MGTransferType  = MGTransferGlobalCoarsening<dim, VectorType>;
 
     //using SmootherPreconditionerType = DiagonalMatrix<VectorType>;
-    using SmootherPreconditionerType = PreconditionASM<double, dim, dim>;
+    using SmootherPreconditionerType = PreconditionASM<VectorType, dim, dim>;
     using SmootherType =
       PreconditionChebyshev<LevelMatrixType, VectorType, SmootherPreconditionerType>;
     using PreconditionerType = PreconditionMG<dim, VectorType, MGTransferType>;
@@ -452,7 +452,7 @@ namespace StokesMatrixFree
         SparsityTools::distribute_sparsity_pattern(dsp, owned_dofs, communicator, relevant_dofs);
 
         smoother_data[level].preconditioner = std::make_shared<SmootherPreconditionerType>(dof_handlers[level], constraints[level]);
-        smoother_data[level].preconditioner->template initialize<VectorType>(operators[level]->get_system_matrix(), dsp);
+        smoother_data[level].preconditioner->initialize(operators[level]->get_system_matrix(), dsp);
         // ----------
 
         smoother_data[level].smoothing_range     = mg_data.smoother.smoothing_range;
