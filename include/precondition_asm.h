@@ -62,6 +62,8 @@ public:
   initialize(const GlobalSparseMatrixType &global_sparse_matrix,
              const GlobalSparsityPattern  &global_sparsity_pattern)
   {
+    TimerOutput::Scope t(getTimer(), "initialize_asm");
+
     // patch types
     //   (0) -> cell-centric patches on cells                       X
     //
