@@ -300,6 +300,43 @@ public:
                                                         (1.0 / i);
         weights.update_ghost_values();
       }
+
+    //
+    // multiply weights to patch matrices (blocks)
+    //
+    if (weighting_type != WeightingType::none)
+      {
+        for (unsigned int cell = 0; cell < indices.size(); ++cell)
+          {
+            const unsigned int dofs_per_cell = indices[cell].size();
+
+            vector_weights.reinit(dofs_per_cell);
+            for (unsigned int i = 0; i < dofs_per_cell; ++i)
+              vector_weights[i] += weights[indices[cell][i]];
+
+            auto & block = blocks[cell];
+
+            if (weighting_type == WeightingType::symm ||
+                weighting_type == WeightingType::right)
+              {
+                // multiply weights from right B(wI), i.e.,
+                // multiply one weight for each column
+                for (unsigned int r = 0; r < dofs_per_cell; ++r)
+                  for (unsigned int c = 0; c < dofs_per_cell; ++c)
+                    block(r,c) *= vector_weights[c];
+              }
+
+            if (weighting_type == WeightingType::symm ||
+                weighting_type == WeightingType::left)
+              {
+                // multiply weights from left (wI)B, i.e.,
+                // multiply one weight for each row
+                for (unsigned int r = 0; r < dofs_per_cell; ++r)
+                  for (unsigned int c = 0; c < dofs_per_cell; ++c)
+                    block(r,c) *= vector_weights[r];
+              }
+          }
+      }
   }
 
   void
@@ -310,7 +347,7 @@ public:
     dst = 0.0;
     src.update_ghost_values();
 
-    Vector<double> vector_src, vector_dst, vector_weights;
+    Vector<double> vector_src, vector_dst;
 
     for (unsigned int c = 0; c < indices.size(); ++c)
       {
@@ -318,27 +355,11 @@ public:
 
         vector_src.reinit(dofs_per_cell);
         vector_dst.reinit(dofs_per_cell);
-        if (weighting_type != WeightingType::none)
-          vector_weights.reinit(dofs_per_cell);
 
         for (unsigned int i = 0; i < dofs_per_cell; ++i)
           vector_src[i] += src[indices[c][i]];
 
-        if (weighting_type != WeightingType::none)
-          for (unsigned int i = 0; i < dofs_per_cell; ++i)
-            vector_weights[i] += weights[indices[c][i]];
-
-        if (weighting_type == WeightingType::symm ||
-            weighting_type == WeightingType::right)
-          for (unsigned int i = 0; i < dofs_per_cell; ++i)
-            vector_src[i] *= vector_weights[i];
-
         blocks[c].vmult(vector_dst, vector_src);
-
-        if (weighting_type == WeightingType::symm ||
-            weighting_type == WeightingType::left)
-          for (unsigned int i = 0; i < dofs_per_cell; ++i)
-            vector_dst[i] *= vector_weights[i];
 
         for (unsigned int i = 0; i < dofs_per_cell; ++i)
           dst[indices[c][i]] += vector_dst[i];
