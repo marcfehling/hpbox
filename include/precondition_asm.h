@@ -49,6 +49,8 @@ private:
     symm
   };
 
+  using Number = typename VectorType::value_type;
+
 public:
   PreconditionASM(const DoFHandler<dim, spacedim> &dof_handler,
                   const AffineConstraints<double> &affine_constraints)
@@ -276,7 +278,7 @@ public:
     //
     // prepare weights
     //
-    Vector<double> vector_weights;
+    Vector<Number> vector_weights;
     if (weighting_type != WeightingType::none)
       {
         const IndexSet relevant = DoFTools::extract_locally_relevant_dofs(dof_handler);
@@ -347,7 +349,7 @@ public:
     dst = 0.0;
     src.update_ghost_values();
 
-    Vector<double> vector_src, vector_dst;
+    Vector<Number> vector_src, vector_dst;
 
     for (unsigned int c = 0; c < indices.size(); ++c)
       {
@@ -373,8 +375,8 @@ private:
   const DoFHandler<dim, spacedim> &dof_handler;
   const AffineConstraints<double> &affine_constraints;
 
-  std::vector<std::vector<types::global_dof_index>>        indices;
-  std::vector<FullMatrix<typename VectorType::value_type>> blocks;
+  std::vector<std::vector<types::global_dof_index>> indices;
+  std::vector<FullMatrix<Number>>                   blocks;
 
   const WeightingType weighting_type;
   VectorType          weights;
