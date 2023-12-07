@@ -29,6 +29,7 @@
 #include <linear_algebra.h>
 #include <mg_solver.h>
 #include <precondition_asm.h>
+#include <precondition_diag_ext.h>
 #include <stokes_matrixfree/operators.h>
 
 
@@ -414,7 +415,8 @@ namespace StokesMatrixFree
     using MGTransferType  = MGTransferGlobalCoarsening<dim, VectorType>;
 
     //using SmootherPreconditionerType = DiagonalMatrix<VectorType>;
-    using SmootherPreconditionerType = PreconditionASM<VectorType, dim, dim>;
+    //using SmootherPreconditionerType = PreconditionASM<VectorType, dim, dim>;
+    using SmootherPreconditionerType = ExtendedDiagonalPreconditioner<VectorType, dim, dim>;
     using SmootherType =
       PreconditionChebyshev<LevelMatrixType, VectorType, SmootherPreconditionerType>;
     using PreconditionerType = PreconditionMG<dim, VectorType, MGTransferType>;

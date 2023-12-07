@@ -51,6 +51,7 @@
 #include <deal.II/multigrid/multigrid.h>
 
 #include <precondition_asm.h>
+#include <precondition_diag_ext.h>
 
 #include <vector>
 
@@ -294,7 +295,8 @@ mg_solve(SolverControl                                         &solver_control,
 
   // using value_type                 = typename VectorType::value_type;
   // using SmootherPreconditionerType = DiagonalMatrix<VectorType>;
-  using SmootherPreconditionerType = PreconditionASM<VectorType, dim, dim>;
+  // using SmootherPreconditionerType = PreconditionASM<VectorType, dim, dim>;
+  using SmootherPreconditionerType = ExtendedDiagonalPreconditioner<VectorType, dim, dim>;
   using SmootherType =
     PreconditionChebyshev<LevelMatrixType, VectorType, SmootherPreconditionerType>;
   using PreconditionerType = PreconditionMG<dim, VectorType, MGTransferType>;
