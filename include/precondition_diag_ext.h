@@ -102,13 +102,6 @@ public:
             if (temp.empty() == false)
               patch_indices.push_back(temp);
           }
-    // patch_indices contains *global* indices
-
-    // do i need to check for the 'unprocessed' indices here?
-    // and only build the inverse diagonal on the unprocessed ones?
-
-
-
 
     //
     // build patch matrices
@@ -186,7 +179,17 @@ public:
           }
       }
 
+    //
+    // count how often indices occur in patches
+    //
+    VectorType unprocessed_indices(owned, relevant, dof_handler.get_communicator());
 
+    // 'patch_indices' contains global indices on locally owned cells
+    for (const auto &indices_i : patch_indices)
+      for (const auto i : indices_i)
+        unprocessed_indices[i]++;
+
+    unprocessed_indices.compress(VectorOperation::add);
 
     //
     // store inverse diagonal
@@ -197,7 +200,8 @@ public:
     diagonal.reinit(owned, dof_handler.get_communicator());
 
     for (const auto n : owned)
-      diagonal[n] = 1.0 / global_sparse_matrix.diag_element(n);
+      if (unprocessed_indices[n] == 0)
+        diagonal[n] = 1.0 / global_sparse_matrix.diag_element(n);
     diagonal.compress(VectorOperation::insert);
 
 
@@ -205,25 +209,19 @@ public:
     // clear diagonal entries assigned to an ASM
     // patch and set embedded partitioner
     // TODO: But maybe this guy needs to know ghost indices. Hmm
-//    const auto larger_partitioner = diagonal.get_partitioner();
+  //  const auto larger_partitioner = diagonal.get_partitioner();
 
-//    std::vector<types::global_dof_index> ghost_indices;
+  //  std::vector<types::global_dof_index> ghost_indices;
 
-    for (const auto &indices : patch_indices)
-      for (const auto i : indices)
-        {
-          //if (i < n_locally_owned_elements)
-          //  diagonal.local_element(i) = 0.0;
-          //else
-          //  ghost_indices.push_back(larger_partitioner->local_to_global(i));
-
-          // i is a *global* index
-          if (owned.is_element(i))
-            diagonal[i] = 0.0;
-//          else
-//            ghost_indices.push_back(i);
-        }
-    diagonal.compress(VectorOperation::insert);
+  //   for (const auto &indices : patch_indices)
+  //     for (const auto i : indices)
+  //       {
+  //         if (i < n_locally_owned_elements)
+  //          diagonal.local_element(i) = 0.0;
+  //         else
+  //          ghost_indices.push_back(larger_partitioner->local_to_global(i));
+  //       }
+  //   diagonal.compress(VectorOperation::insert);
 
 //    std::sort(ghost_indices.begin(), ghost_indices.end());
 //    ghost_indices.erase(std::unique(ghost_indices.begin(), ghost_indices.end()),

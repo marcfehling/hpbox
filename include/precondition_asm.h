@@ -235,7 +235,7 @@ public:
     const IndexSet relevant = DoFTools::extract_locally_relevant_dofs(dof_handler);
     VectorType unprocessed_indices(dof_handler.locally_owned_dofs(), relevant, dof_handler.get_communicator());
 
-    // 'indices' only contains locally owned indices
+    // 'indices' contains global indices on locally owned cells
     for (const auto &indices_i : indices)
       for (const auto i : indices_i)
         unprocessed_indices[i]++;
