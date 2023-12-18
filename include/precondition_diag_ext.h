@@ -64,8 +64,13 @@ public:
   {
     TimerOutput::Scope t(getTimer(), "initialize_extdiag");
 
-    const IndexSet& owned    = dof_handler.locally_owned_dofs();
-    const IndexSet  relevant = DoFTools::extract_locally_relevant_dofs(dof_handler);
+    //const IndexSet& owned    = dof_handler.locally_owned_dofs();
+    //const IndexSet  relevant = DoFTools::extract_locally_relevant_dofs(dof_handler);
+
+    // set up large partitioner
+    const auto large_partitioner = inverse_diagonal.get_partitioner();
+    // TODO: this should only work for LA distributed Vector,
+    //       add a corresponding function to other vector types?
 
     // only use "version 6" to identify patch indices
     std::vector<types::global_dof_index> indices_local;
@@ -123,7 +128,7 @@ public:
     Vector<Number> vector_weights;
     if (weighting_type != WeightingType::none)
       {
-        weights.reinit(owned, relevant, dof_handler.get_communicator());
+        weights.reinit(large_partitioner);
 
         for (unsigned int c = 0; c < patch_indices.size(); ++c)
           {
@@ -184,7 +189,7 @@ public:
     //
     // count how often indices occur in patches
     //
-    VectorType unprocessed_indices(owned, relevant, dof_handler.get_communicator());
+    VectorType unprocessed_indices(large_partitioner);
 
     // 'patch_indices' contains global indices on locally owned cells
     for (const auto &indices_i : patch_indices)
@@ -201,7 +206,7 @@ public:
     for (const auto &indices : patch_indices)
       for (const auto i : indices)
         {
-          if ((owned.is_element(i)) && (unprocessed_indices[i] > 0))
+          if ((large_partitioner->in_local_range(i)) && (unprocessed_indices[i] > 0))
            diagonal[i] = 0.0;
           //else
           // ghost_indices.push_back(larger_partitioner->local_to_global(i));
