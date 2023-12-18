@@ -331,7 +331,11 @@ mg_solve(SolverControl                                         &solver_control,
       SparsityTools::distribute_sparsity_pattern(dsp, owned_dofs, communicator, relevant_dofs);
 
       smoother_data[level].preconditioner = std::make_shared<SmootherPreconditionerType>(mg_dof_handlers[level], mg_constraints[level]);
-      smoother_data[level].preconditioner->initialize(mg_matrices[level]->get_system_matrix(), dsp);
+      //smoother_data[level].preconditioner->initialize(mg_matrices[level]->get_system_matrix(), dsp);
+
+      VectorType inverse_diagonal;
+      mg_matrices[level]->compute_inverse_diagonal(inverse_diagonal);
+      smoother_data[level].preconditioner->initialize(mg_matrices[level]->get_system_matrix(), dsp, inverse_diagonal);
       // ----------
 
       smoother_data[level].smoothing_range     = mg_data.smoother.smoothing_range;

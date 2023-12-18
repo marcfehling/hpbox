@@ -59,7 +59,8 @@ public:
   template <typename GlobalSparseMatrixType, typename GlobalSparsityPattern>
   void
   initialize(const GlobalSparseMatrixType &global_sparse_matrix,
-             const GlobalSparsityPattern  &global_sparsity_pattern)
+             const GlobalSparsityPattern  &global_sparsity_pattern,
+             const VectorType             &inverse_diagonal)
   {
     TimerOutput::Scope t(getTimer(), "initialize_extdiag");
 
@@ -192,19 +193,20 @@ public:
     unprocessed_indices.compress(VectorOperation::add);
 
     //
-    // store inverse diagonal
+    // clear diagonal entries assigned to an ASM patch
     //
-    // TODO: Does this need to be a ghosted vector?
-    // Probably not, as we only store the diagonal for locally owned dofs
-    //diagonal.reinit(owned, relevant, dof_handler.get_communicator());
-    diagonal.reinit(owned, dof_handler.get_communicator());
+    diagonal = inverse_diagonal;
 
-    for (const auto n : owned)
-      if (unprocessed_indices[n] == 0)
-        diagonal[n] = 1.0 / global_sparse_matrix.diag_element(n);
+    for (const auto &indices : patch_indices)
+      for (const auto i : indices)
+        {
+          if ((owned.is_element(i)) && (unprocessed_indices[i] > 0))
+           diagonal[i] = 0.0;
+          //else
+          // ghost_indices.push_back(larger_partitioner->local_to_global(i));
+        }
+
     diagonal.compress(VectorOperation::insert);
-
-
 
     // clear diagonal entries assigned to an ASM
     // patch and set embedded partitioner
