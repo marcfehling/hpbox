@@ -119,6 +119,7 @@ public:
     //
     // prepare weights
     //
+    VectorType     weights;
     Vector<Number> vector_weights;
     if (weighting_type != WeightingType::none)
       {
@@ -320,7 +321,6 @@ private:
   std::vector<FullMatrix<Number>>                   patch_matrices;
 
   const WeightingType weighting_type;
-  VectorType          weights;
 
   // TODO: use embedded partitioner
 //  std::shared_ptr<const Utilities::MPI::Partitioner> embedded_partitioner;

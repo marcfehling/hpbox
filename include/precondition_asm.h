@@ -278,6 +278,7 @@ public:
     //
     // prepare weights
     //
+    VectorType     weights;
     Vector<Number> vector_weights;
     if (weighting_type != WeightingType::none)
       {
@@ -379,7 +380,6 @@ private:
   std::vector<FullMatrix<Number>>                   blocks;
 
   const WeightingType weighting_type;
-  VectorType          weights;
 };
 
 DEAL_II_NAMESPACE_CLOSE
