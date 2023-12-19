@@ -64,10 +64,6 @@ public:
   {
     TimerOutput::Scope t(getTimer(), "initialize_extdiag");
 
-    //const IndexSet& owned    = dof_handler.locally_owned_dofs();
-    //const IndexSet  relevant = DoFTools::extract_locally_relevant_dofs(dof_handler);
-
-    // set up large partitioner
     const auto large_partitioner = inverse_diagonal.get_partitioner();
     // TODO: this should only work for LA distributed Vector,
     //       add a corresponding function to other vector types?
@@ -112,14 +108,14 @@ public:
     //
     // build patch matrices
     //
+    // TODO: partial assembly on provided patch_indices
     SparseMatrixTools::restrict_to_full_matrices(global_sparse_matrix,
                                                  global_sparsity_pattern,
                                                  patch_indices,
                                                  patch_matrices);
 
     for (auto &block : patch_matrices)
-      if (block.m() > 0 && block.n() > 0)
-        block.gauss_jordan();
+      block.gauss_jordan();
 
     //
     // prepare weights
@@ -187,91 +183,55 @@ public:
       }
 
     //
-    // count how often indices occur in patches
-    //
-    VectorType unprocessed_indices(large_partitioner);
-
-    // 'patch_indices' contains global indices on locally owned cells
-    for (const auto &indices_i : patch_indices)
-      for (const auto i : indices_i)
-        unprocessed_indices[i]++;
-
-    unprocessed_indices.compress(VectorOperation::add);
-
-    //
     // clear diagonal entries assigned to an ASM patch
     //
-    diagonal = inverse_diagonal;
+    this->inverse_diagonal = inverse_diagonal;
 
+    std::vector<types::global_dof_index> ghost_indices;
+
+    // 'patch_indices' contains global indices on locally owned cells
     for (const auto &indices : patch_indices)
       for (const auto i : indices)
         {
-          if ((large_partitioner->in_local_range(i)) && (unprocessed_indices[i] > 0))
-           diagonal[i] = 0.0;
-          //else
-          // ghost_indices.push_back(larger_partitioner->local_to_global(i));
+          if (large_partitioner->in_local_range(i))
+            this->inverse_diagonal[i] = 0.0;
+          else
+            ghost_indices.push_back(i);
         }
 
-    diagonal.compress(VectorOperation::insert);
-
-    // clear diagonal entries assigned to an ASM
-    // patch and set embedded partitioner
-    // TODO: But maybe this guy needs to know ghost indices. Hmm
-  //  const auto larger_partitioner = diagonal.get_partitioner();
-
-  //  std::vector<types::global_dof_index> ghost_indices;
-
-  //   for (const auto &indices : patch_indices)
-  //     for (const auto i : indices)
-  //       {
-  //         if (i < n_locally_owned_elements)
-  //          diagonal.local_element(i) = 0.0;
-  //         else
-  //          ghost_indices.push_back(larger_partitioner->local_to_global(i));
-  //       }
-  //   diagonal.compress(VectorOperation::insert);
-
+    //
+    // set embedded partitioner
+    //
 //    std::sort(ghost_indices.begin(), ghost_indices.end());
 //    ghost_indices.erase(std::unique(ghost_indices.begin(), ghost_indices.end()),
 //                        ghost_indices.end());
 //
-//    IndexSet ghost_indices_is(dof_handler.n_dofs());
-//    ghost_indices_is.add_indices(ghost_indices.begin(), ghost_indices.end());
-//
-//    // TODO: not really an embedded partitioner yet.
-//    // adjust using code below
-//    embedded_partitioner =
-//      std::make_shared<const Utilities::MPI::Partitioner>(
-//        owned,
-//        ghost_indices_is,
-//        dof_handler.get_communicator());
-
-//    IndexSet ghost_indices_is(larger_partitioner->size());
+//    IndexSet ghost_indices_is(large_partitioner->size());
 //    ghost_indices_is.add_indices(ghost_indices.begin(), ghost_indices.end());
 //
 //    const auto partitioner =
 //      std::make_shared<const Utilities::MPI::Partitioner>(
-//        larger_partitioner->locally_owned_range(),
+//        large_partitioner->locally_owned_range(),
 //        ghost_indices_is,
-//        larger_partitioner->get_mpi_communicator());
+//        large_partitioner->get_mpi_communicator());
 //
 //    this->embedded_partitioner =
-//      internal::create_embedded_partitioner(partitioner, larger_partitioner);
+//      internal::create_embedded_partitioner(partitioner, large_partitioner);
   }
 
   void
   vmult(VectorType &dst, const VectorType &src) const
   {
-    // apply diagonal
-    internal::DiagonalMatrix::assign_and_scale(dst, src, this->diagonal);
+    TimerOutput::Scope t(getTimer(), "vmult_extdiag");
+
+    // apply inverse diagonal
+    internal::DiagonalMatrix::assign_and_scale(dst, src, this->inverse_diagonal);
 
     // apply ASM: 1) update ghost values
     src.update_ghost_values();
-    // TODO: use embedded partitioner
 //    internal::SimpleVectorDataExchange<Number> data_exchange(
 //      embedded_partitioner, buffer);
 //    data_exchange.update_ghost_values(src);
-
 
     Vector<Number> vector_src, vector_dst;
 
@@ -285,6 +245,7 @@ public:
         vector_dst.reinit(dofs_per_cell);
 
         // TODO: patch indices are *global*
+        //       use local indices for faster access (see below)
         for (unsigned int i = 0; i < dofs_per_cell; ++i)
           vector_src[i] = src[patch_indices[p][i]];
 
@@ -309,7 +270,6 @@ public:
     // ... 3) compress
     dst.compress(VectorOperation::add);
     src.zero_out_ghost_values();
-    // TODO: use embedded partitioner
 //    data_exchange.compress(dst);
 //    data_exchange.zero_out_ghost_values(src);
   }
@@ -318,8 +278,8 @@ private:
   const DoFHandler<dim, spacedim> &dof_handler;
   const AffineConstraints<double> &affine_constraints;
 
-  // diagonal
-  VectorType diagonal;
+  // inverse diagonal
+  VectorType inverse_diagonal;
 
   // ASM
   std::vector<std::vector<types::global_dof_index>> patch_indices;
@@ -327,7 +287,7 @@ private:
 
   const WeightingType weighting_type;
 
-  // TODO: use embedded partitioner
+  // embedded partitioner
 //  std::shared_ptr<const Utilities::MPI::Partitioner> embedded_partitioner;
 //  mutable AlignedVector<Number>                      buffer;
 };
