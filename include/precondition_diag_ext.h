@@ -202,21 +202,21 @@ public:
     //
     // set embedded partitioner
     //
-//    std::sort(ghost_indices.begin(), ghost_indices.end());
-//    ghost_indices.erase(std::unique(ghost_indices.begin(), ghost_indices.end()),
-//                        ghost_indices.end());
-//
-//    IndexSet ghost_indices_is(large_partitioner->size());
-//    ghost_indices_is.add_indices(ghost_indices.begin(), ghost_indices.end());
-//
-//    const auto partitioner =
-//      std::make_shared<const Utilities::MPI::Partitioner>(
-//        large_partitioner->locally_owned_range(),
-//        ghost_indices_is,
-//        large_partitioner->get_mpi_communicator());
-//
-//    this->embedded_partitioner =
-//      internal::create_embedded_partitioner(partitioner, large_partitioner);
+    std::sort(ghost_indices.begin(), ghost_indices.end());
+    ghost_indices.erase(std::unique(ghost_indices.begin(), ghost_indices.end()),
+                        ghost_indices.end());
+
+    IndexSet ghost_indices_is(large_partitioner->size());
+    ghost_indices_is.add_indices(ghost_indices.begin(), ghost_indices.end());
+
+    const auto partitioner =
+      std::make_shared<const Utilities::MPI::Partitioner>(
+        large_partitioner->locally_owned_range(),
+        ghost_indices_is,
+        large_partitioner->get_mpi_communicator());
+
+    this->embedded_partitioner =
+      internal::create_embedded_partitioner(partitioner, large_partitioner);
   }
 
   void
@@ -228,10 +228,9 @@ public:
     internal::DiagonalMatrix::assign_and_scale(dst, src, this->inverse_diagonal);
 
     // apply ASM: 1) update ghost values
-    src.update_ghost_values();
-//    internal::SimpleVectorDataExchange<Number> data_exchange(
-//      embedded_partitioner, buffer);
-//    data_exchange.update_ghost_values(src);
+    internal::SimpleVectorDataExchange<Number> data_exchange(
+      embedded_partitioner, buffer);
+    data_exchange.update_ghost_values(src);
 
     Vector<Number> vector_src, vector_dst;
 
@@ -268,10 +267,8 @@ public:
       }
 
     // ... 3) compress
-    dst.compress(VectorOperation::add);
-    src.zero_out_ghost_values();
-//    data_exchange.compress(dst);
-//    data_exchange.zero_out_ghost_values(src);
+    data_exchange.compress(dst);
+    data_exchange.zero_out_ghost_values(src);
   }
 
 private:
@@ -288,8 +285,8 @@ private:
   const WeightingType weighting_type;
 
   // embedded partitioner
-//  std::shared_ptr<const Utilities::MPI::Partitioner> embedded_partitioner;
-//  mutable AlignedVector<Number>                      buffer;
+  std::shared_ptr<const Utilities::MPI::Partitioner> embedded_partitioner;
+  mutable AlignedVector<Number>                      buffer;
 };
 
 DEAL_II_NAMESPACE_CLOSE
