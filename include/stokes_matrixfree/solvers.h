@@ -453,11 +453,16 @@ namespace StokesMatrixFree
         DoFTools::make_sparsity_pattern(dof_handler, dsp, constraint, false, myid);
         SparsityTools::distribute_sparsity_pattern(dsp, owned_dofs, communicator, relevant_dofs);
 
-        smoother_data[level].preconditioner = std::make_shared<SmootherPreconditionerType>(dof_handlers[level], constraints[level]);
-        //smoother_data[level].preconditioner->initialize(operators[level]->get_system_matrix(), dsp);
+        const auto patch_indices = prepare_patch_indices(dof_handlers[level], constraints[level]);
+
+        // do partial assembly here
 
         VectorType inverse_diagonal;
         operators[level]->compute_inverse_diagonal(inverse_diagonal);
+
+        smoother_data[level].preconditioner = std::make_shared<SmootherPreconditionerType>(dof_handlers[level], patch_indices);
+        //smoother_data[level].preconditioner->initialize(operators[level]->get_system_matrix(), dsp);
+
         smoother_data[level].preconditioner->initialize(operators[level]->get_system_matrix(), dsp, inverse_diagonal);
         // ----------
 

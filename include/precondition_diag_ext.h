@@ -24,6 +24,8 @@
 
 #include <deal.II/grid/filtered_iterator.h>
 
+#include <deal.II/hp/fe_values.h>
+
 #include <deal.II/lac/diagonal_matrix.h>
 #include <deal.II/lac/sparse_matrix_tools.h>
 
@@ -33,6 +35,165 @@
 
 DEAL_II_NAMESPACE_OPEN
 
+template <int dim, int spacedim = dim>
+std::vector<std::vector<types::global_dof_index>>
+prepare_patch_indices(const DoFHandler<dim, spacedim> &dof_handler,
+                      const AffineConstraints<double> &constraints)
+{
+  std::vector<std::vector<types::global_dof_index>> patch_indices;
+
+  std::vector<types::global_dof_index> indices_local;
+  for (const auto &cell : dof_handler.active_cell_iterators() | IteratorFilters::LocallyOwnedCell())
+    for (const auto f : cell->face_indices())
+      if (cell->at_boundary(f) == false)
+        {
+          bool flag = false;
+
+          if (cell->face(f)->has_children())
+            for (unsigned int sf = 0;
+                  sf < cell->face(f)->n_children();
+                  ++sf)
+              {
+                const auto neighbor_subface =
+                  cell->neighbor_child_on_subface(f, sf);
+
+                if(neighbor_subface->get_fe().degree < cell->get_fe().degree)
+                  flag = true;
+              }
+
+          if (flag == false)
+            continue;
+
+          indices_local.resize(cell->get_fe().n_dofs_per_face());
+          cell->face(f)->get_dof_indices(indices_local,
+                                          cell->active_fe_index());
+          // indices_local now contains *global* indices
+
+          std::vector<types::global_dof_index> temp;
+          for (const auto i : indices_local)
+            if (constraints.is_constrained(i) == false)
+              temp.emplace_back(i);
+
+          if (temp.empty() == false)
+            patch_indices.push_back(temp);
+        }
+
+  return patch_indices;
+}
+
+template <int dim, typename Number, int spacedim = dim>
+void
+partial_assembly_poisson(const DoFHandler<dim, spacedim> &dof_handler,
+                         const AffineConstraints<Number> &constraints_full,
+                         const hp::QCollection<dim>      &quadrature_collection,
+                         const std::vector<std::vector<types::global_dof_index>> &patch_indices,
+                         SparseMatrix<Number>            &sparse_matrix,
+                         SparsityPattern                 &sparsity_pattern)
+{
+  //
+  // reduce constraints on patches
+  //
+  std::set<types::global_dof_index> all_indices;
+
+  // 'patch_indices' contains global indices on locally owned cells
+  for (const auto &indices : patch_indices)
+    for (const auto &i : indices)
+      all_indices.insert(i);
+
+  AffineConstraints<Number>         constraints;
+  std::set<types::global_dof_index> all_indices_constrained;
+
+  for (unsigned int i = 0; i < dof_handler.n_dofs(); ++i)
+    if (constraints_full.is_constrained(i))
+      {
+        all_indices_constrained.insert(i);
+
+        const auto constraint_entries =
+          constraints_full.get_constraint_entries(i);
+
+        std::vector<std::pair<types::global_dof_index, Number>>
+          constraint_entries_reduced;
+
+        if (constraint_entries != nullptr)
+          for (const auto &entry : *constraint_entries)
+            if (all_indices.contains(entry.first))
+              constraint_entries_reduced.push_back(entry);
+
+        constraints.add_line(i);
+        constraints.add_entries(i, constraint_entries_reduced);
+      }
+
+  constraints.close();
+
+  //
+  // create sparsity pattern on reduced constraints
+  //
+  DynamicSparsityPattern dsp(dof_handler.n_dofs());
+
+  // 'patch_indices' contains global indices on locally owned cells
+  for (const auto &indices : patch_indices)
+    for (const auto &i : indices)
+      dsp.add_entries(i, indices.begin(), indices.end());
+
+  sparsity_pattern.copy_from(dsp);
+
+  sparse_matrix.reinit(sparsity_pattern);
+
+  //
+  // build local matrices, distribute to sparse matrix
+  // TODO: can we just store the patch matrices?
+  //
+  hp::FEValues<dim> hp_fe_values(dof_handler.get_fe_collection(),
+                                 quadrature_collection,
+                                 update_gradients | update_JxW_values);
+
+  FullMatrix<double>                   cell_matrix;
+  std::vector<types::global_dof_index> local_dof_indices;
+
+  // loop over all cells
+  for (const auto &cell : dof_handler.active_cell_iterators() | IteratorFilters::LocallyOwnedCell())
+    {
+      hp_fe_values.reinit(cell);
+
+      local_dof_indices.resize(cell->get_fe().dofs_per_cell);
+      cell->get_dof_indices(local_dof_indices);
+
+      std::vector<types::global_dof_index> local_dof_indices_reduced;
+      std::vector<unsigned int>            dof_indices;
+
+      for (unsigned int i = 0; i < local_dof_indices.size(); ++i)
+        if (all_indices.contains(local_dof_indices[i]) ||
+            all_indices_constrained.contains(local_dof_indices[i]))
+          {
+            local_dof_indices_reduced.push_back(local_dof_indices[i]);
+            dof_indices.push_back(i);
+          }
+
+      if (dof_indices.empty())
+        continue;
+
+      const auto &fe_values = hp_fe_values.get_present_fe_values();
+
+      cell_matrix.reinit(dof_indices.size(), dof_indices.size());
+
+      // loop over cell dofs
+      for (const auto q : fe_values.quadrature_point_indices())
+        {
+          for (unsigned int i = 0; i < dof_indices.size(); ++i)
+            for (unsigned int j = 0; j < dof_indices.size(); ++j)
+              cell_matrix(i, j) +=
+                (fe_values.shape_grad(dof_indices[i], q) * // grad phi_i(x_q)
+                 fe_values.shape_grad(dof_indices[j], q) * // grad phi_j(x_q)
+                 fe_values.JxW(q));                        // dx
+        }
+
+      constraints.distribute_local_to_global(cell_matrix,
+                                             local_dof_indices_reduced,
+                                             sparse_matrix);
+    }
+
+  sparse_matrix.compress(VectorOperation::values::add);
+}
 
 template<typename VectorType, int dim, int spacedim>
 class ExtendedDiagonalPreconditioner
@@ -49,10 +210,10 @@ private:
   using Number = typename VectorType::value_type;
 
 public:
-  ExtendedDiagonalPreconditioner(const DoFHandler<dim, spacedim> &dof_handler,
-                                 const AffineConstraints<double> &affine_constraints)
+  ExtendedDiagonalPreconditioner(const DoFHandler<dim, spacedim>                         &dof_handler,
+                                 const std::vector<std::vector<types::global_dof_index>> &patch_indices)
     : dof_handler(dof_handler)
-    , affine_constraints(affine_constraints)
+    , patch_indices(patch_indices)
     , weighting_type(WeightingType::symm)
   {}
 
@@ -67,43 +228,6 @@ public:
     const auto large_partitioner = inverse_diagonal.get_partitioner();
     // TODO: this should only work for LA distributed Vector,
     //       add a corresponding function to other vector types?
-
-    // only use "version 6" to identify patch indices
-    std::vector<types::global_dof_index> indices_local;
-    for (const auto &cell : dof_handler.active_cell_iterators() | IteratorFilters::LocallyOwnedCell())
-      for (const auto f : cell->face_indices())
-        if (cell->at_boundary(f) == false)
-          {
-            bool flag = false;
-
-            if (cell->face(f)->has_children())
-              for (unsigned int sf = 0;
-                   sf < cell->face(f)->n_children();
-                   ++sf)
-                {
-                  const auto neighbor_subface =
-                    cell->neighbor_child_on_subface(f, sf);
-
-                  if(neighbor_subface->get_fe().degree < cell->get_fe().degree)
-                    flag = true;
-                }
-
-            if (flag == false)
-              continue;
-
-            indices_local.resize(cell->get_fe().n_dofs_per_face());
-            cell->face(f)->get_dof_indices(indices_local,
-                                           cell->active_fe_index());
-            // indices_local now contains *global* indices
-
-            std::vector<types::global_dof_index> temp;
-            for (const auto i : indices_local)
-              if (affine_constraints.is_constrained(i) == false)
-                temp.emplace_back(i);
-
-            if (temp.empty() == false)
-              patch_indices.push_back(temp);
-          }
 
     //
     // build patch matrices
@@ -276,14 +400,13 @@ public:
 
 private:
   const DoFHandler<dim, spacedim> &dof_handler;
-  const AffineConstraints<double> &affine_constraints;
-
-  // inverse diagonal
-  VectorType inverse_diagonal;
 
   // ASM
   std::vector<std::vector<types::global_dof_index>> patch_indices;
   std::vector<FullMatrix<Number>>                   patch_matrices;
+
+  // inverse diagonal
+  VectorType inverse_diagonal;
 
   const WeightingType weighting_type;
 

@@ -276,6 +276,7 @@ namespace Poisson
                                                     completely_distributed_solution,
                                                     system_rhs,
                                                     /*boundary_values=*/mapping_collection,
+                                                    quadrature_collection,
                                                     dof_handler,
                                                     filename_stem + "-mglevel-cycle_" +
                                                       std::to_string(cycle) + ".log");
