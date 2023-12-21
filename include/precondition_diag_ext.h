@@ -312,19 +312,27 @@ public:
     //
     // clear diagonal entries assigned to an ASM patch
     //
-    this->inverse_diagonal = inverse_diagonal;
-
-    std::vector<types::global_dof_index> ghost_indices;
+    // count how often indices occur in patches
+    VectorType unprocessed_indices(large_partitioner);
 
     // 'patch_indices' contains global indices on locally owned cells
-    for (const auto &indices : patch_indices)
-      for (const auto i : indices)
-        {
-          if (large_partitioner->in_local_range(i))
-            this->inverse_diagonal[i] = 0.0;
-          else
-            ghost_indices.push_back(i);
-        }
+    for (const auto &indices_i : patch_indices)
+      for (const auto i : indices_i)
+        unprocessed_indices[i]++;
+
+    unprocessed_indices.compress(VectorOperation::add);
+
+    // TODO: can be optimized
+    this->inverse_diagonal = inverse_diagonal;
+    for (const auto l : large_partitioner->locally_owned_range())
+      if (unprocessed_indices[l] > 0)
+        this->inverse_diagonal[l] = 0.0;
+
+    // TODO: can be optimized
+    std::vector<types::global_dof_index> ghost_indices;
+    for (const auto g : large_partitioner->ghost_indices())
+      if (unprocessed_indices[g] > 0)
+        ghost_indices.push_back(g);
 
     //
     // set embedded partitioner
