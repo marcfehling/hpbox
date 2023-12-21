@@ -81,14 +81,14 @@ prepare_patch_indices(const DoFHandler<dim, spacedim> &dof_handler,
   return patch_indices;
 }
 
-template <int dim, typename Number, int spacedim = dim>
+template <int dim, typename Number, typename SparseMatrixType, typename SparsityPatternType, int spacedim = dim>
 void
 partial_assembly_poisson(const DoFHandler<dim, spacedim> &dof_handler,
                          const AffineConstraints<Number> &constraints_full,
                          const hp::QCollection<dim>      &quadrature_collection,
                          const std::vector<std::vector<types::global_dof_index>> &patch_indices,
-                         SparseMatrix<Number>            &sparse_matrix,
-                         SparsityPattern                 &sparsity_pattern)
+                         SparseMatrixType                &sparse_matrix,
+                         SparsityPatternType             &sparsity_pattern)
 {
   //
   // reduce constraints on patches
@@ -103,7 +103,10 @@ partial_assembly_poisson(const DoFHandler<dim, spacedim> &dof_handler,
   AffineConstraints<Number>         constraints;
   std::set<types::global_dof_index> all_indices_constrained;
 
-  for (unsigned int i = 0; i < dof_handler.n_dofs(); ++i)
+  const auto relevant = DoFTools::extract_locally_relevant_dofs(dof_handler);
+
+  // TODO: owned, active, or relevant?
+  for (const auto i : relevant)
     if (constraints_full.is_constrained(i))
       {
         all_indices_constrained.insert(i);
@@ -128,16 +131,16 @@ partial_assembly_poisson(const DoFHandler<dim, spacedim> &dof_handler,
   //
   // create sparsity pattern on reduced constraints
   //
-  DynamicSparsityPattern dsp(dof_handler.n_dofs());
-
-  // 'patch_indices' contains global indices on locally owned cells
-  for (const auto &indices : patch_indices)
-    for (const auto &i : indices)
-      dsp.add_entries(i, indices.begin(), indices.end());
-
-  sparsity_pattern.copy_from(dsp);
-
-  sparse_matrix.reinit(sparsity_pattern);
+//  DynamicSparsityPattern dsp(dof_handler.n_dofs());
+//
+//  // 'patch_indices' contains global indices on locally owned cells
+//  for (const auto &indices : patch_indices)
+//    for (const auto &i : indices)
+//      dsp.add_entries(i, indices.begin(), indices.end());
+//
+//  sparsity_pattern.copy_from(dsp);
+//
+//  sparse_matrix.reinit(sparsity_pattern);
 
   //
   // build local matrices, distribute to sparse matrix
@@ -150,7 +153,7 @@ partial_assembly_poisson(const DoFHandler<dim, spacedim> &dof_handler,
   FullMatrix<double>                   cell_matrix;
   std::vector<types::global_dof_index> local_dof_indices;
 
-  // loop over all cells
+  // loop over locally owned cells
   for (const auto &cell : dof_handler.active_cell_iterators() | IteratorFilters::LocallyOwnedCell())
     {
       hp_fe_values.reinit(cell);
