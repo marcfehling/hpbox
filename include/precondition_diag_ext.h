@@ -321,6 +321,7 @@ public:
         unprocessed_indices[i]++;
 
     unprocessed_indices.compress(VectorOperation::add);
+    unprocessed_indices.update_ghost_values();
 
     // TODO: can be optimized
     this->inverse_diagonal = inverse_diagonal;
