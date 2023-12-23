@@ -43,40 +43,43 @@ prepare_patch_indices(const DoFHandler<dim, spacedim> &dof_handler,
   std::vector<std::vector<types::global_dof_index>> patch_indices;
 
   std::vector<types::global_dof_index> indices_local;
-  for (const auto &cell : dof_handler.active_cell_iterators() | IteratorFilters::LocallyOwnedCell())
-    for (const auto f : cell->face_indices())
-      if (cell->at_boundary(f) == false)
-        {
-          bool flag = false;
+  for (const auto &cell : dof_handler.active_cell_iterators())
+    if (cell->is_locally_owned() || cell->is_ghost())
+      for (const auto f : cell->face_indices())
+        if (cell->at_boundary(f) == false)
+          {
+            bool flag = false;
 
-          if (cell->face(f)->has_children())
-            for (unsigned int sf = 0;
-                  sf < cell->face(f)->n_children();
-                  ++sf)
-              {
-                const auto neighbor_subface =
-                  cell->neighbor_child_on_subface(f, sf);
+            if (cell->face(f)->has_children())
+              for (unsigned int sf = 0;
+                    sf < cell->face(f)->n_children();
+                    ++sf)
+                {
+                  const auto neighbor_subface =
+                    cell->neighbor_child_on_subface(f, sf);
 
-                if(neighbor_subface->get_fe().degree < cell->get_fe().degree)
-                  flag = true;
-              }
+                  // check internal faces and faces with ghost cells
+                  if((cell->is_locally_owned() || neighbor_subface->is_locally_owned()) &&
+                     (neighbor_subface->get_fe().degree < cell->get_fe().degree))
+                    flag = true;
+                }
 
-          if (flag == false)
-            continue;
+            if (flag == false)
+              continue;
 
-          indices_local.resize(cell->get_fe().n_dofs_per_face());
-          cell->face(f)->get_dof_indices(indices_local,
-                                          cell->active_fe_index());
-          // indices_local now contains *global* indices
+            indices_local.resize(cell->get_fe().n_dofs_per_face());
+            cell->face(f)->get_dof_indices(indices_local,
+                                            cell->active_fe_index());
+            // indices_local now contains *global* indices
 
-          std::vector<types::global_dof_index> temp;
-          for (const auto i : indices_local)
-            if (constraints.is_constrained(i) == false)
-              temp.emplace_back(i);
+            std::vector<types::global_dof_index> temp;
+            for (const auto i : indices_local)
+              if (constraints.is_constrained(i) == false)
+                temp.emplace_back(i);
 
-          if (temp.empty() == false)
-            patch_indices.push_back(temp);
-        }
+            if (temp.empty() == false)
+              patch_indices.push_back(temp);
+          }
 
   return patch_indices;
 }
@@ -312,28 +315,16 @@ public:
     //
     // clear diagonal entries assigned to an ASM patch
     //
-    // count how often indices occur in patches
-    VectorType unprocessed_indices(large_partitioner);
-
-    // 'patch_indices' contains global indices on locally owned cells
-    for (const auto &indices_i : patch_indices)
-      for (const auto i : indices_i)
-        unprocessed_indices[i]++;
-
-    unprocessed_indices.compress(VectorOperation::add);
-    unprocessed_indices.update_ghost_values();
-
-    // TODO: can be optimized
     this->inverse_diagonal = inverse_diagonal;
-    for (const auto l : large_partitioner->locally_owned_range())
-      if (unprocessed_indices[l] > 0)
-        this->inverse_diagonal[l] = 0.0;
-
-    // TODO: can be optimized
     std::vector<types::global_dof_index> ghost_indices;
-    for (const auto g : large_partitioner->ghost_indices())
-      if (unprocessed_indices[g] > 0)
-        ghost_indices.push_back(g);
+    for (const auto &indices : patch_indices)
+      for (const auto i : indices)
+        {
+          if (large_partitioner->in_local_range(i))
+            this->inverse_diagonal[i] = 0.0;
+          else
+            ghost_indices.push_back(i);
+        }
 
     //
     // set embedded partitioner
