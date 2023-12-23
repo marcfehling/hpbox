@@ -106,10 +106,9 @@ partial_assembly_poisson(const DoFHandler<dim, spacedim> &dof_handler,
   AffineConstraints<Number>         constraints;
   std::set<types::global_dof_index> all_indices_constrained;
 
-  const auto relevant = DoFTools::extract_locally_relevant_dofs(dof_handler);
+  const auto active = DoFTools::extract_locally_active_dofs(dof_handler);
 
-  // TODO: owned, active, or relevant?
-  for (const auto i : relevant)
+  for (const auto i : active)
     if (constraints_full.is_constrained(i))
       {
         all_indices_constrained.insert(i);
