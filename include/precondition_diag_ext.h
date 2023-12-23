@@ -59,7 +59,7 @@ prepare_patch_indices(const DoFHandler<dim, spacedim> &dof_handler,
                     cell->neighbor_child_on_subface(f, sf);
 
                   // check internal faces and faces with ghost cells
-                  if((cell->is_locally_owned() || neighbor_subface->is_locally_owned()) &&
+                  if((neighbor_subface->is_locally_owned() || neighbor_subface->is_ghost()) &&
                      (neighbor_subface->get_fe().degree < cell->get_fe().degree))
                     flag = true;
                 }
