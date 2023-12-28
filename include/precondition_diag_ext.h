@@ -230,14 +230,18 @@ public:
   {
     TimerOutput::Scope t(getTimer(), "initialize_extdiag");
 
-    const auto large_partitioner = inverse_diagonal.get_partitioner();
-    // TODO: this should only work for LA distributed Vector,
-    //       add a corresponding function to other vector types?
+    // we need a partitioner over locally relevant dofs,
+    // as patch dofs might be constrained with ghost dofs
+    const auto relevant_dofs = DoFTools::extract_locally_relevant_dofs(dof_handler);
+    const auto large_partitioner =
+      std::make_shared<const Utilities::MPI::Partitioner>(
+        dof_handler.locally_owned_dofs(),
+        relevant_dofs,
+        dof_handler.get_communicator());
 
     //
     // build patch matrices
     //
-    // TODO: partial assembly on provided patch_indices
     SparseMatrixTools::restrict_to_full_matrices(global_sparse_matrix,
                                                  global_sparsity_pattern,
                                                  patch_indices,
@@ -370,7 +374,9 @@ public:
         vector_dst.reinit(dofs_per_cell);
 
         // TODO: patch indices are *global*
-        //       use local indices for faster access (see below)
+        //       use local indices for faster access like this:
+        // for (unsigned int i = 0; i < dofs_per_cell; ++i)
+        //   vector_src[i] = src.local_element(patch_indices[p][i]);
         for (unsigned int i = 0; i < dofs_per_cell; ++i)
           vector_src[i] = src[patch_indices[p][i]];
 
@@ -378,18 +384,10 @@ public:
         patch_matrices[p].vmult(vector_dst, vector_src);
 
         // ... 2c) scatter
+        // for (unsigned int i = 0; i < dofs_per_cell; ++i)
+        //   dst.local_element(patch_indices[p][i]) += vector_dst[i];
         for (unsigned int i = 0; i < dofs_per_cell; ++i)
           dst[patch_indices[p][i]] += vector_dst[i];
-
-//        for (unsigned int i = 0; i < dofs_per_cell; ++i)
-//          vector_src[i] = src.local_element(patch_indices[p][i]);
-//
-//        // ... 2b) apply preconditioner
-//        patch_matrices[p].vmult(vector_dst, vector_src);
-//
-//        // ... 2c) scatter
-//        for (unsigned int i = 0; i < dofs_per_cell; ++i)
-//          dst.local_element(patch_indices[p][i]) += vector_dst[i];
       }
 
     // ... 3) compress
