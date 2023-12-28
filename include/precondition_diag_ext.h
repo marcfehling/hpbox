@@ -108,6 +108,9 @@ partial_assembly_poisson(const DoFHandler<dim, spacedim> &dof_handler,
 
   const auto active = DoFTools::extract_locally_active_dofs(dof_handler);
 
+  Assert(constraints_full.is_closed(),
+         ExcMessage("constraints_full needs to have all chains of constraints resolved"));
+
   for (const auto i : active)
     if (constraints_full.is_constrained(i))
       {
@@ -338,6 +341,9 @@ public:
 
     IndexSet ghost_indices_is(large_partitioner->size());
     ghost_indices_is.add_indices(ghost_indices.begin(), ghost_indices.end());
+
+    Assert(ghost_indices_is.is_subset_of(large_partitioner->ghost_indices()),
+           ExcMessage("Ghost range mismatch!"));
 
     const auto partitioner =
       std::make_shared<const Utilities::MPI::Partitioner>(
