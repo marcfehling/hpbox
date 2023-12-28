@@ -398,6 +398,10 @@ mg_solve(SolverControl                                         &solver_control,
       smoother_data[level].eig_cg_n_iterations = 0;
       smoother_data[level].max_eigenvalue = evs.max_eigenvalue_estimate * 1.1;
     }
+  // log maximum
+  getPCOut() << "   Max EV on all MG levels:      "
+             << *std::max_element(max_eigenvalues.begin(), max_eigenvalues.end())
+             << std::endl;
   // ----------
 
   MGSmootherRelaxation<LevelMatrixType, SmootherType, VectorType> mg_smoother;
