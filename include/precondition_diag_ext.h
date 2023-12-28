@@ -133,16 +133,16 @@ partial_assembly_poisson(const DoFHandler<dim, spacedim> &dof_handler,
   //
   // create sparsity pattern on reduced constraints
   //
-//  DynamicSparsityPattern dsp(dof_handler.n_dofs());
-//
-//  // 'patch_indices' contains global indices on locally owned cells
-//  for (const auto &indices : patch_indices)
-//    for (const auto &i : indices)
-//      dsp.add_entries(i, indices.begin(), indices.end());
-//
-//  sparsity_pattern.copy_from(dsp);
-//
-//  sparse_matrix.reinit(sparsity_pattern);
+  DynamicSparsityPattern dsp(dof_handler.n_dofs());
+
+  // 'patch_indices' contains global indices on locally owned cells
+  for (const auto &indices : patch_indices)
+    for (const auto &i : indices)
+      dsp.add_entries(i, indices.begin(), indices.end());
+
+  sparsity_pattern.copy_from(dsp);
+
+  sparse_matrix.reinit(sparsity_pattern);
 
   //
   // build local matrices, distribute to sparse matrix
