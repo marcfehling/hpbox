@@ -88,37 +88,47 @@ prepare_patch_indices(const DoFHandler<dim, spacedim> &dof_handler,
   return patch_indices;
 }
 
-template <int dim, typename Number, typename SparseMatrixType, typename SparsityPatternType, int spacedim = dim>
-void
-partial_assembly_poisson(const DoFHandler<dim, spacedim> &dof_handler,
-                         const AffineConstraints<Number> &constraints_full,
-                         const hp::QCollection<dim>      &quadrature_collection,
-                         const std::vector<std::vector<types::global_dof_index>> &patch_indices,
-                         SparseMatrixType                &sparse_matrix,
-                         SparsityPatternType             &sparsity_pattern)
-{
-  //
-  // reduce constraints on patches
-  //
-  std::set<types::global_dof_index> all_indices;
 
-  // 'patch_indices' contains global indices on locally owned cells
+
+template <int dim, typename Number, int spacedim = dim>
+void
+reduce_constraints(const DoFHandler<dim, spacedim>   &dof_handler,
+                   const AffineConstraints<Number>   &constraints_full,
+                   const std::vector<std::vector<types::global_dof_index>> &patch_indices,
+                   std::set<types::global_dof_index> &all_indices,
+                   AffineConstraints<Number>         &constraints_reduced)
+{
+  Assert(constraints_full.is_closed(),
+         ExcMessage("constraints_full needs to have all chains of constraints resolved"));
+
+  // create set of all patch indices
+  all_indices.clear();
+
   for (const auto &indices : patch_indices)
     for (const auto &i : indices)
       all_indices.insert(i);
 
-  AffineConstraints<Number>         constraints;
-  std::set<types::global_dof_index> all_indices_constrained;
+  // store those indices that are constrained to the patch indices
+  std::set<types::global_dof_index> constrained_indices;
 
-  const auto active = DoFTools::extract_locally_active_dofs(dof_handler);
+  const auto &owned    = dof_handler.locally_owned_dofs();
+  const auto  active   = DoFTools::extract_locally_active_dofs(dof_handler);
+  const auto  relevant = DoFTools::extract_locally_relevant_dofs(dof_handler);
 
-  Assert(constraints_full.is_closed(),
-         ExcMessage("constraints_full needs to have all chains of constraints resolved"));
+  // reduce constraints to those that affect patch indices
+  // ----------
+  // TODO: move initialization outside of this function?
+  // ----------
+  constraints_reduced.reinit(owned, relevant);
 
+  // ----------
+  // TODO: find the right set for parallelization
+  //       best guess: active cells
+  // ----------
   for (const auto i : active)
     if (constraints_full.is_constrained(i))
       {
-        all_indices_constrained.insert(i);
+        constrained_indices.insert(i);
 
         const auto constraint_entries =
           constraints_full.get_constraint_entries(i);
@@ -131,21 +141,91 @@ partial_assembly_poisson(const DoFHandler<dim, spacedim> &dof_handler,
             if (all_indices.contains(entry.first))
               constraint_entries_reduced.push_back(entry);
 
-        constraints.add_line(i);
-        constraints.add_entries(i, constraint_entries_reduced);
+        constraints_reduced.add_line(i);
+        constraints_reduced.add_entries(i, constraint_entries_reduced);
       }
 
-  constraints.close();
+  constraints_reduced.close();
+
+  // add constrained indices to the set
+  all_indices.merge(constrained_indices);
+}
+
+
+
+template <int dim, int spacedim, typename Number = double>
+void
+make_sparsity_pattern(const DoFHandler<dim, spacedim>         &dof_handler,
+                      const std::set<types::global_dof_index> &all_indices,
+                      SparsityPatternBase                     &sparsity_pattern,
+                      const AffineConstraints<Number>         &constraints = {})
+{
+  std::vector<types::global_dof_index> local_dof_indices;
+  std::vector<types::global_dof_index> local_dof_indices_reduced;
+
+  const unsigned int max_dofs_per_cell = dof_handler.get_fe_collection().max_dofs_per_cell();
+  local_dof_indices.reserve(max_dofs_per_cell);
+  local_dof_indices_reduced.reserve(max_dofs_per_cell);
+
+  // Note: there is a check for subdomain_id in DoFTools::make_sparsity_pattern,
+  //       but we deemed it unnecessary here so we skipped it
+  for (const auto &cell : dof_handler.active_cell_iterators() | IteratorFilters::LocallyOwnedCell())
+    {
+      const unsigned int n_dofs_per_cell = cell->get_fe().n_dofs_per_cell();
+      local_dof_indices.resize(n_dofs_per_cell);
+      cell->get_dof_indices(local_dof_indices);
+
+      local_dof_indices_reduced.clear();
+      for (const auto i : local_dof_indices)
+        if (all_indices.contains(i))
+          local_dof_indices_reduced.push_back(i);
+
+      constraints.add_entries_local_to_global(local_dof_indices_reduced,
+                                              sparsity_pattern,
+                                              /*keep_constrained_dofs=*/false);
+    }
+}
+
+
+// ----------
+// TODO: change the interface to:
+//       (dof_handler, constraints, quadrature, all_indices, sparse_matrix)
+//       i.e. get rid of patch_indices and sparsity_pattern
+// ----------
+template <int dim, typename Number, typename SparseMatrixType, typename SparsityPatternType, int spacedim = dim>
+void
+partial_assembly_poisson(const DoFHandler<dim, spacedim> &dof_handler,
+                         const AffineConstraints<Number> &constraints_full,
+                         const hp::QCollection<dim>      &quadrature_collection,
+                         const std::vector<std::vector<types::global_dof_index>> &patch_indices,
+                         SparseMatrixType                &sparse_matrix,
+                         SparsityPatternType             &sparsity_pattern)
+{
+  // ----------
+  // TODO: figure where to move this stuff
+  //       use Partitioning class???
+  // ----------
+
+  const auto &owned    = dof_handler.locally_owned_dofs();
+  const auto  active   = DoFTools::extract_locally_active_dofs(dof_handler);
+  const auto  relevant = DoFTools::extract_locally_relevant_dofs(dof_handler);
+
+  AffineConstraints<Number>         constraints;
+  std::set<types::global_dof_index> all_indices;
+
+  reduce_constraints(dof_handler, constraints_full, patch_indices,
+                     all_indices, constraints);
+
 
   //
   // create sparsity pattern on reduced constraints
   //
-  DynamicSparsityPattern dsp(dof_handler.n_dofs());
+  // TODO: maybe active is enough (like above)
+  DynamicSparsityPattern dsp(relevant);
 
-  // 'patch_indices' contains global indices on locally owned cells
-  for (const auto &indices : patch_indices)
-    for (const auto &i : indices)
-      dsp.add_entries(i, indices.begin(), indices.end());
+  make_sparsity_pattern(dof_handler, all_indices, dsp, constraints);
+
+  SparsityTools::distribute_sparsity_pattern(dsp, owned, dof_handler.get_communicator(), relevant);
 
   sparsity_pattern.copy_from(dsp);
 
@@ -153,8 +233,8 @@ partial_assembly_poisson(const DoFHandler<dim, spacedim> &dof_handler,
 
   //
   // build local matrices, distribute to sparse matrix
-  // TODO: can we just store the patch matrices?
   //
+  // TODO: make this the beginning of the 'partial assembly' functions
   hp::FEValues<dim> hp_fe_values(dof_handler.get_fe_collection(),
                                  quadrature_collection,
                                  update_gradients | update_JxW_values);
@@ -174,8 +254,7 @@ partial_assembly_poisson(const DoFHandler<dim, spacedim> &dof_handler,
       std::vector<unsigned int>            dof_indices;
 
       for (unsigned int i = 0; i < local_dof_indices.size(); ++i)
-        if (all_indices.contains(local_dof_indices[i]) ||
-            all_indices_constrained.contains(local_dof_indices[i]))
+        if (all_indices.contains(local_dof_indices[i]))
           {
             local_dof_indices_reduced.push_back(local_dof_indices[i]);
             dof_indices.push_back(i);
@@ -206,6 +285,8 @@ partial_assembly_poisson(const DoFHandler<dim, spacedim> &dof_handler,
 
   sparse_matrix.compress(VectorOperation::values::add);
 }
+
+
 
 template<typename VectorType, int dim, int spacedim>
 class ExtendedDiagonalPreconditioner
