@@ -320,12 +320,13 @@ public:
 
     // we need a partitioner over locally relevant dofs,
     // as patch dofs might be constrained with ghost dofs
-    const auto relevant_dofs = DoFTools::extract_locally_relevant_dofs(dof_handler);
-    const auto large_partitioner =
-      std::make_shared<const Utilities::MPI::Partitioner>(
-        dof_handler.locally_owned_dofs(),
-        relevant_dofs,
-        dof_handler.get_communicator());
+    // const auto relevant_dofs = DoFTools::extract_locally_relevant_dofs(dof_handler);
+    // const auto large_partitioner =
+    //   std::make_shared<const Utilities::MPI::Partitioner>(
+    //     dof_handler.locally_owned_dofs(),
+    //     relevant_dofs,
+    //     dof_handler.get_communicator());
+    const auto large_partitioner = inverse_diagonal.get_partitioner();
 
     //
     // build patch matrices
