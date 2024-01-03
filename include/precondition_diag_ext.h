@@ -42,7 +42,7 @@ prepare_patch_indices(const DoFHandler<dim, spacedim> &dof_handler,
 {
   std::vector<std::vector<types::global_dof_index>> patch_indices;
 
-  std::vector<types::global_dof_index> indices_local;
+  std::vector<types::global_dof_index> local_indices;
   for (const auto &cell : dof_handler.active_cell_iterators())
     if (cell->is_locally_owned() || cell->is_ghost())
       for (const auto f : cell->face_indices())
@@ -58,22 +58,26 @@ prepare_patch_indices(const DoFHandler<dim, spacedim> &dof_handler,
                   const auto neighbor_subface =
                     cell->neighbor_child_on_subface(f, sf);
 
-                  // check internal faces and faces with ghost cells
-                  if((neighbor_subface->is_locally_owned() || neighbor_subface->is_ghost()) &&
-                     (neighbor_subface->get_fe().degree < cell->get_fe().degree))
-                    flag = true;
+                  // check faces among locally owned and ghost cells
+                  // to cover all patches that possibly contain locally active dofs
+                  if (neighbor_subface->is_locally_owned() || neighbor_subface->is_ghost())
+                    // problem criterion: cell faces h-refined cell with lower polynomial degree
+                    if (neighbor_subface->get_fe().degree < cell->get_fe().degree)
+                      {
+                        flag = true;
+                        break;
+                      }
                 }
 
             if (flag == false)
               continue;
 
-            indices_local.resize(cell->get_fe().n_dofs_per_face());
-            cell->face(f)->get_dof_indices(indices_local,
-                                            cell->active_fe_index());
-            // indices_local now contains *global* indices
+            local_indices.resize(cell->get_fe().n_dofs_per_face());
+            cell->face(f)->get_dof_indices(local_indices,
+                                           cell->active_fe_index());
 
             std::vector<types::global_dof_index> temp;
-            for (const auto i : indices_local)
+            for (const auto i : local_indices)
               if (constraints.is_constrained(i) == false)
                 temp.emplace_back(i);
 
