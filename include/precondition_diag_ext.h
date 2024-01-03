@@ -76,13 +76,13 @@ prepare_patch_indices(const DoFHandler<dim, spacedim> &dof_handler,
             cell->face(f)->get_dof_indices(local_indices,
                                            cell->active_fe_index());
 
-            std::vector<types::global_dof_index> temp;
+            std::vector<types::global_dof_index> local_unconstrained_indices;
             for (const auto i : local_indices)
               if (constraints.is_constrained(i) == false)
-                temp.emplace_back(i);
+                local_unconstrained_indices.emplace_back(i);
 
-            if (temp.empty() == false)
-              patch_indices.push_back(temp);
+            if (local_unconstrained_indices.empty() == false)
+              patch_indices.push_back(std::move(local_unconstrained_indices));
           }
 
   return patch_indices;
