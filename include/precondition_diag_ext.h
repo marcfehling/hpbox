@@ -43,47 +43,46 @@ prepare_patch_indices(const DoFHandler<dim, spacedim> &dof_handler,
   std::vector<std::vector<types::global_dof_index>> patch_indices;
 
   std::vector<types::global_dof_index> local_indices;
-  for (const auto &cell : dof_handler.active_cell_iterators())
-    if (cell->is_locally_owned() || cell->is_ghost())
-      for (const auto f : cell->face_indices())
-        if (cell->at_boundary(f) == false)
-          {
-            bool flag = false;
+  for (const auto &cell : dof_handler.active_cell_iterators() | IteratorFilters::LocallyOwnedCell())
+    for (const auto f : cell->face_indices())
+      if (cell->at_boundary(f) == false)
+        {
+          bool flag = false;
 
-            if (cell->face(f)->has_children())
-              for (unsigned int sf = 0;
-                    sf < cell->face(f)->n_children();
-                    ++sf)
-                {
-                  const auto neighbor_subface =
-                    cell->neighbor_child_on_subface(f, sf);
+          if (cell->face(f)->has_children())
+            for (unsigned int sf = 0;
+                  sf < cell->face(f)->n_children();
+                  ++sf)
+              {
+                const auto neighbor_subface =
+                  cell->neighbor_child_on_subface(f, sf);
 
-                  // check faces among locally owned and ghost cells
-                  // to cover all patches that possibly contain locally active dofs
-                  if (neighbor_subface->is_locally_owned() || neighbor_subface->is_ghost())
-                    // problem criterion: cell faces h-refined cell with lower polynomial degree
-                    if (neighbor_subface->get_fe().degree < cell->get_fe().degree)
-                      {
-                        flag = true;
-                        break;
-                      }
-                }
+                // check faces among locally owned and on interfaces with ghost cells
+                // to cover all patches that possibly contain locally active dofs
+                if (neighbor_subface->is_locally_owned() || neighbor_subface->is_ghost())
+                  // problem criterion: cell faces h-refined cell with lower polynomial degree
+                  if (neighbor_subface->get_fe().degree < cell->get_fe().degree)
+                    {
+                      flag = true;
+                      break;
+                    }
+              }
 
-            if (flag == false)
-              continue;
+          if (flag == false)
+            continue;
 
-            local_indices.resize(cell->get_fe().n_dofs_per_face());
-            cell->face(f)->get_dof_indices(local_indices,
-                                           cell->active_fe_index());
+          local_indices.resize(cell->get_fe().n_dofs_per_face());
+          cell->face(f)->get_dof_indices(local_indices,
+                                         cell->active_fe_index());
 
-            std::vector<types::global_dof_index> local_unconstrained_indices;
-            for (const auto i : local_indices)
-              if (constraints.is_constrained(i) == false)
-                local_unconstrained_indices.emplace_back(i);
+          std::vector<types::global_dof_index> local_unconstrained_indices;
+          for (const auto i : local_indices)
+            if (constraints.is_constrained(i) == false)
+              local_unconstrained_indices.emplace_back(i);
 
-            if (local_unconstrained_indices.empty() == false)
-              patch_indices.push_back(std::move(local_unconstrained_indices));
-          }
+          if (local_unconstrained_indices.empty() == false)
+            patch_indices.push_back(std::move(local_unconstrained_indices));
+        }
 
   return patch_indices;
 }
@@ -407,16 +406,46 @@ public:
     //
     // clear diagonal entries assigned to an ASM patch
     //
+    // first, count how often indices occur in patches
+    // TODO: this is suboptimal, we can avoid the ghost exchange
+    //       as we have all information already with prepare_patch_indices,
+    //       see below
+    VectorType unprocessed_indices(large_partitioner);
+    for (const auto &indices_i : patch_indices)
+      for (const auto i : indices_i)
+        unprocessed_indices[i]++;
+
+    unprocessed_indices.compress(VectorOperation::add);
+    unprocessed_indices.update_ghost_values();
+
     this->inverse_diagonal = inverse_diagonal;
+    for (const auto l : large_partitioner->locally_owned_range())
+      if (unprocessed_indices[l] > 0)
+        this->inverse_diagonal[l] = 0.0;
+
     std::vector<types::global_dof_index> ghost_indices;
-    for (const auto &indices : patch_indices)
-      for (const auto i : indices)
-        {
-          if (large_partitioner->in_local_range(i))
-            this->inverse_diagonal[i] = 0.0;
-          else
-            ghost_indices.push_back(i);
-        }
+    for (const auto g : large_partitioner->ghost_indices())
+      if (unprocessed_indices[g] > 0)
+        ghost_indices.push_back(g);
+
+    // TODO: i tried this approach, but we need info about patches
+    //       between ghost cells
+    // this->inverse_diagonal = inverse_diagonal;
+    // std::vector<types::global_dof_index> ghost_indices;
+    // for (const auto &indices : patch_indices)
+    //   for (const auto i : indices)
+    //     {
+    //       if (large_partitioner->in_local_range(i))
+    //         this->inverse_diagonal[i] = 0.0;
+    //       else
+    //         ghost_indices.push_back(i);
+    //     }
+    //
+    // for (const auto &indices : patch_indices_ghost)
+    //  for (const auto i : indices)
+    //    if (large_partitioner->in_ghost_range(i))
+    //      ghost_indices.push_back(i);
+
 
     //
     // set embedded partitioner
