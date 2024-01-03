@@ -495,7 +495,7 @@ namespace StokesMatrixFree
       }
     // log maximum
     getPCOut() << "   Max EV on all MG levels:      "
-                << *std::max_element(max_eigenvalues.begin(), max_eigenvalues.end())
+                << *std::max_element(++(max_eigenvalues.begin()), max_eigenvalues.end())
                 << std::endl;
     // ----------
 
