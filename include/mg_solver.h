@@ -336,7 +336,10 @@ mg_solve(SolverControl                                         &solver_control,
       DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false, myid);
       SparsityTools::distribute_sparsity_pattern(dsp, owned_dofs, communicator, relevant_dofs);
 
-      const auto patch_indices = prepare_patch_indices(mg_dof_handlers[level], mg_constraints[level]);
+      std::vector<std::vector<types::global_dof_index>> patch_indices;
+      std::vector<std::vector<types::global_dof_index>> patch_indices_ghost;
+      prepare_patch_indices(mg_dof_handlers[level], mg_constraints[level],
+                            patch_indices, patch_indices_ghost);
 
       // TODO: Move setup of sparse objects, or even the whole smoothers,
       //       into the previous or a whole new function
@@ -346,7 +349,7 @@ mg_solve(SolverControl                                         &solver_control,
       // for now, just initialize basic sparsity pattern like this
       SparsityPattern      reduced_sparsity_pattern;
       SparseMatrix<double> reduced_sparse_matrix;
-      partial_assembly_poisson(dof_handler, constraints, q_collection, patch_indices, reduced_sparse_matrix, reduced_sparsity_pattern);
+      partial_assembly_poisson(dof_handler, constraints, q_collection, patch_indices, patch_indices_ghost, reduced_sparse_matrix, reduced_sparsity_pattern);
 
       // dows not work. rows are missing.
       // instead, try the full pattern first

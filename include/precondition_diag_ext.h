@@ -36,55 +36,62 @@
 DEAL_II_NAMESPACE_OPEN
 
 template <int dim, int spacedim = dim>
-std::vector<std::vector<types::global_dof_index>>
+void
 prepare_patch_indices(const DoFHandler<dim, spacedim> &dof_handler,
-                      const AffineConstraints<double> &constraints)
+                      const AffineConstraints<double> &constraints,
+                      std::vector<std::vector<types::global_dof_index>> &patch_indices,
+                      std::vector<std::vector<types::global_dof_index>> &patch_indices_ghost)
 {
-  std::vector<std::vector<types::global_dof_index>> patch_indices;
+  patch_indices.clear();
+  patch_indices_ghost.clear();
 
   std::vector<types::global_dof_index> local_indices;
-  for (const auto &cell : dof_handler.active_cell_iterators() | IteratorFilters::LocallyOwnedCell())
-    for (const auto f : cell->face_indices())
-      if (cell->at_boundary(f) == false)
-        {
-          bool flag = false;
+  for (const auto &cell : dof_handler.active_cell_iterators())
+    if (cell->is_locally_owned() || cell->is_ghost())
+      for (const auto f : cell->face_indices())
+        if (cell->at_boundary(f) == false)
+          {
+            bool flag = false;
 
-          if (cell->face(f)->has_children())
-            for (unsigned int sf = 0;
-                  sf < cell->face(f)->n_children();
-                  ++sf)
+            if (cell->face(f)->has_children())
+              for (unsigned int sf = 0;
+                    sf < cell->face(f)->n_children();
+                    ++sf)
+                {
+                  const auto neighbor_subface =
+                    cell->neighbor_child_on_subface(f, sf);
+
+                  // check faces among locally owned and on interfaces with ghost cells
+                  // to cover all patches that possibly contain locally active dofs
+                  if (neighbor_subface->is_locally_owned() || neighbor_subface->is_ghost())
+                    // problem criterion: cell faces h-refined cell with lower polynomial degree
+                    if (neighbor_subface->get_fe().degree < cell->get_fe().degree)
+                      {
+                        flag = true;
+                        break;
+                      }
+                }
+
+            if (flag == false)
+              continue;
+
+            local_indices.resize(cell->get_fe().n_dofs_per_face());
+            cell->face(f)->get_dof_indices(local_indices,
+                                          cell->active_fe_index());
+
+            std::vector<types::global_dof_index> local_unconstrained_indices;
+            for (const auto i : local_indices)
+              if (constraints.is_constrained(i) == false)
+                local_unconstrained_indices.emplace_back(i);
+
+            if (local_unconstrained_indices.empty() == false)
               {
-                const auto neighbor_subface =
-                  cell->neighbor_child_on_subface(f, sf);
-
-                // check faces among locally owned and on interfaces with ghost cells
-                // to cover all patches that possibly contain locally active dofs
-                if (neighbor_subface->is_locally_owned() || neighbor_subface->is_ghost())
-                  // problem criterion: cell faces h-refined cell with lower polynomial degree
-                  if (neighbor_subface->get_fe().degree < cell->get_fe().degree)
-                    {
-                      flag = true;
-                      break;
-                    }
+                if (cell->is_locally_owned())
+                  patch_indices.push_back(std::move(local_unconstrained_indices));
+                else // ghost cell
+                  patch_indices_ghost.push_back(std::move(local_unconstrained_indices));
               }
-
-          if (flag == false)
-            continue;
-
-          local_indices.resize(cell->get_fe().n_dofs_per_face());
-          cell->face(f)->get_dof_indices(local_indices,
-                                         cell->active_fe_index());
-
-          std::vector<types::global_dof_index> local_unconstrained_indices;
-          for (const auto i : local_indices)
-            if (constraints.is_constrained(i) == false)
-              local_unconstrained_indices.emplace_back(i);
-
-          if (local_unconstrained_indices.empty() == false)
-            patch_indices.push_back(std::move(local_unconstrained_indices));
-        }
-
-  return patch_indices;
+          }
 }
 
 
@@ -94,6 +101,7 @@ void
 reduce_constraints(const DoFHandler<dim, spacedim>   &dof_handler,
                    const AffineConstraints<Number>   &constraints_full,
                    const std::vector<std::vector<types::global_dof_index>> &patch_indices,
+                   const std::vector<std::vector<types::global_dof_index>> &patch_indices_ghost,
                    std::set<types::global_dof_index> &all_indices,
                    AffineConstraints<Number>         &constraints_reduced)
 {
@@ -104,6 +112,10 @@ reduce_constraints(const DoFHandler<dim, spacedim>   &dof_handler,
   all_indices.clear();
 
   for (const auto &indices : patch_indices)
+    for (const auto &i : indices)
+      all_indices.insert(i);
+
+  for (const auto &indices : patch_indices_ghost)
     for (const auto &i : indices)
       all_indices.insert(i);
 
@@ -197,6 +209,7 @@ partial_assembly_poisson(const DoFHandler<dim, spacedim> &dof_handler,
                          const AffineConstraints<Number> &constraints_full,
                          const hp::QCollection<dim>      &quadrature_collection,
                          const std::vector<std::vector<types::global_dof_index>> &patch_indices,
+                         const std::vector<std::vector<types::global_dof_index>> &patch_indices_ghost,
                          SparseMatrixType                &sparse_matrix,
                          SparsityPatternType             &sparsity_pattern)
 {
@@ -212,7 +225,7 @@ partial_assembly_poisson(const DoFHandler<dim, spacedim> &dof_handler,
   AffineConstraints<Number>         constraints;
   std::set<types::global_dof_index> all_indices;
 
-  reduce_constraints(dof_handler, constraints_full, patch_indices,
+  reduce_constraints(dof_handler, constraints_full, patch_indices, patch_indices_ghost,
                      all_indices, constraints);
 
 

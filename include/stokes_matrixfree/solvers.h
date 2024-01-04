@@ -453,7 +453,10 @@ namespace StokesMatrixFree
         DoFTools::make_sparsity_pattern(dof_handler, dsp, constraint, false, myid);
         SparsityTools::distribute_sparsity_pattern(dsp, owned_dofs, communicator, relevant_dofs);
 
-        const auto patch_indices = prepare_patch_indices(dof_handlers[level], constraints[level]);
+        std::vector<std::vector<types::global_dof_index>> patch_indices;
+        std::vector<std::vector<types::global_dof_index>> patch_indices_ghost;
+        prepare_patch_indices(dof_handlers[level], constraints[level],
+                              patch_indices, patch_indices_ghost);
 
         // do partial assembly here
 
