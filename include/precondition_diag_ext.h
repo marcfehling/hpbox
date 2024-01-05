@@ -232,20 +232,14 @@ partial_assembly_poisson(const DoFHandler<dim, spacedim> &dof_handler,
   //
   // create sparsity pattern on reduced constraints
   //
-  // TODO: maybe active is enough (like above)
-  DynamicSparsityPattern dsp(relevant);
+  // TODO: This works only for TrilinosWrappers::SparsityPattern
+  sparsity_pattern.reinit(owned, owned, relevant, dof_handler.get_communicator());
 
-  make_sparsity_pattern(dof_handler, all_indices, dsp, constraints);
+  make_sparsity_pattern(dof_handler, all_indices, sparsity_pattern, constraints);
 
-  SparsityTools::distribute_sparsity_pattern(dsp, owned, dof_handler.get_communicator(), relevant);
+  sparsity_pattern.compress();
 
-  sparsity_pattern.copy_from(dsp);
-  //sparse_matrix.reinit(sparsity_pattern);
-
-  sparse_matrix.reinit(owned,
-                       owned,
-                       dsp,
-                       dof_handler.get_communicator());
+  sparse_matrix.reinit(sparsity_pattern);
 
   //
   // build local matrices, distribute to sparse matrix

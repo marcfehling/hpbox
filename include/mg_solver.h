@@ -347,9 +347,8 @@ mg_solve(SolverControl                                         &solver_control,
       // SparseMatrix<Number> sparse_matrix; ???
 
       // for now, just initialize basic sparsity pattern like this
-      SparsityPattern                reduced_sparsity_pattern;
-      // SparseMatrix<double>          reduced_sparse_matrix;
-      TrilinosWrappers::SparseMatrix reduced_sparse_matrix;
+      TrilinosWrappers::SparsityPattern reduced_sparsity_pattern;
+      TrilinosWrappers::SparseMatrix    reduced_sparse_matrix;
       partial_assembly_poisson(dof_handler, constraints, q_collection, patch_indices, patch_indices_ghost, reduced_sparse_matrix, reduced_sparsity_pattern);
 
       // dows not work. rows are missing.
