@@ -240,8 +240,12 @@ partial_assembly_poisson(const DoFHandler<dim, spacedim> &dof_handler,
   SparsityTools::distribute_sparsity_pattern(dsp, owned, dof_handler.get_communicator(), relevant);
 
   sparsity_pattern.copy_from(dsp);
+  //sparse_matrix.reinit(sparsity_pattern);
 
-  sparse_matrix.reinit(sparsity_pattern);
+  sparse_matrix.reinit(owned,
+                       owned,
+                       dsp,
+                       dof_handler.get_communicator());
 
   //
   // build local matrices, distribute to sparse matrix

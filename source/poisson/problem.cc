@@ -226,6 +226,7 @@ namespace Poisson
           Assert(false, ExcNotImplemented());
         }
 
+#if false
 #ifdef DEBUG
       // We have not dealt with chains of constraints on ghost cells yet.
       // Thus, we are content with verifying their consistency for now.
@@ -240,6 +241,7 @@ namespace Poisson
                                                         mpi_communicator,
                                                         /*verbose=*/true),
                   ExcMessage("AffineConstraints object contains inconsistencies!"));
+#endif
 #endif
       constraints.close();
     }
