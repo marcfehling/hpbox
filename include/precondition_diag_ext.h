@@ -255,7 +255,7 @@ partial_assembly_poisson(const DoFHandler<dim, spacedim>         &dof_handler,
 
 
 
-template<typename VectorType, int dim, int spacedim>
+template<typename VectorType>
 class ExtendedDiagonalPreconditioner
 {
 private:
@@ -270,25 +270,22 @@ private:
   using Number = typename VectorType::value_type;
 
 public:
-  ExtendedDiagonalPreconditioner(const DoFHandler<dim, spacedim>                         &dof_handler,
-                                 const std::vector<std::vector<types::global_dof_index>> &patch_indices)
-    : dof_handler(dof_handler)
-    , patch_indices(patch_indices)
+  ExtendedDiagonalPreconditioner(const std::vector<std::vector<types::global_dof_index>> &patch_indices)
+    : patch_indices(patch_indices)
     , weighting_type(WeightingType::symm)
   {}
 
-  ExtendedDiagonalPreconditioner(const DoFHandler<dim, spacedim>                    &dof_handler,
-                                 std::vector<std::vector<types::global_dof_index>> &&patch_indices)
-    : dof_handler(dof_handler)
-    , patch_indices(std::move(patch_indices))
+  ExtendedDiagonalPreconditioner(std::vector<std::vector<types::global_dof_index>> &&patch_indices)
+    : patch_indices(std::move(patch_indices))
     , weighting_type(WeightingType::symm)
   {}
 
   template <typename GlobalSparseMatrixType, typename GlobalSparsityPattern>
   void
-  initialize(const GlobalSparseMatrixType &global_sparse_matrix,
-             const GlobalSparsityPattern  &global_sparsity_pattern,
-             const VectorType             &inverse_diagonal)
+  initialize(const GlobalSparseMatrixType                            &global_sparse_matrix,
+             const GlobalSparsityPattern                             &global_sparsity_pattern,
+             const VectorType                                        &inverse_diagonal)
+             // const std::vector<std::vector<types::global_dof_index>> &patch_indices_ghost)
   {
     TimerOutput::Scope t(getTimer(), "initialize_extdiag");
 
@@ -381,6 +378,9 @@ public:
     //
     // clear diagonal entries assigned to an ASM patch
     //
+    // TODO: use std::move?
+    this->inverse_diagonal = inverse_diagonal;
+
     // first, count how often indices occur in patches
     // TODO: this is suboptimal, we can avoid the ghost exchange
     //       as we have all information already with prepare_patch_indices,
@@ -393,7 +393,6 @@ public:
     unprocessed_indices.compress(VectorOperation::add);
     unprocessed_indices.update_ghost_values();
 
-    this->inverse_diagonal = inverse_diagonal;
     for (const auto l : large_partitioner->locally_owned_range())
       if (unprocessed_indices[l] > 0)
         this->inverse_diagonal[l] = 0.0;
@@ -403,9 +402,9 @@ public:
       if (unprocessed_indices[g] > 0)
         ghost_indices.push_back(g);
 
-    // TODO: i tried this approach, but we need info about patches
-    //       between ghost cells
-    // this->inverse_diagonal = inverse_diagonal;
+    // TODO: translate patch_indices to local_elements to optimize
+
+    // TODO: The following approach somehow has a negative effect on EV
     // std::vector<types::global_dof_index> ghost_indices;
     // for (const auto &indices : patch_indices)
     //   for (const auto i : indices)
@@ -417,10 +416,13 @@ public:
     //     }
     //
     // for (const auto &indices : patch_indices_ghost)
-    //  for (const auto i : indices)
-    //    if (large_partitioner->in_ghost_range(i))
-    //      ghost_indices.push_back(i);
-
+    //   for (const auto i : indices)
+    //     {
+    //       if (large_partitioner->in_local_range(i))
+    //         this->inverse_diagonal[i] = 0.0;
+    //       else if (large_partitioner->in_ghost_range(i))
+    //         ghost_indices.push_back(i);
+    //     }
 
     //
     // set embedded partitioner
@@ -492,8 +494,6 @@ public:
   }
 
 private:
-  const DoFHandler<dim, spacedim> &dof_handler;
-
   // ASM
   std::vector<std::vector<types::global_dof_index>> patch_indices;
   std::vector<FullMatrix<Number>>                   patch_matrices;

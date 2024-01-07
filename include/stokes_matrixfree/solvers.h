@@ -416,7 +416,7 @@ namespace StokesMatrixFree
 
     //using SmootherPreconditionerType = DiagonalMatrix<VectorType>;
     //using SmootherPreconditionerType = PreconditionASM<VectorType, dim, dim>;
-    using SmootherPreconditionerType = ExtendedDiagonalPreconditioner<VectorType, dim, dim>;
+    using SmootherPreconditionerType = ExtendedDiagonalPreconditioner<VectorType>;
     using SmootherType =
       PreconditionChebyshev<LevelMatrixType, VectorType, SmootherPreconditionerType>;
     using PreconditionerType = PreconditionMG<dim, VectorType, MGTransferType>;
@@ -463,10 +463,10 @@ namespace StokesMatrixFree
         VectorType inverse_diagonal;
         operators[level]->compute_inverse_diagonal(inverse_diagonal);
 
-        smoother_data[level].preconditioner = std::make_shared<SmootherPreconditionerType>(dof_handlers[level], patch_indices);
+        smoother_data[level].preconditioner = std::make_shared<SmootherPreconditionerType>(std::move(patch_indices));
         //smoother_data[level].preconditioner->initialize(operators[level]->get_system_matrix(), dsp);
 
-        smoother_data[level].preconditioner->initialize(operators[level]->get_system_matrix(), dsp, inverse_diagonal);
+        smoother_data[level].preconditioner->initialize(operators[level]->get_system_matrix(), dsp, inverse_diagonal); //, patch_indices_ghost);
         // ----------
 
         smoother_data[level].smoothing_range     = mg_data.smoother.smoothing_range;
