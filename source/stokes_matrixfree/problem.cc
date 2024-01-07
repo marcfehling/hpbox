@@ -401,6 +401,7 @@ namespace StokesMatrixFree
                                                   completely_distributed_solution,
                                                   system_rhs,
                                                   mapping_collection,
+                                                  quadrature_collection_v,
                                                   dof_handlers,
                                                   filename_stem + "-mglevel-cycle_" +
                                                     std::to_string(cycle) + ".log",

@@ -255,6 +255,79 @@ partial_assembly_poisson(const DoFHandler<dim, spacedim>         &dof_handler,
 
 
 
+template <int dim, typename Number, typename SparseMatrixType, int spacedim = dim>
+void
+partial_assembly_ablock(const DoFHandler<dim, spacedim>         &dof_handler,
+                        const AffineConstraints<Number>         &constraints_reduced,
+                        const hp::QCollection<dim>              &quadrature_collection,
+                        const std::set<types::global_dof_index> &all_indices,
+                        SparseMatrixType                        &sparse_matrix)
+{
+  //
+  // build local matrices, distribute to sparse matrix
+  //
+
+  // TODO: take fe values from somewhere else?
+
+  hp::FEValues<dim> hp_fe_values(dof_handler.get_fe_collection(),
+                                 quadrature_collection,
+                                 update_gradients | update_JxW_values);
+
+  FullMatrix<double>                   cell_matrix;
+  std::vector<Tensor<2, dim>>          grad_phi_u;
+  std::vector<types::global_dof_index> local_dof_indices;
+
+  // loop over locally owned cells
+  for (const auto &cell : dof_handler.active_cell_iterators() | IteratorFilters::LocallyOwnedCell())
+    {
+      hp_fe_values.reinit(cell);
+
+      local_dof_indices.resize(cell->get_fe().dofs_per_cell);
+      cell->get_dof_indices(local_dof_indices);
+
+      std::vector<types::global_dof_index> local_dof_indices_reduced;
+      std::vector<unsigned int>            dof_indices;
+
+      for (unsigned int i = 0; i < local_dof_indices.size(); ++i)
+        if (all_indices.contains(local_dof_indices[i]))
+          {
+            local_dof_indices_reduced.push_back(local_dof_indices[i]);
+            dof_indices.push_back(i);
+          }
+
+      if (dof_indices.empty())
+        continue;
+
+      const auto &fe_values = hp_fe_values.get_present_fe_values();
+
+      cell_matrix.reinit(dof_indices.size(), dof_indices.size());
+      grad_phi_u.resize(dof_indices.size());
+
+      // TODO: move to parameter
+      const double viscosity = 0.1;
+
+      // loop over cell dofs
+      for (const auto q : fe_values.quadrature_point_indices())
+        {
+          for (unsigned int k = 0; k < dof_indices.size(); ++k)
+            grad_phi_u[k] = fe_values.gradient(dof_indices[k], q);
+
+          for (unsigned int i = 0; i < dof_indices.size(); ++i)
+            for (unsigned int j = 0; j < dof_indices.size(); ++j)
+              cell_matrix(i, j) += viscosity * scalar_product(grad_phi_u[i], grad_phi_u[j]) *
+                                   fe_values.JxW(q);
+        }
+
+      constraints_reduced.distribute_local_to_global(cell_matrix,
+                                                     local_dof_indices_reduced,
+                                                     sparse_matrix);
+    }
+
+  sparse_matrix.compress(VectorOperation::values::add);
+}
+
+
+
 template<typename VectorType>
 class ExtendedDiagonalPreconditioner
 {
