@@ -369,7 +369,7 @@ mg_solve(SolverControl                                         &solver_control,
       VectorType inverse_diagonal;
       mg_matrices[level]->compute_inverse_diagonal(inverse_diagonal);
 
-      smoother_data[level].preconditioner = std::make_shared<SmootherPreconditionerType>(dof_handler, patch_indices);
+      smoother_data[level].preconditioner = std::make_shared<SmootherPreconditionerType>(dof_handler, std::move(patch_indices));
       //smoother_data[level].preconditioner->initialize(mg_matrices[level]->get_system_matrix(), dsp, inverse_diagonal);
       smoother_data[level].preconditioner->initialize(reduced_sparse_matrix, reduced_sparsity_pattern, inverse_diagonal);
       // ----------

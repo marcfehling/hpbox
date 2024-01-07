@@ -320,6 +320,13 @@ public:
     , weighting_type(WeightingType::symm)
   {}
 
+  ExtendedDiagonalPreconditioner(const DoFHandler<dim, spacedim>                    &dof_handler,
+                                 std::vector<std::vector<types::global_dof_index>> &&patch_indices)
+    : dof_handler(dof_handler)
+    , patch_indices(std::move(patch_indices))
+    , weighting_type(WeightingType::symm)
+  {}
+
   template <typename GlobalSparseMatrixType, typename GlobalSparsityPattern>
   void
   initialize(const GlobalSparseMatrixType &global_sparse_matrix,
