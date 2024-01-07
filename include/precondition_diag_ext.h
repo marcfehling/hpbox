@@ -107,8 +107,10 @@ reduce_constraints(const DoFHandler<dim, spacedim>   &dof_handler,
 {
   Assert(constraints_full.is_closed(),
          ExcMessage("constraints_full needs to have all chains of constraints resolved"));
+  Assert(constraints_reduced.get_locally_owned_indices().size() > 0,
+         ExcMessage("constraints_reduced needs to be initialized"));
 
-  // create set of all patch indices
+  // 1) create set of all patch indices
   all_indices.clear();
 
   for (const auto &indices : patch_indices)
@@ -119,24 +121,14 @@ reduce_constraints(const DoFHandler<dim, spacedim>   &dof_handler,
     for (const auto &i : indices)
       all_indices.insert(i);
 
-  // store those indices that are constrained to the patch indices
+  // 2) store those indices that are constrained to the patch indices
   std::set<types::global_dof_index> constrained_indices;
-
-  const auto &owned    = dof_handler.locally_owned_dofs();
-  const auto  active   = DoFTools::extract_locally_active_dofs(dof_handler);
-  const auto  relevant = DoFTools::extract_locally_relevant_dofs(dof_handler);
-
-  // reduce constraints to those that affect patch indices
-  // ----------
-  // TODO: move initialization outside of this function?
-  // ----------
-  constraints_reduced.reinit(owned, relevant);
 
   // ----------
   // TODO: find the right set for parallelization
   //       best guess: active cells
   // ----------
-  for (const auto i : active)
+  for (const auto i : DoFTools::extract_locally_active_dofs(dof_handler))
     if (constraints_full.is_constrained(i))
       {
         constrained_indices.insert(i);
@@ -198,53 +190,18 @@ make_sparsity_pattern(const DoFHandler<dim, spacedim>         &dof_handler,
 }
 
 
-// ----------
-// TODO: change the interface to:
-//       (dof_handler, constraints, quadrature, all_indices, sparse_matrix)
-//       i.e. get rid of patch_indices and sparsity_pattern
-// ----------
-template <int dim, typename Number, typename SparseMatrixType, typename SparsityPatternType, int spacedim = dim>
+
+template <int dim, typename Number, typename SparseMatrixType, int spacedim = dim>
 void
-partial_assembly_poisson(const DoFHandler<dim, spacedim> &dof_handler,
-                         const AffineConstraints<Number> &constraints_full,
-                         const hp::QCollection<dim>      &quadrature_collection,
-                         const std::vector<std::vector<types::global_dof_index>> &patch_indices,
-                         const std::vector<std::vector<types::global_dof_index>> &patch_indices_ghost,
-                         SparseMatrixType                &sparse_matrix,
-                         SparsityPatternType             &sparsity_pattern)
+partial_assembly_poisson(const DoFHandler<dim, spacedim>         &dof_handler,
+                         const AffineConstraints<Number>         &constraints_reduced,
+                         const hp::QCollection<dim>              &quadrature_collection,
+                         const std::set<types::global_dof_index> &all_indices,
+                         SparseMatrixType                        &sparse_matrix)
 {
-  // ----------
-  // TODO: figure where to move this stuff
-  //       use Partitioning class???
-  // ----------
-
-  const auto &owned    = dof_handler.locally_owned_dofs();
-  const auto  active   = DoFTools::extract_locally_active_dofs(dof_handler);
-  const auto  relevant = DoFTools::extract_locally_relevant_dofs(dof_handler);
-
-  AffineConstraints<Number>         constraints;
-  std::set<types::global_dof_index> all_indices;
-
-  reduce_constraints(dof_handler, constraints_full, patch_indices, patch_indices_ghost,
-                     all_indices, constraints);
-
-
-  //
-  // create sparsity pattern on reduced constraints
-  //
-  // TODO: This works only for TrilinosWrappers::SparsityPattern
-  sparsity_pattern.reinit(owned, owned, relevant, dof_handler.get_communicator());
-
-  make_sparsity_pattern(dof_handler, all_indices, sparsity_pattern, constraints);
-
-  sparsity_pattern.compress();
-
-  sparse_matrix.reinit(sparsity_pattern);
-
   //
   // build local matrices, distribute to sparse matrix
   //
-  // TODO: make this the beginning of the 'partial assembly' functions
   hp::FEValues<dim> hp_fe_values(dof_handler.get_fe_collection(),
                                  quadrature_collection,
                                  update_gradients | update_JxW_values);
@@ -288,9 +245,9 @@ partial_assembly_poisson(const DoFHandler<dim, spacedim> &dof_handler,
                  fe_values.JxW(q));                        // dx
         }
 
-      constraints.distribute_local_to_global(cell_matrix,
-                                             local_dof_indices_reduced,
-                                             sparse_matrix);
+      constraints_reduced.distribute_local_to_global(cell_matrix,
+                                                     local_dof_indices_reduced,
+                                                     sparse_matrix);
     }
 
   sparse_matrix.compress(VectorOperation::values::add);

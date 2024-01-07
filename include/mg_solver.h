@@ -330,41 +330,35 @@ mg_solve(SolverControl                                         &solver_control,
       auto communicator = dof_handler.get_communicator();
       const auto owned_dofs = dof_handler.locally_owned_dofs();
       const IndexSet relevant_dofs = DoFTools::extract_locally_relevant_dofs(dof_handler);
-      const unsigned int myid = dealii::Utilities::MPI::this_mpi_process(communicator);
-
-      DynamicSparsityPattern dsp(relevant_dofs);
-      DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false, myid);
-      SparsityTools::distribute_sparsity_pattern(dsp, owned_dofs, communicator, relevant_dofs);
 
       std::vector<std::vector<types::global_dof_index>> patch_indices;
       std::vector<std::vector<types::global_dof_index>> patch_indices_ghost;
-      prepare_patch_indices(mg_dof_handlers[level], mg_constraints[level],
+      prepare_patch_indices(dof_handler, constraints,
                             patch_indices, patch_indices_ghost);
 
-      // TODO: Move setup of sparse objects, or even the whole smoothers,
-      //       into the previous or a whole new function
-      // SparsityPattern      sparsity_pattern; ???
-      // SparseMatrix<Number> sparse_matrix; ???
+      // full matrix
+      //const unsigned int myid = dealii::Utilities::MPI::this_mpi_process(communicator);
+      //DynamicSparsityPattern dsp(relevant_dofs);
+      //DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false, myid);
+      //SparsityTools::distribute_sparsity_pattern(dsp, owned_dofs, communicator, relevant_dofs);
 
-      // for now, just initialize basic sparsity pattern like this
+      // reduced matrix
+      AffineConstraints<double> constraints_reduced;
+      constraints_reduced.reinit(owned_dofs, relevant_dofs);
+
+      std::set<types::global_dof_index> all_indices;
+      reduce_constraints(dof_handler, constraints, patch_indices, patch_indices_ghost,
+                         all_indices, constraints_reduced);
+
       TrilinosWrappers::SparsityPattern reduced_sparsity_pattern;
-      TrilinosWrappers::SparseMatrix    reduced_sparse_matrix;
-      partial_assembly_poisson(dof_handler, constraints, q_collection, patch_indices, patch_indices_ghost, reduced_sparse_matrix, reduced_sparsity_pattern);
+      reduced_sparsity_pattern.reinit(owned_dofs, owned_dofs, relevant_dofs, communicator);
+      make_sparsity_pattern(dof_handler, all_indices, reduced_sparsity_pattern, constraints_reduced);
+      reduced_sparsity_pattern.compress();
 
-      // dows not work. rows are missing.
-      // instead, try the full pattern first
-      // dealii::TrilinosWrappers::SparsityPattern sparsity_pattern (owned_dofs,
-      //                                                             owned_dofs,
-      //                                                             relevant_dofs,
-      //                                                             communicator);
-      // DoFTools::make_sparsity_pattern(dof_handler, sparsity_pattern, constraints, false, myid);
-      // sparsity_pattern.compress();
-      //
-      // dealii::TrilinosWrappers::SparseMatrix sparse_matrix;
-      // sparse_matrix.reinit(sparsity_pattern);
-      //
-      // partial_assembly_poisson(dof_handler, constraints, q_collection, patch_indices, sparse_matrix, sparsity_pattern);
-
+      TrilinosWrappers::SparseMatrix reduced_sparse_matrix;
+      reduced_sparse_matrix.reinit(reduced_sparsity_pattern);
+      partial_assembly_poisson(dof_handler, constraints_reduced, q_collection, all_indices,
+                               reduced_sparse_matrix);
 
       VectorType inverse_diagonal;
       mg_matrices[level]->compute_inverse_diagonal(inverse_diagonal);
