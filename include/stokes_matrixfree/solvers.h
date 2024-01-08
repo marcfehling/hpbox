@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2022 - 2023 by the deal.II authors
+// Copyright (C) 2022 - 2024 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -28,8 +28,10 @@
 
 #include <linear_algebra.h>
 #include <mg_solver.h>
-#include <precondition_asm.h>
-#include <precondition_diag_ext.h>
+#include <precondition/asm.h>
+#include <precondition/extended_diagonal.h>
+#include <precondition/patch_indices.h>
+#include <precondition/reduce_and_assemble.h>
 #include <stokes_matrixfree/operators.h>
 
 
@@ -475,8 +477,8 @@ namespace StokesMatrixFree
 
         TrilinosWrappers::SparseMatrix reduced_sparse_matrix;
         reduced_sparse_matrix.reinit(reduced_sparsity_pattern);
-        partial_assembly_ablock(dof_handler, constraints_reduced, q_collection_v, all_indices,
-                                reduced_sparse_matrix);
+        partially_assemble_ablock(dof_handler, constraints_reduced, q_collection_v, all_indices,
+                                  reduced_sparse_matrix);
 
         VectorType inverse_diagonal;
         operators[level]->compute_inverse_diagonal(inverse_diagonal);
