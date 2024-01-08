@@ -475,8 +475,8 @@ namespace StokesMatrixFree
 
         TrilinosWrappers::SparseMatrix reduced_sparse_matrix;
         reduced_sparse_matrix.reinit(reduced_sparsity_pattern);
-        partial_assembly_poisson(dof_handler, constraints_reduced, q_collection_v, all_indices,
-                                 reduced_sparse_matrix);
+        partial_assembly_ablock(dof_handler, constraints_reduced, q_collection_v, all_indices,
+                                reduced_sparse_matrix);
 
         VectorType inverse_diagonal;
         operators[level]->compute_inverse_diagonal(inverse_diagonal);

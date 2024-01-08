@@ -307,10 +307,11 @@ partial_assembly_ablock(const DoFHandler<dim, spacedim>         &dof_handler,
       const double viscosity = 0.1;
 
       // loop over cell dofs
+      const FEValuesExtractors::Vector velocities(0);
       for (const auto q : fe_values.quadrature_point_indices())
         {
           for (unsigned int k = 0; k < dof_indices.size(); ++k)
-            grad_phi_u[k] = fe_values.gradient(dof_indices[k], q);
+            grad_phi_u[k] = fe_values[velocities].gradient(dof_indices[k], q);
 
           for (unsigned int i = 0; i < dof_indices.size(); ++i)
             for (unsigned int j = 0; j < dof_indices.size(); ++j)
