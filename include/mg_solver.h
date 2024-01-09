@@ -378,23 +378,21 @@ mg_solve(SolverControl                                         &solver_control,
     {
       // CG with Chebyshev as preconditioner
 
-      Assert(false, ExcNotImplemented());
+      typename decltype(precondition_chebyshev)::AdditionalData smoother_data;
 
-//      typename SmootherType::AdditionalData smoother_data;
-//
-//      smoother_data.preconditioner = std::make_shared<DiagonalMatrix<VectorType>>();
-//      mg_matrices[min_level]->compute_inverse_diagonal(smoother_data.preconditioner->get_vector());
-//      smoother_data.smoothing_range     = mg_data.smoother.smoothing_range;
-//      smoother_data.degree              = mg_data.smoother.degree;
-//      smoother_data.eig_cg_n_iterations = mg_data.smoother.eig_cg_n_iterations;
-//
-//      precondition_chebyshev.initialize(*mg_matrices[min_level], smoother_data);
-//
-//      mg_coarse = std::make_unique<MGCoarseGridIterativeSolver<VectorType,
-//                                                               SolverCG<VectorType>,
-//                                                               LevelMatrixType,
-//                                                               decltype(precondition_chebyshev)>>(
-//        coarse_grid_solver, *mg_matrices[min_level], precondition_chebyshev);
+      smoother_data.preconditioner = std::make_shared<DiagonalMatrix<VectorType>>();
+      mg_matrices[min_level]->compute_inverse_diagonal(smoother_data.preconditioner->get_vector());
+      smoother_data.smoothing_range     = mg_data.smoother.smoothing_range;
+      smoother_data.degree              = mg_data.smoother.degree;
+      smoother_data.eig_cg_n_iterations = mg_data.smoother.eig_cg_n_iterations;
+
+      precondition_chebyshev.initialize(*mg_matrices[min_level], smoother_data);
+
+      mg_coarse = std::make_unique<MGCoarseGridIterativeSolver<VectorType,
+                                                              SolverCG<VectorType>,
+                                                              LevelMatrixType,
+                                                              decltype(precondition_chebyshev)>>(
+        coarse_grid_solver, *mg_matrices[min_level], precondition_chebyshev);
     }
   else if (mg_data.coarse_solver.type == "cg_with_amg")
     {
