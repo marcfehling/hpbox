@@ -27,7 +27,7 @@ void
 prepare_patch_indices(const dealii::DoFHandler<dim, spacedim>                   &dof_handler,
                       const dealii::AffineConstraints<Number>                   &constraints,
                       std::vector<std::vector<dealii::types::global_dof_index>> &patch_indices,
-                      std::vector<std::vector<dealii::types::global_dof_index>> &patch_indices_ghost = {})
+                      std::vector<std::vector<dealii::types::global_dof_index>> &patch_indices_ghost)
 {
   patch_indices.clear();
   patch_indices_ghost.clear();
