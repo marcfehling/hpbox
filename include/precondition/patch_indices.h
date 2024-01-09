@@ -27,7 +27,7 @@ void
 prepare_patch_indices(const dealii::DoFHandler<dim, spacedim>                   &dof_handler,
                       const dealii::AffineConstraints<Number>                   &constraints,
                       std::vector<std::vector<dealii::types::global_dof_index>> &patch_indices,
-                      std::vector<std::vector<dealii::types::global_dof_index>> &patch_indices_ghost)
+                      std::vector<std::vector<dealii::types::global_dof_index>> &patch_indices_ghost = {})
 {
   patch_indices.clear();
   patch_indices_ghost.clear();
@@ -48,10 +48,11 @@ prepare_patch_indices(const dealii::DoFHandler<dim, spacedim>                   
                   const auto neighbor_subface =
                     cell->neighbor_child_on_subface(f, sf);
 
-                  // check faces among locally owned and on interfaces with ghost cells
+                  // check faces among locally owned and ghost cells
                   // to cover all patches that possibly contain locally active dofs
                   if (neighbor_subface->is_locally_owned() || neighbor_subface->is_ghost())
                     // problem criterion: cell faces h-refined cell with lower polynomial degree
+                    // (corresponds to 'version 6' in previous experiments)
                     if (neighbor_subface->get_fe().degree < cell->get_fe().degree)
                       {
                         flag = true;

@@ -27,17 +27,14 @@
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/dofs/dof_tools.h>
 
-#include <deal.II/lac/affine_constraints.h>
 #include <deal.II/lac/sparse_matrix_tools.h>
 
 #include <global.h>
 
-#include <vector>
-
 DEAL_II_NAMESPACE_OPEN
 
 
-template <typename VectorType, int dim, int spacedim>
+template <typename VectorType>
 class PreconditionASM
 {
 private:
@@ -49,189 +46,34 @@ private:
     symm
   };
 
+  const WeightingType weighting_type = WeightingType::symm;
+
   using Number = typename VectorType::value_type;
 
 public:
-  PreconditionASM(const DoFHandler<dim, spacedim> &dof_handler,
-                  const AffineConstraints<double> &affine_constraints)
-    : dof_handler(dof_handler)
-    , affine_constraints(affine_constraints)
-    , weighting_type(WeightingType::symm)
+  PreconditionASM(const std::vector<std::vector<types::global_dof_index>> &patch_indices)
+    : indices(patch_indices)
   {}
 
-  template <typename GlobalSparseMatrixType, typename GlobalSparsityPattern>
+  PreconditionASM(std::vector<std::vector<types::global_dof_index>> &&patch_indices)
+    : indices(std::move(patch_indices))
+  {}
+
+  template <typename GlobalSparseMatrixType, typename GlobalSparsityPattern, int dim, int spacedim>
   void
-  initialize(const GlobalSparseMatrixType &global_sparse_matrix,
-             const GlobalSparsityPattern  &global_sparsity_pattern)
+  initialize(const GlobalSparseMatrixType    &global_sparse_matrix,
+             const GlobalSparsityPattern     &global_sparsity_pattern,
+             const DoFHandler<dim, spacedim> &dof_handler)
   {
     TimerOutput::Scope t(getTimer(), "initialize_asm");
 
-    // patch types
-    //   (0) -> cell-centric patches on cells                       X
-    //
-    //   (1) -> cell-centric patches on cells at refinement levels  X
-    //   (2) -> cell-centric patches on cells with coarser neighbor
-    //   (3) -> cell-centric patches on cells with finer neighbor   X
-    //
-    //   (4) -> face-centric patches on cells at refinement levels  X
-    //   (5) -> face-centric patches on cells with coarser neighbor
-    //   (6) -> face-centric patches on cells with finer neighbor   X
-    //
-    //   (7) -> edge-centric patches on cells at refinement levels
-    //   (8) -> edge-centric patches on cells with coarser neighbor
-    //   (9) -> edge-centric patches on cells with finer neighbor   o
-    //
-    // DoFs not assigned to a patch are implicitly treated as blocks
-    // of size 1x1.
-
-    const unsigned int version = 6;
-
-    const auto push_back =
-      [&](const std::vector<types::global_dof_index> &indices_local) {
-        std::vector<types::global_dof_index> temp;
-
-        for (const auto i : indices_local)
-          if (affine_constraints.is_constrained(i) == false)
-            temp.emplace_back(i);
-
-        if (temp.empty() == false)
-          indices.push_back(temp);
-      };
-
-    if (version == 0)
-      {
-        std::vector<types::global_dof_index> indices_local;
-
-        for (const auto &cell : dof_handler.active_cell_iterators())
-          {
-            if (cell->is_locally_owned() == false)
-              continue;
-
-            indices_local.resize(cell->get_fe().n_dofs_per_cell());
-            cell->get_dof_indices(indices_local);
-            push_back(indices_local);
-          }
-      }
-    else if (version == 1 || version == 2 || version == 3)
-      {
-        std::vector<types::global_dof_index> indices_local;
-
-        for (const auto &cell : dof_handler.active_cell_iterators())
-          {
-            if (cell->is_locally_owned() == false)
-              continue;
-
-            bool flag = false;
-
-            for (const auto f : cell->face_indices())
-              if (cell->at_boundary(f) == false)
-                {
-                  if ((version == 1 || version == 2) &&
-                      (cell->level() > cell->neighbor(f)->level()))
-                    flag = true;
-
-                  if ((version == 1 || version == 3) &&
-                      (cell->neighbor(f)->has_children()))
-                    flag = true;
-                }
-
-            if (flag == false)
-              continue;
-
-            indices_local.resize(cell->get_fe().n_dofs_per_cell());
-            cell->get_dof_indices(indices_local);
-            push_back(indices_local);
-          }
-      }
-    else if (version == 4 || version == 5 || version == 6)
-      {
-        std::vector<types::global_dof_index> indices_local;
-
-        for (const auto &cell : dof_handler.active_cell_iterators())
-          {
-            if (cell->is_locally_owned() == false)
-              continue;
-
-            for (const auto f : cell->face_indices())
-              if (cell->at_boundary(f) == false)
-                {
-                  bool flag = false;
-
-                  if ((version == 4 || version == 5) &&
-                      (cell->level() > cell->neighbor(f)->level()))
-                    flag = true;
-
-                  if ((version == 4 || version == 6) &&
-                      (cell->face(f)->has_children()))
-                    for (unsigned int sf = 0;
-                         sf < cell->face(f)->n_children();
-                         ++sf)
-                      {
-                        const auto neighbor_subface =
-                          cell->neighbor_child_on_subface(f, sf);
-
-                        if(neighbor_subface->get_fe().degree < cell->get_fe().degree)
-                          flag = true;
-                      }
-
-                  if (flag == false)
-                    continue;
-
-                  indices_local.resize(cell->get_fe().n_dofs_per_face());
-                  cell->face(f)->get_dof_indices(indices_local,
-                                                 cell->active_fe_index());
-                  push_back(indices_local);
-                }
-          }
-      }
-    else if ((dim == 3) && (version == 7 || version == 8 || version == 9))
-      {
-        std::vector<types::global_dof_index> indices_local;
-        std::set<unsigned int>               processed_lines;
-
-        for (const auto &cell : dof_handler.active_cell_iterators())
-          {
-            if (cell->is_locally_owned() == false)
-              continue;
-
-            for (const auto f : cell->face_indices())
-              if (cell->at_boundary(f) == false)
-                {
-                  bool flag = false;
-
-                  if ((version == 7 || version == 8) &&
-                      (cell->level() > cell->neighbor(f)->level()))
-                    flag = true;
-
-                  if ((version == 7 || version == 9) &&
-                      (cell->neighbor(f)->has_children()))
-                    flag = true;
-
-                  if (flag == false)
-                    continue;
-
-                  for (const auto l : cell->face(f)->line_indices())
-                    {
-                      const bool contains = processed_lines.find(cell->face(f)->line(l)->index()) != processed_lines.end();
-                      if (contains)
-                        continue;
-
-                      indices_local.resize(
-                        cell->get_fe().n_dofs_per_line() +
-                        2 * cell->get_fe().n_dofs_per_vertex());
-
-                      cell->face(f)->line(l)->get_dof_indices(
-                        indices_local, cell->active_fe_index());
-
-                      push_back(indices_local);
-
-                      processed_lines.insert(cell->face(f)->line(l)->index());
-                    }
-                }
-          }
-      }
-
     // treat unprocessed DoFs as blocks of size 1x1
+
+    // TODO: I do not need a dof_handler but rather a partitioner here
+    //       Move this part into the constructor
+
+    // ATTENTION: This function modifies indices. Do not call this twice!
+
     const IndexSet relevant = DoFTools::extract_locally_relevant_dofs(dof_handler);
     VectorType unprocessed_indices(dof_handler.locally_owned_dofs(), relevant, dof_handler.get_communicator());
 
@@ -246,16 +88,6 @@ public:
       if (unprocessed_indices[i] == 0)
         indices.emplace_back(std::vector<types::global_dof_index>{i});
 
-    if (false)
-      {
-        for (const auto &indices_i : indices)
-          {
-            for (const auto i : indices_i)
-              std::cout << i << " ";
-            std::cout << std::endl;
-          }
-      }
-
     //
     // build blocks
     //
@@ -265,15 +97,8 @@ public:
                                                  blocks);
 
     for (auto &block : blocks)
-      {
-        if (false && (block.m() > 1))
-          {
-            block.print_formatted(std::cout, 2, false, 5, "0.00");
-            std::cout << std::endl;
-          }
-        if (block.m() > 0 && block.n() > 0)
-          block.gauss_jordan();
-      }
+      if (block.m() > 0 && block.n() > 0)
+        block.gauss_jordan();
 
     //
     // prepare weights
@@ -282,7 +107,6 @@ public:
     Vector<Number> vector_weights;
     if (weighting_type != WeightingType::none)
       {
-        const IndexSet relevant = DoFTools::extract_locally_relevant_dofs(dof_handler);
         weights.reinit(dof_handler.locally_owned_dofs(), relevant, dof_handler.get_communicator());
 
         for (unsigned int c = 0; c < indices.size(); ++c)
@@ -373,13 +197,9 @@ public:
   }
 
 private:
-  const DoFHandler<dim, spacedim> &dof_handler;
-  const AffineConstraints<double> &affine_constraints;
-
+  // make indices const!
   std::vector<std::vector<types::global_dof_index>> indices;
   std::vector<FullMatrix<Number>>                   blocks;
-
-  const WeightingType weighting_type;
 };
 
 DEAL_II_NAMESPACE_CLOSE

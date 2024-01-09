@@ -17,16 +17,9 @@
 #define precondition_diag_ext_h
 
 
-#include <deal.II/base/mpi.h>
-
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/dofs/dof_tools.h>
 
-#include <deal.II/grid/filtered_iterator.h>
-
-#include <deal.II/hp/fe_values.h>
-
-#include <deal.II/lac/diagonal_matrix.h>
 #include <deal.II/lac/sparse_matrix_tools.h>
 
 #include <deal.II/multigrid/mg_transfer_global_coarsening.templates.h>
@@ -48,17 +41,17 @@ private:
     symm
   };
 
+  const WeightingType weighting_type = WeightingType::symm;
+
   using Number = typename VectorType::value_type;
 
 public:
   ExtendedDiagonalPreconditioner(const std::vector<std::vector<types::global_dof_index>> &patch_indices)
     : patch_indices(patch_indices)
-    , weighting_type(WeightingType::symm)
   {}
 
   ExtendedDiagonalPreconditioner(std::vector<std::vector<types::global_dof_index>> &&patch_indices)
     : patch_indices(std::move(patch_indices))
-    , weighting_type(WeightingType::symm)
   {}
 
   template <typename GlobalSparseMatrixType, typename GlobalSparsityPattern>
@@ -68,7 +61,7 @@ public:
              const VectorType                                        &inverse_diagonal)
              // const std::vector<std::vector<types::global_dof_index>> &patch_indices_ghost)
   {
-    TimerOutput::Scope t(getTimer(), "initialize_extdiag");
+    TimerOutput::Scope t(getTimer(), "initialize_extended_diagonal");
 
     // we need a partitioner over locally relevant dofs,
     // as patch dofs might be constrained with ghost dofs
@@ -276,13 +269,11 @@ public:
 
 private:
   // ASM
-  std::vector<std::vector<types::global_dof_index>> patch_indices;
-  std::vector<FullMatrix<Number>>                   patch_matrices;
+  const std::vector<std::vector<types::global_dof_index>> patch_indices;
+  std::vector<FullMatrix<Number>>                         patch_matrices;
 
   // inverse diagonal
   VectorType inverse_diagonal;
-
-  const WeightingType weighting_type;
 
   // embedded partitioner
   std::shared_ptr<const Utilities::MPI::Partitioner> embedded_partitioner;

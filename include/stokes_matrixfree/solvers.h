@@ -418,7 +418,7 @@ namespace StokesMatrixFree
     using MGTransferType  = MGTransferGlobalCoarsening<dim, VectorType>;
 
     //using SmootherPreconditionerType = DiagonalMatrix<VectorType>;
-    //using SmootherPreconditionerType = PreconditionASM<VectorType, dim, dim>;
+    //using SmootherPreconditionerType = PreconditionASM<VectorType>;
     using SmootherPreconditionerType = ExtendedDiagonalPreconditioner<VectorType>;
     using SmootherType =
       PreconditionChebyshev<LevelMatrixType, VectorType, SmootherPreconditionerType>;
@@ -484,6 +484,7 @@ namespace StokesMatrixFree
         operators[level]->compute_inverse_diagonal(inverse_diagonal);
 
         smoother_data[level].preconditioner = std::make_shared<SmootherPreconditionerType>(std::move(patch_indices));
+        //smoother_data[level].preconditioner->initialize(operators[level]->get_system_matrix(), dsp, dof_handler);
         //smoother_data[level].preconditioner->initialize(operators[level]->get_system_matrix(), dsp, inverse_diagonal);
         smoother_data[level].preconditioner->initialize(reduced_sparse_matrix, reduced_sparsity_pattern, inverse_diagonal); //, patch_indices_ghost);
         // ----------
