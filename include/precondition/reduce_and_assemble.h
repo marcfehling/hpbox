@@ -40,9 +40,9 @@ reduce_constraints(const dealii::DoFHandler<dim, spacedim>   &dof_handler,
                    dealii::AffineConstraints<Number>         &constraints_reduced)
 {
   Assert(constraints_full.is_closed(),
-         ExcMessage("constraints_full needs to have all chains of constraints resolved"));
+         dealii::ExcMessage("constraints_full needs to have all chains of constraints resolved"));
   Assert(constraints_reduced.get_locally_owned_indices().size() > 0,
-         ExcMessage("constraints_reduced needs to be initialized"));
+         dealii::ExcMessage("constraints_reduced needs to be initialized"));
 
   // 1) create set of all patch indices
   all_indices.clear();
