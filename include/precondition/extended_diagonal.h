@@ -30,7 +30,7 @@ DEAL_II_NAMESPACE_OPEN
 
 
 template<typename VectorType>
-class ExtendedDiagonalPreconditioner
+class PreconditionExtendedDiagonal
 {
 private:
   enum class WeightingType
@@ -46,11 +46,11 @@ private:
   using Number = typename VectorType::value_type;
 
 public:
-  ExtendedDiagonalPreconditioner(const std::vector<std::vector<types::global_dof_index>> &patch_indices)
+  PreconditionExtendedDiagonal(const std::vector<std::vector<types::global_dof_index>> &patch_indices)
     : patch_indices(patch_indices)
   {}
 
-  ExtendedDiagonalPreconditioner(std::vector<std::vector<types::global_dof_index>> &&patch_indices)
+  PreconditionExtendedDiagonal(std::vector<std::vector<types::global_dof_index>> &&patch_indices)
     : patch_indices(std::move(patch_indices))
   {}
 

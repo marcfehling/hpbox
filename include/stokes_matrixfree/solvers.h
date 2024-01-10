@@ -224,7 +224,7 @@ namespace StokesMatrixFree
 
 
 
-  template <int dim, typename LinearAlgebra, int spacedim = dim>
+  template <typename SmootherPreconditionerType, int dim, typename LinearAlgebra, int spacedim = dim>
   static void
   solve_gmg(dealii::SolverControl &solver_control_refined,
             const StokesMatrixFree::StokesOperator<dim, LinearAlgebra, spacedim> &stokes_operator,
@@ -359,6 +359,8 @@ namespace StokesMatrixFree
     MGLevelObject<AffineConstraints<typename VectorType::value_type>> constraints(minlevel,
                                                                                   maxlevel);
 
+    MGLevelObject<std::shared_ptr<SmootherPreconditionerType>> smoother_preconditioners(minlevel, maxlevel);
+
     //
     // TODO: Generalise, maybe for operator and blockoperatorbase?
     //       Pass this part as lambda function?
@@ -388,6 +390,81 @@ namespace StokesMatrixFree
         // ... operator (just like on the finest level)
         operators[level] = a_block_operator.replicate();
         operators[level]->reinit(partitioning, dof_handler, constraint);
+
+
+        // WIP: build smoother preconditioners here
+        // necessary on all levels or just minlevel+1 to maxlevel?
+
+        if constexpr (std::is_same_v<SmootherPreconditionerType, DiagonalMatrix<VectorType>>)
+          {
+            smoother_preconditioners[level] = std::make_shared<SmootherPreconditionerType>();
+            operators[level]->compute_inverse_diagonal(smoother_preconditioners[level]->get_vector());
+          }
+        else if constexpr (std::is_same_v<SmootherPreconditionerType, PreconditionASM<VectorType>>)
+          {
+            std::vector<std::vector<types::global_dof_index>> patch_indices;
+            std::vector<std::vector<types::global_dof_index>> patch_indices_ghost;
+            prepare_patch_indices(dof_handler, constraint,
+                                  patch_indices, patch_indices_ghost);
+
+            // full matrix
+            // TODO: this is a nasty way to get the sparsity pattern
+            // so far I only created temporary sparsity patterns in the LinearAlgebra namespace,
+            // but they are no longer available here
+            // so for the sake of trying ASM out, I'll just create another one here
+            const unsigned int myid = dealii::Utilities::MPI::this_mpi_process(dof_handler.get_communicator());
+            typename LinearAlgebra::SparsityPattern sparsity_pattern;
+            sparsity_pattern.reinit(partitioning.get_owned_dofs(), partitioning.get_owned_dofs(), partitioning.get_relevant_dofs(), dof_handler.get_communicator());
+            DoFTools::make_sparsity_pattern(dof_handler, sparsity_pattern, constraint, false, myid);
+            sparsity_pattern.compress();
+
+            smoother_preconditioners[level] = std::make_shared<SmootherPreconditionerType>(std::move(patch_indices));
+            smoother_preconditioners[level]->initialize(operators[level]->get_system_matrix(), sparsity_pattern, dof_handler);
+          }
+        else if constexpr (std::is_same_v<SmootherPreconditionerType, PreconditionExtendedDiagonal<VectorType>>)
+          {
+            std::vector<std::vector<types::global_dof_index>> patch_indices;
+            std::vector<std::vector<types::global_dof_index>> patch_indices_ghost;
+            prepare_patch_indices(dof_handler, constraint,
+                                  patch_indices, patch_indices_ghost);
+
+            // full matrix
+            //const unsigned int myid = dealii::Utilities::MPI::this_mpi_process(communicator);
+            //DynamicSparsityPattern dsp(relevant_dofs);
+            //DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false, myid);
+            //SparsityTools::distribute_sparsity_pattern(dsp, owned_dofs, communicator, relevant_dofs);
+
+            // reduced matrix
+            AffineConstraints<double> constraints_reduced;
+            constraints_reduced.reinit(partitioning.get_owned_dofs(), partitioning.get_relevant_dofs());
+
+            std::set<types::global_dof_index> all_indices;
+            reduce_constraints(dof_handler, constraint, patch_indices, patch_indices_ghost,
+                              all_indices, constraints_reduced);
+
+            // TODO: only works for Trilinos so far
+            typename LinearAlgebra::SparsityPattern reduced_sparsity_pattern;
+            reduced_sparsity_pattern.reinit(partitioning.get_owned_dofs(), partitioning.get_owned_dofs(), partitioning.get_relevant_dofs(), dof_handler.get_communicator());
+            make_sparsity_pattern(dof_handler, all_indices, reduced_sparsity_pattern, constraints_reduced);
+            reduced_sparsity_pattern.compress();
+
+            typename LinearAlgebra::SparseMatrix reduced_sparse_matrix;
+            reduced_sparse_matrix.reinit(reduced_sparsity_pattern);
+            partially_assemble_ablock(dof_handler, constraints_reduced, q_collection_v, all_indices,
+                                      reduced_sparse_matrix);
+
+            VectorType inverse_diagonal;
+            operators[level]->compute_inverse_diagonal(inverse_diagonal);
+
+            smoother_preconditioners[level] = std::make_shared<SmootherPreconditionerType>(std::move(patch_indices));
+            //smoother_data[level].preconditioner->initialize(mg_matrices[level]->get_system_matrix(), dsp, inverse_diagonal);
+            smoother_preconditioners[level]->initialize(reduced_sparse_matrix, reduced_sparsity_pattern, inverse_diagonal); //, patch_indices_ghost);
+            // ----------
+          }
+        else
+          {
+            AssertThrow(false, ExcNotImplemented());
+          }
       }
 
     // Set up intergrid operators.
@@ -417,9 +494,6 @@ namespace StokesMatrixFree
     using LevelMatrixType = OperatorType<dim, LinearAlgebra, spacedim>;
     using MGTransferType  = MGTransferGlobalCoarsening<dim, VectorType>;
 
-    //using SmootherPreconditionerType = DiagonalMatrix<VectorType>;
-    //using SmootherPreconditionerType = PreconditionASM<VectorType>;
-    using SmootherPreconditionerType = ExtendedDiagonalPreconditioner<VectorType>;
     using SmootherType =
       PreconditionChebyshev<LevelMatrixType, VectorType, SmootherPreconditionerType>;
     using PreconditionerType = PreconditionMG<dim, VectorType, MGTransferType>;
@@ -435,60 +509,7 @@ namespace StokesMatrixFree
 
     for (unsigned int level = min_level; level <= max_level; level++)
       {
-        // smoother_data[level].preconditioner = std::make_shared<SmootherPreconditionerType>();
-        // operators[level]->compute_inverse_diagonal(
-        //   smoother_data[level].preconditioner->get_vector());
-
-        // ----------
-        // TODO: this is a nasty way to get the sparsity pattern
-        // so far I only created temporary sparsity patterns in the LinearAlgebra namespace,
-        // but they are no longer available here
-        // so for the sake of trying ASM out, I'll just create another one here
-        const auto &dof_handler = dof_handlers[level];
-        const auto &constraint = constraints[level];
-
-        auto communicator = dof_handler.get_communicator();
-        const auto owned_dofs = dof_handler.locally_owned_dofs();
-        const IndexSet relevant_dofs = DoFTools::extract_locally_relevant_dofs(dof_handler);
-
-        std::vector<std::vector<types::global_dof_index>> patch_indices;
-        std::vector<std::vector<types::global_dof_index>> patch_indices_ghost;
-        prepare_patch_indices(dof_handler, constraint,
-                              patch_indices, patch_indices_ghost);
-
-        // full matrix
-        //const unsigned int myid = dealii::Utilities::MPI::this_mpi_process(communicator);
-        //DynamicSparsityPattern dsp(relevant_dofs);
-        //DoFTools::make_sparsity_pattern(dof_handler, dsp, constraint, false, myid);
-        //SparsityTools::distribute_sparsity_pattern(dsp, owned_dofs, communicator, relevant_dofs);
-
-        // reduced matrix
-        AffineConstraints<double> constraints_reduced;
-        constraints_reduced.reinit(owned_dofs, relevant_dofs);
-
-        std::set<types::global_dof_index> all_indices;
-        reduce_constraints(dof_handler, constraint, patch_indices, patch_indices_ghost,
-                           all_indices, constraints_reduced);
-
-        TrilinosWrappers::SparsityPattern reduced_sparsity_pattern;
-        reduced_sparsity_pattern.reinit(owned_dofs, owned_dofs, relevant_dofs, communicator);
-        make_sparsity_pattern(dof_handler, all_indices, reduced_sparsity_pattern, constraints_reduced);
-        reduced_sparsity_pattern.compress();
-
-        TrilinosWrappers::SparseMatrix reduced_sparse_matrix;
-        reduced_sparse_matrix.reinit(reduced_sparsity_pattern);
-        partially_assemble_ablock(dof_handler, constraints_reduced, q_collection_v, all_indices,
-                                  reduced_sparse_matrix);
-
-        VectorType inverse_diagonal;
-        operators[level]->compute_inverse_diagonal(inverse_diagonal);
-
-        smoother_data[level].preconditioner = std::make_shared<SmootherPreconditionerType>(std::move(patch_indices));
-        //smoother_data[level].preconditioner->initialize(operators[level]->get_system_matrix(), dsp, dof_handler);
-        //smoother_data[level].preconditioner->initialize(operators[level]->get_system_matrix(), dsp, inverse_diagonal);
-        smoother_data[level].preconditioner->initialize(reduced_sparse_matrix, reduced_sparsity_pattern, inverse_diagonal); //, patch_indices_ghost);
-        // ----------
-
+        smoother_data[level].preconditioner      = smoother_preconditioners[level];
         smoother_data[level].smoothing_range     = mg_data.smoother.smoothing_range;
         smoother_data[level].degree              = mg_data.smoother.degree;
         smoother_data[level].eig_cg_n_iterations = mg_data.smoother.eig_cg_n_iterations;

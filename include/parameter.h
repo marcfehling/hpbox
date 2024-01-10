@@ -50,6 +50,9 @@ struct Parameter : public dealii::ParameterAcceptor
     operator_type = "MatrixFree";
     add_parameter("operator type", operator_type);
 
+    smoother_preconditioner_type = "Extended Diagonal";
+    add_parameter("smoother preconditioner type", smoother_preconditioner_type);
+
     solver_type = "GMG";
     add_parameter("solver type", solver_type);
 
@@ -88,6 +91,7 @@ struct Parameter : public dealii::ParameterAcceptor
   std::string adaptation_type;
   std::string grid_type;
   std::string operator_type;
+  std::string smoother_preconditioner_type;
   std::string solver_type;
   double      solver_tolerance_factor;
   bool solver_a_expensive;

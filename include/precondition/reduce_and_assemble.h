@@ -61,6 +61,7 @@ reduce_constraints(const dealii::DoFHandler<dim, spacedim>   &dof_handler,
   // ----------
   // TODO: find the right set for parallelization
   //       best guess: active cells
+  //       move to parameter
   // ----------
   for (const auto i : dealii::DoFTools::extract_locally_active_dofs(dof_handler))
     if (constraints_full.is_constrained(i))

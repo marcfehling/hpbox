@@ -394,19 +394,58 @@ namespace StokesMatrixFree
         }
       else if (prm.solver_type == "GMG")
         {
-          solve_gmg<dim, LinearAlgebra, spacedim>(solver_control_refined,
-                                                  *stokes_operator,
-                                                  *a_block_operator,
-                                                  *schur_block_operator,
-                                                  completely_distributed_solution,
-                                                  system_rhs,
-                                                  mapping_collection,
-                                                  quadrature_collection_v,
-                                                  dof_handlers,
-                                                  filename_stem + "-mglevel-cycle_" +
-                                                    std::to_string(cycle) + ".log",
-                                                  prm.solver_a_expensive,
-                                                  prm.solver_schur_expensive);
+          if (prm.smoother_preconditioner_type == "Extended Diagonal")
+            {
+              solve_gmg<PreconditionExtendedDiagonal<typename LinearAlgebra::Vector>, dim, LinearAlgebra, spacedim>(solver_control_refined,
+                                                      *stokes_operator,
+                                                      *a_block_operator,
+                                                      *schur_block_operator,
+                                                      completely_distributed_solution,
+                                                      system_rhs,
+                                                      mapping_collection,
+                                                      quadrature_collection_v,
+                                                      dof_handlers,
+                                                      filename_stem + "-mglevel-cycle_" +
+                                                        std::to_string(cycle) + ".log",
+                                                      prm.solver_a_expensive,
+                                                      prm.solver_schur_expensive);
+            }
+          else if (prm.smoother_preconditioner_type == "ASM")
+            {
+              solve_gmg<PreconditionASM<typename LinearAlgebra::Vector>, dim, LinearAlgebra, spacedim>(solver_control_refined,
+                                                      *stokes_operator,
+                                                      *a_block_operator,
+                                                      *schur_block_operator,
+                                                      completely_distributed_solution,
+                                                      system_rhs,
+                                                      mapping_collection,
+                                                      quadrature_collection_v,
+                                                      dof_handlers,
+                                                      filename_stem + "-mglevel-cycle_" +
+                                                        std::to_string(cycle) + ".log",
+                                                      prm.solver_a_expensive,
+                                                      prm.solver_schur_expensive);
+            }
+          else if (prm.smoother_preconditioner_type == "Diagonal")
+            {
+              solve_gmg<DiagonalMatrix<typename LinearAlgebra::Vector>, dim, LinearAlgebra, spacedim>(solver_control_refined,
+                                                      *stokes_operator,
+                                                      *a_block_operator,
+                                                      *schur_block_operator,
+                                                      completely_distributed_solution,
+                                                      system_rhs,
+                                                      mapping_collection,
+                                                      quadrature_collection_v,
+                                                      dof_handlers,
+                                                      filename_stem + "-mglevel-cycle_" +
+                                                        std::to_string(cycle) + ".log",
+                                                      prm.solver_a_expensive,
+                                                      prm.solver_schur_expensive);
+            }
+          else
+            {
+              AssertThrow(false, ExcNotImplemented());
+            }
         }
       else
         {
