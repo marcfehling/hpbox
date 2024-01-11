@@ -28,14 +28,14 @@ main(int argc, char *argv[])
     {
       dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
 
-      if (getPCOut().is_active())
-        dealii::deallog.attach(getPCOut().get_stream());
-
       Parameter prm;
 
       const std::string filename        = (argc > 1) ? argv[1] : "";
       const std::string output_filename = (argc > 1) ? "" : "poisson.prm";
       dealii::ParameterAcceptor::initialize(filename, output_filename);
+
+      if (prm.log_deallog && getPCOut().is_active())
+        dealii::deallog.attach(getPCOut().get_stream());
 
       getPCOut() << "Running with " << prm.linear_algebra << " on "
                  << dealii::Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD) << " MPI rank(s)..."
