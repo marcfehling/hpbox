@@ -56,10 +56,10 @@ public:
 
   template <typename GlobalSparseMatrixType, typename GlobalSparsityPattern>
   void
-  initialize(const GlobalSparseMatrixType                            &global_sparse_matrix,
-             const GlobalSparsityPattern                             &global_sparsity_pattern,
-             const VectorType                                        &inverse_diagonal)
-             // const std::vector<std::vector<types::global_dof_index>> &patch_indices_ghost)
+  initialize(const GlobalSparseMatrixType &global_sparse_matrix,
+             const GlobalSparsityPattern  &global_sparsity_pattern,
+             const VectorType             &inverse_diagonal)
+             const VectorType             &all_indices)
   {
     TimerOutput::Scope t(getTimer(), "initialize_extended_diagonal");
 
@@ -153,50 +153,18 @@ public:
     // clear diagonal entries assigned to an ASM patch
     //
     // TODO: use std::move?
-    this->inverse_diagonal = inverse_diagonal;
-
-    // first, count how often indices occur in patches
-    // TODO: this is suboptimal, we can avoid the ghost exchange
-    //       as we have all information already with prepare_patch_indices,
-    //       see below
-    VectorType unprocessed_indices(large_partitioner);
-    for (const auto &indices_i : patch_indices)
-      for (const auto i : indices_i)
-        unprocessed_indices[i]++;
-
-    unprocessed_indices.compress(VectorOperation::add);
-    unprocessed_indices.update_ghost_values();
+    reduced_inverse_diagonal = inverse_diagonal;
 
     for (const auto l : large_partitioner->locally_owned_range())
-      if (unprocessed_indices[l] > 0)
-        this->inverse_diagonal[l] = 0.0;
+      if (all_indices[l] > 0)
+        reduced_inverse_diagonal[l] = 0.0;
 
     std::vector<types::global_dof_index> ghost_indices;
     for (const auto g : large_partitioner->ghost_indices())
-      if (unprocessed_indices[g] > 0)
+      if (all_indices[g] > 0)
         ghost_indices.push_back(g);
 
     // TODO: translate patch_indices to local_elements to optimize
-
-    // TODO: The following approach somehow has a negative effect on EV
-    // std::vector<types::global_dof_index> ghost_indices;
-    // for (const auto &indices : patch_indices)
-    //   for (const auto i : indices)
-    //     {
-    //       if (large_partitioner->in_local_range(i))
-    //         this->inverse_diagonal[i] = 0.0;
-    //       else
-    //         ghost_indices.push_back(i);
-    //     }
-    //
-    // for (const auto &indices : patch_indices_ghost)
-    //   for (const auto i : indices)
-    //     {
-    //       if (large_partitioner->in_local_range(i))
-    //         this->inverse_diagonal[i] = 0.0;
-    //       else if (large_partitioner->in_ghost_range(i))
-    //         ghost_indices.push_back(i);
-    //     }
 
     //
     // set embedded partitioner
@@ -227,7 +195,7 @@ public:
     TimerOutput::Scope t(getTimer(), "vmult_extdiag");
 
     // apply inverse diagonal
-    internal::DiagonalMatrix::assign_and_scale(dst, src, this->inverse_diagonal);
+    internal::DiagonalMatrix::assign_and_scale(dst, src, reduced_inverse_diagonal);
 
     // apply ASM: 1) update ghost values
     internal::SimpleVectorDataExchange<Number> data_exchange(
@@ -273,7 +241,7 @@ private:
   std::vector<FullMatrix<Number>>                         patch_matrices;
 
   // inverse diagonal
-  VectorType inverse_diagonal;
+  VectorType reduced_inverse_diagonal;
 
   // embedded partitioner
   std::shared_ptr<const Utilities::MPI::Partitioner> embedded_partitioner;

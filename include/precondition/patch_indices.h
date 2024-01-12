@@ -23,63 +23,56 @@
 
 
 template <int dim, int spacedim, typename Number>
-void
-prepare_patch_indices(const dealii::DoFHandler<dim, spacedim>                   &dof_handler,
-                      const dealii::AffineConstraints<Number>                   &constraints,
-                      std::vector<std::vector<dealii::types::global_dof_index>> &patch_indices,
-                      std::vector<std::vector<dealii::types::global_dof_index>> &patch_indices_ghost)
+std::vector<std::vector<dealii::types::global_dof_index>>
+prepare_patch_indices(const dealii::DoFHandler<dim, spacedim> &dof_handler,
+                      const dealii::AffineConstraints<Number> &constraints)
 {
-  patch_indices.clear();
-  patch_indices_ghost.clear();
+  std::vector<std::vector<dealii::types::global_dof_index>> patch_indices;
 
   std::vector<dealii::types::global_dof_index> local_indices;
-  for (const auto &cell : dof_handler.active_cell_iterators())
-    if (cell->is_locally_owned() || cell->is_ghost())
-      for (const auto f : cell->face_indices())
-        if (cell->at_boundary(f) == false)
-          {
-            bool flag = false;
+  for (const auto &cell : dof_handler.active_cell_iterators() | dealii::IteratorFilters::LocallyOwnedCell())
+    for (const auto f : cell->face_indices())
+      if (cell->at_boundary(f) == false)
+        {
+          bool flag = false;
 
-            if (cell->face(f)->has_children())
-              for (unsigned int sf = 0;
-                    sf < cell->face(f)->n_children();
-                    ++sf)
-                {
-                  const auto neighbor_subface =
-                    cell->neighbor_child_on_subface(f, sf);
-
-                  // check faces among locally owned and ghost cells
-                  // to cover all patches that possibly contain locally active dofs
-                  if (neighbor_subface->is_locally_owned() || neighbor_subface->is_ghost())
-                    // problem criterion: cell faces h-refined cell with lower polynomial degree
-                    // (corresponds to 'version 6' in previous experiments)
-                    if (neighbor_subface->get_fe().degree < cell->get_fe().degree)
-                      {
-                        flag = true;
-                        break;
-                      }
-                }
-
-            if (flag == false)
-              continue;
-
-            local_indices.resize(cell->get_fe().n_dofs_per_face());
-            cell->face(f)->get_dof_indices(local_indices,
-                                          cell->active_fe_index());
-
-            std::vector<dealii::types::global_dof_index> local_unconstrained_indices;
-            for (const auto i : local_indices)
-              if (constraints.is_constrained(i) == false)
-                local_unconstrained_indices.emplace_back(i);
-
-            if (local_unconstrained_indices.empty() == false)
+          if (cell->face(f)->has_children())
+            for (unsigned int sf = 0;
+                  sf < cell->face(f)->n_children();
+                  ++sf)
               {
-                if (cell->is_locally_owned())
-                  patch_indices.push_back(std::move(local_unconstrained_indices));
-                else // ghost cell
-                  patch_indices_ghost.push_back(std::move(local_unconstrained_indices));
+                const auto neighbor_subface =
+                  cell->neighbor_child_on_subface(f, sf);
+
+                // check faces among locally owned and ghost cells
+                // to cover all patches that possibly contain locally active dofs
+                if (neighbor_subface->is_locally_owned() || neighbor_subface->is_ghost())
+                  // problem criterion: cell faces h-refined cell with lower polynomial degree
+                  // (corresponds to 'version 6' in previous experiments)
+                  if (neighbor_subface->get_fe().degree < cell->get_fe().degree)
+                    {
+                      flag = true;
+                      break;
+                    }
               }
-          }
+
+          if (flag == false)
+            continue;
+
+          local_indices.resize(cell->get_fe().n_dofs_per_face());
+          cell->face(f)->get_dof_indices(local_indices,
+                                        cell->active_fe_index());
+
+          std::vector<dealii::types::global_dof_index> local_unconstrained_indices;
+          for (const auto i : local_indices)
+            if (constraints.is_constrained(i) == false)
+              local_unconstrained_indices.emplace_back(i);
+
+          if (local_unconstrained_indices.empty() == false)
+            patch_indices.push_back(std::move(local_unconstrained_indices))            }
+        }
+
+  return patch_indices;
 }
 
 
