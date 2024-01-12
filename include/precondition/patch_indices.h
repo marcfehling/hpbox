@@ -19,6 +19,8 @@
 
 #include <deal.II/dofs/dof_handler.h>
 
+#include <deal.II/grid/filtered_iterator.h>
+
 #include <deal.II/lac/affine_constraints.h>
 
 
@@ -44,16 +46,13 @@ prepare_patch_indices(const dealii::DoFHandler<dim, spacedim> &dof_handler,
                 const auto neighbor_subface =
                   cell->neighbor_child_on_subface(f, sf);
 
-                // check faces among locally owned and ghost cells
-                // to cover all patches that possibly contain locally active dofs
-                if (neighbor_subface->is_locally_owned() || neighbor_subface->is_ghost())
-                  // problem criterion: cell faces h-refined cell with lower polynomial degree
-                  // (corresponds to 'version 6' in previous experiments)
-                  if (neighbor_subface->get_fe().degree < cell->get_fe().degree)
-                    {
-                      flag = true;
-                      break;
-                    }
+                // problem criterion: cell faces h-refined cell with lower polynomial degree
+                // (corresponds to 'version 6' in previous experiments)
+                if (neighbor_subface->get_fe().degree < cell->get_fe().degree)
+                  {
+                    flag = true;
+                    break;
+                  }
               }
 
           if (flag == false)
@@ -69,7 +68,7 @@ prepare_patch_indices(const dealii::DoFHandler<dim, spacedim> &dof_handler,
               local_unconstrained_indices.emplace_back(i);
 
           if (local_unconstrained_indices.empty() == false)
-            patch_indices.push_back(std::move(local_unconstrained_indices))            }
+            patch_indices.push_back(std::move(local_unconstrained_indices));
         }
 
   return patch_indices;

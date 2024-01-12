@@ -58,19 +58,11 @@ public:
   void
   initialize(const GlobalSparseMatrixType &global_sparse_matrix,
              const GlobalSparsityPattern  &global_sparsity_pattern,
-             const VectorType             &inverse_diagonal)
-             const VectorType             &all_indices)
+             const VectorType             &inverse_diagonal,
+             const std::set<types::global_dof_index> &all_indices_relevant)
   {
     TimerOutput::Scope t(getTimer(), "initialize_extended_diagonal");
 
-    // we need a partitioner over locally relevant dofs,
-    // as patch dofs might be constrained with ghost dofs
-    // const auto relevant_dofs = DoFTools::extract_locally_relevant_dofs(dof_handler);
-    // const auto large_partitioner =
-    //   std::make_shared<const Utilities::MPI::Partitioner>(
-    //     dof_handler.locally_owned_dofs(),
-    //     relevant_dofs,
-    //     dof_handler.get_communicator());
     const auto large_partitioner = inverse_diagonal.get_partitioner();
 
     //
@@ -155,14 +147,23 @@ public:
     // TODO: use std::move?
     reduced_inverse_diagonal = inverse_diagonal;
 
-    for (const auto l : large_partitioner->locally_owned_range())
-      if (all_indices[l] > 0)
-        reduced_inverse_diagonal[l] = 0.0;
+//    for (const auto l : large_partitioner->locally_owned_range())
+//      if (all_indices[l] > 0)
+//        reduced_inverse_diagonal[l] = 0.0;
+//
+//    std::vector<types::global_dof_index> ghost_indices;
+//    for (const auto g : large_partitioner->ghost_indices())
+//      if (all_indices[g] > 0)
+//        ghost_indices.push_back(g);
 
     std::vector<types::global_dof_index> ghost_indices;
-    for (const auto g : large_partitioner->ghost_indices())
-      if (all_indices[g] > 0)
-        ghost_indices.push_back(g);
+    for (const auto i : all_indices_relevant)
+      {
+        if (large_partitioner->in_local_range(i))
+          reduced_inverse_diagonal[i] = 0.0;
+        else if (large_partitioner->is_ghost_entry(i))
+          ghost_indices.push_back(i);
+      }
 
     // TODO: translate patch_indices to local_elements to optimize
 

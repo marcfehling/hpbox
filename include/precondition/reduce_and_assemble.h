@@ -30,48 +30,59 @@
 #include <deal.II/grid/filtered_iterator.h>
 
 
-template <typename VectorType>
-void
-mark_indices(const std::vector<std::vector<dealii::types::global_dof_index>> &patch_indices,
-             VectorType all_indices)
+template <int dim, int spacedim>
+std::set<dealii::types::global_dof_index>
+extract_relevant(const dealii::DoFHandler<dim, spacedim>                         &dof_handler,
+                 const std::vector<std::vector<dealii::types::global_dof_index>> &patch_indices)
 {
-  Assert(all_indices.initialized(), ExcMessage("not initialized"));
+  std::set<dealii::types::global_dof_index> all_indices_relevant;
 
-  // TODO: This has a lot of potential for optimization
+  // ----------
+  // TODO: is there a better way to do that?
+  //       via GridTools::exchange_cell_data_to_ghosts
+  const dealii::IndexSet &owned = dof_handler.locally_owned_dofs();
+  const dealii::IndexSet  relevant = dealii::DoFTools::extract_locally_relevant_dofs(dof_handler);
 
-  for (const auto &indices_i : patch_indices)
-      for (const auto i : indices_i)
-        ++all_indices[i];
+  dealii::LinearAlgebra::distributed::Vector<float> count_patch_dofs (owned, relevant, dof_handler.get_communicator());
+  for (const auto& indices : patch_indices)
+    for (const auto i : indices)
+      ++count_patch_dofs[i];
 
-  all_indices.compress(VectorOperation::add);
-  all_indices.update_ghost_values();
+  count_patch_dofs.compress(dealii::VectorOperation::add);
+  count_patch_dofs.update_ghost_values();
 
-  // maybe convert results into (Index)Sets ...
+  for (const auto i : relevant)
+    if (count_patch_dofs[i] > 0)
+      all_indices_relevant.insert(static_cast<dealii::types::global_dof_index>(i));
+  // ----------
+
+  // relevant now contains locally relevant dofs that are patch dofs
+
+  return all_indices_relevant;
 }
 
 
 
-template <int dim, int spacedim, typename Number, typename VectorType>
+template <typename Number>
 void
-reduce_constraints(const dealii::DoFHandler<dim, spacedim>   &dof_handler,
-                   const dealii::AffineConstraints<Number>   &constraints_full,
-                   const dealii::IndexSet                    &locally_active_dofs,
-                   VectorType                                &all_indices,
-                   dealii::AffineConstraints<Number>         &constraints_reduced)
+reduce_constraints(const dealii::AffineConstraints<Number>         &constraints_full,
+                   const dealii::IndexSet                          &locally_active_dofs,
+                   const std::set<dealii::types::global_dof_index> &all_indices_relevant,
+                   dealii::AffineConstraints<Number>               &constraints_reduced,
+                   std::set<dealii::types::global_dof_index>       &all_indices_assemble)
 {
-  Assert(!locally_active_dofs.empty(), ExcMessage("not empty"));
   Assert(constraints_full.is_closed(),
          dealii::ExcMessage("constraints_full needs to have all chains of constraints resolved"));
   Assert(constraints_reduced.get_locally_owned_indices().size() > 0,
          dealii::ExcMessage("constraints_reduced needs to be initialized"));
 
   // store those indices that are constrained to the patch indices
-  std::set<dealii::types::global_dof_index> constrained_indices;
+  std::set<dealii::types::global_dof_index> all_indices_constrained;
 
   for (const auto i : locally_active_dofs)
     if (constraints_full.is_constrained(i))
       {
-        constrained_indices.insert(i);
+        all_indices_constrained.insert(i);
 
         const auto constraint_entries =
           constraints_full.get_constraint_entries(i);
@@ -81,7 +92,7 @@ reduce_constraints(const dealii::DoFHandler<dim, spacedim>   &dof_handler,
 
         if (constraint_entries != nullptr)
           for (const auto &entry : *constraint_entries)
-            if (frequencies[entry.first] > 0)
+            if (all_indices_relevant.contains(entry.first))
               constraint_entries_reduced.push_back(entry);
 
         constraints_reduced.add_line(i);
@@ -90,18 +101,25 @@ reduce_constraints(const dealii::DoFHandler<dim, spacedim>   &dof_handler,
 
   constraints_reduced.close();
 
-  // add constrained indices to set?
-  // AFTER we went through the constraints
-  for (const auto i : constrained_indices)
-    ++all_indices[i];
+  // prepare indexset
+  all_indices_assemble.clear();
+  std::set_intersection(all_indices_relevant.begin(), all_indices_relevant.end(),
+                        locally_active_dofs.begin(), locally_active_dofs.end(),
+                        std::inserter(all_indices_assemble, all_indices_assemble.begin()));
+
+  // all_indices_assemble now contains locally active dofs that are patch dofs
+
+  all_indices_assemble.merge(all_indices_constrained);
+
+  // all_indices_assemble now contains locally active dofs that are either patch dofs or constrained to patch dofs
 }
 
 
 
-template <int dim, int spacedim, typename VectorType, typename Number = double>
+template <int dim, int spacedim, typename Number = double>
 void
 make_sparsity_pattern(const dealii::DoFHandler<dim, spacedim>         &dof_handler,
-                      const VectorType                                &all_indices,
+                      const std::set<dealii::types::global_dof_index> &all_indices_assemble,
                       dealii::SparsityPatternBase                     &sparsity_pattern,
                       const dealii::AffineConstraints<Number>         &constraints = {})
 {
@@ -122,7 +140,7 @@ make_sparsity_pattern(const dealii::DoFHandler<dim, spacedim>         &dof_handl
 
       local_dof_indices_reduced.clear();
       for (const auto i : local_dof_indices)
-        if (all_indices[i] > 0)
+        if (all_indices_assemble.contains(i))
           local_dof_indices_reduced.push_back(i);
 
       constraints.add_entries_local_to_global(local_dof_indices_reduced,
@@ -133,12 +151,12 @@ make_sparsity_pattern(const dealii::DoFHandler<dim, spacedim>         &dof_handl
 
 
 
-template <int dim, int spacedim, typename Number, typename VectorType, typename SparseMatrixType>
+template <int dim, int spacedim, typename Number, typename SparseMatrixType>
 void
 partially_assemble_poisson(const dealii::DoFHandler<dim, spacedim> &dof_handler,
                            const dealii::AffineConstraints<Number> &constraints_reduced,
                            const dealii::hp::QCollection<dim>      &quadrature_collection,
-                           const VectorType                        &all_indices,
+                           const std::set<dealii::types::global_dof_index> &all_indices_assemble,
                            SparseMatrixType                        &sparse_matrix)
 {
   //
@@ -163,7 +181,7 @@ partially_assemble_poisson(const dealii::DoFHandler<dim, spacedim> &dof_handler,
       std::vector<unsigned int>                    dof_indices;
 
       for (unsigned int i = 0; i < local_dof_indices.size(); ++i)
-        if (all_indices[local_dof_indices[i]] > 0)
+        if (all_indices_assemble.contains(local_dof_indices[i]))
           {
             local_dof_indices_reduced.push_back(local_dof_indices[i]);
             dof_indices.push_back(i);
@@ -202,7 +220,7 @@ void
 partially_assemble_ablock(const dealii::DoFHandler<dim, spacedim> &dof_handler,
                           const dealii::AffineConstraints<Number> &constraints_reduced,
                           const dealii::hp::QCollection<dim>      &quadrature_collection,
-                          const VectorType                        &all_indices,
+                          const std::set<dealii::types::global_dof_index> &all_indices_assemble,
                           SparseMatrixType                        &sparse_matrix)
 {
   //
@@ -231,7 +249,7 @@ partially_assemble_ablock(const dealii::DoFHandler<dim, spacedim> &dof_handler,
       std::vector<unsigned int>                    dof_indices;
 
       for (unsigned int i = 0; i < local_dof_indices.size(); ++i)
-        if (all_indices[local_dof_indices[i]] > 0)
+        if (all_indices_assemble.contains(local_dof_indices[i]))
           {
             local_dof_indices_reduced.push_back(local_dof_indices[i]);
             dof_indices.push_back(i);

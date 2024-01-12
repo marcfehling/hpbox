@@ -232,10 +232,7 @@ namespace Poisson
           }
         else if constexpr (std::is_same_v<SmootherPreconditionerType, PreconditionASM<VectorType>>)
           {
-            std::vector<std::vector<types::global_dof_index>> patch_indices;
-            std::vector<std::vector<types::global_dof_index>> patch_indices_ghost;
-            prepare_patch_indices(dof_handler, constraint,
-                                  patch_indices, patch_indices_ghost);
+            const auto patch_indices = prepare_patch_indices(dof_handler, constraint);
 
             // full matrix
             // TODO: this is a nasty way to get the sparsity pattern
@@ -253,10 +250,7 @@ namespace Poisson
           }
         else if constexpr (std::is_same_v<SmootherPreconditionerType, PreconditionExtendedDiagonal<VectorType>>)
           {
-            std::vector<std::vector<types::global_dof_index>> patch_indices;
-            std::vector<std::vector<types::global_dof_index>> patch_indices_ghost;
-            prepare_patch_indices(dof_handler, constraint,
-                                  patch_indices, patch_indices_ghost);
+            const auto patch_indices = prepare_patch_indices(dof_handler, constraint);
 
             // full matrix
             //const unsigned int myid = dealii::Utilities::MPI::this_mpi_process(communicator);
@@ -268,27 +262,29 @@ namespace Poisson
             AffineConstraints<double> constraints_reduced;
             constraints_reduced.reinit(partitioning.get_owned_dofs(), partitioning.get_relevant_dofs());
 
-            std::set<types::global_dof_index> all_indices;
-            reduce_constraints(dof_handler, constraint, patch_indices, patch_indices_ghost,
-                              all_indices, constraints_reduced);
+            const auto all_indices_relevant = extract_relevant(dof_handler, patch_indices);
+
+            std::set<types::global_dof_index> all_indices_assemble;
+            reduce_constraints(constraint, DoFTools::extract_locally_active_dofs(dof_handler), all_indices_relevant,
+                               constraints_reduced, all_indices_assemble);
 
             // TODO: only works for Trilinos so far
             typename LinearAlgebra::SparsityPattern reduced_sparsity_pattern;
             reduced_sparsity_pattern.reinit(partitioning.get_owned_dofs(), partitioning.get_owned_dofs(), partitioning.get_relevant_dofs(), dof_handler.get_communicator());
-            make_sparsity_pattern(dof_handler, all_indices, reduced_sparsity_pattern, constraints_reduced);
+            make_sparsity_pattern(dof_handler, all_indices_assemble, reduced_sparsity_pattern, constraints_reduced);
             reduced_sparsity_pattern.compress();
 
             typename LinearAlgebra::SparseMatrix reduced_sparse_matrix;
             reduced_sparse_matrix.reinit(reduced_sparsity_pattern);
-            partially_assemble_poisson(dof_handler, constraints_reduced, q_collection, all_indices,
-                                      reduced_sparse_matrix);
+            partially_assemble_poisson(dof_handler, constraints_reduced, q_collection, all_indices_assemble,
+                                       reduced_sparse_matrix);
 
             VectorType inverse_diagonal;
             operators[level]->compute_inverse_diagonal(inverse_diagonal);
 
             smoother_preconditioners[level] = std::make_shared<SmootherPreconditionerType>(std::move(patch_indices));
-            //smoother_data[level].preconditioner->initialize(mg_matrices[level]->get_system_matrix(), dsp, inverse_diagonal);
-            smoother_preconditioners[level]->initialize(reduced_sparse_matrix, reduced_sparsity_pattern, inverse_diagonal); //, patch_indices_ghost);
+            //smoother_data[level].preconditioner->initialize(operators[level]->get_system_matrix(), dsp, inverse_diagonal, all_indices_relevant);
+            smoother_preconditioners[level]->initialize(reduced_sparse_matrix, reduced_sparsity_pattern, inverse_diagonal, all_indices_relevant);
             // ----------
           }
         else
