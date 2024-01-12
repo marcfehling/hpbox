@@ -52,8 +52,8 @@ extract_relevant(const dealii::DoFHandler<dim, spacedim>                        
   count_patch_dofs.update_ghost_values();
 
   for (const auto i : relevant)
-    if (count_patch_dofs[i] > 0)
-      all_indices_relevant.insert(static_cast<dealii::types::global_dof_index>(i));
+    if (count_patch_dofs[i] > 0.)
+      all_indices_relevant.insert(i);
   // ----------
 
   // relevant now contains locally relevant dofs that are patch dofs
