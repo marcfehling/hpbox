@@ -98,18 +98,10 @@ reduce_constraints(const dealii::AffineConstraints<Number>         &constraints_
 
         if (constraint_entries_reduced.empty() == false)
           {
-            // add entries if index is constrained against any patch index
             all_indices_constrained.insert(i);
 
             constraints_reduced.add_line(i);
             constraints_reduced.add_entries(i, constraint_entries_reduced);
-          }
-        else if (all_indices_relevant.contains(i))
-          {
-            // set constrained patch index to zero
-            constraints_reduced.add_line(i);
-
-            std::cout << "encountered constrained patch dof" << std::endl;
           }
       }
 
