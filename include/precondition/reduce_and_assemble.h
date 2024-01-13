@@ -73,17 +73,18 @@ reduce_constraints(const dealii::AffineConstraints<Number>         &constraints_
 {
   Assert(constraints_full.is_closed(),
          dealii::ExcMessage("constraints_full needs to have all chains of constraints resolved"));
-  Assert(constraints_reduced.get_locally_owned_indices().size() > 0,
-         dealii::ExcMessage("constraints_reduced needs to be initialized"));
 
-  // store those indices that are constrained to the patch indices
+  // 1) reduce constraints
+
+  // store those locally active indices that are constrained
+  // TODO: use constraints_reduced.get_local_lines() instead
+  //       of building all_indices_constrained manually?
   std::set<dealii::types::global_dof_index> all_indices_constrained;
 
+  // extract constraints of locally active dofs against any locally relevant patch index
   for (const auto i : locally_active_dofs)
     if (constraints_full.is_constrained(i))
       {
-        all_indices_constrained.insert(i);
-
         const auto constraint_entries =
           constraints_full.get_constraint_entries(i);
 
@@ -95,23 +96,36 @@ reduce_constraints(const dealii::AffineConstraints<Number>         &constraints_
             if (all_indices_relevant.contains(entry.first))
               constraint_entries_reduced.push_back(entry);
 
-        constraints_reduced.add_line(i);
-        constraints_reduced.add_entries(i, constraint_entries_reduced);
+        if (constraint_entries_reduced.empty() == false)
+          {
+            // add entries if index is constrained against any patch index
+            all_indices_constrained.insert(i);
+
+            constraints_reduced.add_line(i);
+            constraints_reduced.add_entries(i, constraint_entries_reduced);
+          }
+        else if (all_indices_relevant.contains(i))
+          {
+            // set constrained patch index to zero
+            constraints_reduced.add_line(i);
+
+            std::cout << "encountered constrained patch dof" << std::endl;
+          }
       }
 
   constraints_reduced.close();
 
-  // prepare indexset
+
+  // 2) to assemble sparse matrices partially only on patch indices, we will create the set of indices necessary in all_indices_assemble.
   all_indices_assemble.clear();
+
+  // first, we need all patch indices on locally active cells
   std::set_intersection(all_indices_relevant.begin(), all_indices_relevant.end(),
                         locally_active_dofs.begin(), locally_active_dofs.end(),
                         std::inserter(all_indices_assemble, all_indices_assemble.begin()));
 
-  // all_indices_assemble now contains locally active dofs that are patch dofs
-
+  // second, we need those locally active indices that are constrained
   all_indices_assemble.merge(all_indices_constrained);
-
-  // all_indices_assemble now contains locally active dofs that are either patch dofs or constrained to patch dofs
 }
 
 
