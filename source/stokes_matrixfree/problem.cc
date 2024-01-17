@@ -393,6 +393,8 @@ namespace StokesMatrixFree
         }
       else if (prm.solver_type == "GMG")
         {
+          const std::string filename_mg_level = filename_stem + "-mglevel-cycle_" + std::to_string(cycle) + ".log";
+
           if (prm.prm_multigrid.smoother_preconditioner_type == "Extended Diagonal")
             {
               solve_gmg<PreconditionExtendedDiagonal<typename LinearAlgebra::Vector>, dim, LinearAlgebra, spacedim>(solver_control_refined,
@@ -405,8 +407,7 @@ namespace StokesMatrixFree
                                                       mapping_collection,
                                                       quadrature_collection_v,
                                                       dof_handlers,
-                                                      filename_stem + "-mglevel-cycle_" +
-                                                        std::to_string(cycle) + ".log",
+                                                      filename_mg_level,
                                                       prm.solver_a_expensive,
                                                       prm.solver_schur_expensive);
             }
@@ -422,8 +423,7 @@ namespace StokesMatrixFree
                                                       mapping_collection,
                                                       quadrature_collection_v,
                                                       dof_handlers,
-                                                      filename_stem + "-mglevel-cycle_" +
-                                                        std::to_string(cycle) + ".log",
+                                                      filename_mg_level,
                                                       prm.solver_a_expensive,
                                                       prm.solver_schur_expensive);
             }
@@ -439,8 +439,7 @@ namespace StokesMatrixFree
                                                       mapping_collection,
                                                       quadrature_collection_v,
                                                       dof_handlers,
-                                                      filename_stem + "-mglevel-cycle_" +
-                                                        std::to_string(cycle) + ".log",
+                                                      filename_mg_level,
                                                       prm.solver_a_expensive,
                                                       prm.solver_schur_expensive);
             }
