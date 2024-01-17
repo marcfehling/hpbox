@@ -15,9 +15,15 @@ end
 subsection input output
   set checkpoint each n steps = 1 
   set file stem               = stokes_hp
+  set log deallog             = false
   set log nonzero elements    = false
   set output each n steps     = 0
   set resume from filename    = 
+end
+subsection multigrid
+  set smoother preconditioner type = Extended Diagonal
+  set estimate eigenvalues         = true
+  set log levels                   = false
 end
 subsection problem
   set adaptation type         = hp Legendre
