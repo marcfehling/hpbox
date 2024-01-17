@@ -56,9 +56,10 @@ namespace Log
   void
   log_timing_statistics(const MPI_Comm mpi_communicator);
 
-  template <int dim, int spacedim = dim>
+  template <int dim, int spacedim>
   void
-  log_problematic_dofs(const dealii::DoFHandler<dim, spacedim> &dof_handler);
+  log_patch_dofs(const std::vector<std::vector<dealii::types::global_dof_index>> &patch_indices,
+                 const dealii::DoFHandler<dim, spacedim>                         &dof_handler);
 } // namespace Log
 
 

@@ -235,38 +235,24 @@ namespace Log
 
   template <int dim, int spacedim>
   void
-  log_problematic_dofs(const DoFHandler<dim, spacedim> &dof_handler)
+  log_patch_dofs(const std::vector<std::vector<types::global_dof_index>> &patch_indices,
+                 const DoFHandler<dim, spacedim>                         &dof_handler)
   {
-    types::global_dof_index n_problematic_dofs = 0;
+    std::set<types::global_dof_index> all_indices;
 
-    for(const auto& cell : dof_handler.active_cell_iterators() | IteratorFilters::LocallyOwnedCell())
-      for (const auto f : cell->face_indices())
-        {
-          bool flag = false;
+    // patch_indices contains locally active dofs. patches are unique among all processes, but not all patch
+    // indices. so ideally we would need to exchange all patch indices via MPI. currently, it is just an estimate.
+    for (const auto &indices : patch_indices)
+      for (const auto i : indices)
+        all_indices.insert(i);
 
-          if (cell->at_boundary(f) == false && cell->face(f)->has_children())
-            for (unsigned int sf = 0;
-                 sf < cell->face(f)->n_children();
-                 ++sf)
-              {
-                const auto neighbor_subface =
-                  cell->neighbor_child_on_subface(f, sf);
+    const auto n_global_patch_dofs = Utilities::MPI::sum<types::global_dof_index>(all_indices.size(), dof_handler.get_communicator());
 
-                if(neighbor_subface->get_fe().degree < cell->get_fe().degree)
-                  flag = true;
-              }
+    getPCOut() << "   Number of patch DoFs:         " << n_global_patch_dofs << std::endl;
+    getTable().add_value("patch_dofs", n_global_patch_dofs);
 
-          if (flag == true)
-            n_problematic_dofs += cell->get_fe().n_dofs_per_face();
-        }
-
-    const types::global_dof_index n_global_problematic_dofs = Utilities::MPI::sum(n_problematic_dofs, dof_handler.get_communicator());
-
-    getPCOut() << "   Number of problematic DoFs:   " << n_global_problematic_dofs << std::endl;
-    getTable().add_value("problematic_dofs", n_global_problematic_dofs);
-
-    const float fraction = static_cast<float>(n_global_problematic_dofs) / dof_handler.n_dofs();
-    getPCOut() << "   Fraction of problematic DoFs: " << 100 * fraction << "%" << std::endl;
+    const float fraction = static_cast<float>(n_global_patch_dofs) / dof_handler.n_dofs();
+    getPCOut() << "   Fraction of patch DoFs:       " << 100 * fraction << "%" << std::endl;
   }
 
 
@@ -282,9 +268,11 @@ namespace Log
                                    const AffineConstraints<double> &);
 
   template void
-  log_problematic_dofs<2, 2>(const DoFHandler<2 ,2> &);
+  log_patch_dofs<2, 2>(const std::vector<std::vector<dealii::types::global_dof_index>> &,
+                       const DoFHandler<2, 2> &);
   template void
-  log_problematic_dofs<3, 3>(const DoFHandler<3 ,3> &);
+  log_patch_dofs<3, 3>(const std::vector<std::vector<dealii::types::global_dof_index>> &,
+                       const DoFHandler<3, 3> &);
 
 #ifdef DEAL_II_WITH_TRILINOS
   template void

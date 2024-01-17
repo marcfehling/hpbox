@@ -252,6 +252,9 @@ namespace Poisson
           {
             const auto patch_indices = prepare_patch_indices(dof_handler, constraint);
 
+            if (level == maxlevel)
+              Log::log_patch_dofs(patch_indices, dof_handler);
+
             // full matrix
             //const unsigned int myid = dealii::Utilities::MPI::this_mpi_process(communicator);
             //DynamicSparsityPattern dsp(relevant_dofs);

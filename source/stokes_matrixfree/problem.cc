@@ -361,7 +361,6 @@ namespace StokesMatrixFree
 
     // TODO: check consistency
     Log::log_hp_diagnostics(triangulation, dof_handlers, constraints);
-    Log::log_problematic_dofs(dof_handler_v);
   }
 
 
