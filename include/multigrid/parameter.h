@@ -17,6 +17,8 @@
 #define multigrid_parameter_h
 
 
+#include <deal.II/base/parameter_acceptor.h>
+
 #include <deal.II/multigrid/mg_transfer_global_coarsening.h>
 
 #include <string>
@@ -28,9 +30,7 @@
 // of the MGSolverOperatorBase class.
 
 
-DEAL_II_NAMESPACE_OPEN
-
-struct MGSolverParameters
+struct MGSolverParameters : public dealii::ParameterAcceptor
 {
   struct
   {
@@ -51,15 +51,32 @@ struct MGSolverParameters
     unsigned int eig_cg_n_iterations = 20;
   } smoother;
 
+  // ----------------------------------------
+
   struct
   {
-    MGTransferGlobalCoarseningTools::PolynomialCoarseningSequenceType p_sequence =
-      MGTransferGlobalCoarseningTools::PolynomialCoarseningSequenceType::decrease_by_one;
+    dealii::MGTransferGlobalCoarseningTools::PolynomialCoarseningSequenceType p_sequence =
+      dealii::MGTransferGlobalCoarseningTools::PolynomialCoarseningSequenceType::decrease_by_one;
     bool perform_h_transfer = true;
   } transfer;
-};
 
-DEAL_II_NAMESPACE_CLOSE
+  MGSolverParameters()
+    : dealii::ParameterAcceptor("multigrid")
+  {
+    smoother_preconditioner_type = "Extended Diagonal";
+    add_parameter("smoother preconditioner type", smoother_preconditioner_type);
+
+    estimate_eigenvalues = true;
+    add_parameter("estimate eigenvalues", estimate_eigenvalues);
+
+    log_levels = false;
+    add_parameter("log levels", log_levels);
+  }
+
+  std::string smoother_preconditioner_type;
+  bool        estimate_eigenvalues;
+  bool        log_levels;
+};
 
 
 #endif

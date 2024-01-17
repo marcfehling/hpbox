@@ -393,7 +393,7 @@ namespace StokesMatrixFree
         }
       else if (prm.solver_type == "GMG")
         {
-          if (prm.smoother_preconditioner_type == "Extended Diagonal")
+          if (prm.prm_multigrid.smoother_preconditioner_type == "Extended Diagonal")
             {
               solve_gmg<PreconditionExtendedDiagonal<typename LinearAlgebra::Vector>, dim, LinearAlgebra, spacedim>(solver_control_refined,
                                                       *stokes_operator,
@@ -401,6 +401,7 @@ namespace StokesMatrixFree
                                                       *schur_block_operator,
                                                       completely_distributed_solution,
                                                       system_rhs,
+                                                      prm.prm_multigrid,
                                                       mapping_collection,
                                                       quadrature_collection_v,
                                                       dof_handlers,
@@ -409,7 +410,7 @@ namespace StokesMatrixFree
                                                       prm.solver_a_expensive,
                                                       prm.solver_schur_expensive);
             }
-          else if (prm.smoother_preconditioner_type == "ASM")
+          else if (prm.prm_multigrid.smoother_preconditioner_type == "ASM")
             {
               solve_gmg<PreconditionASM<typename LinearAlgebra::Vector>, dim, LinearAlgebra, spacedim>(solver_control_refined,
                                                       *stokes_operator,
@@ -417,6 +418,7 @@ namespace StokesMatrixFree
                                                       *schur_block_operator,
                                                       completely_distributed_solution,
                                                       system_rhs,
+                                                      prm.prm_multigrid,
                                                       mapping_collection,
                                                       quadrature_collection_v,
                                                       dof_handlers,
@@ -425,7 +427,7 @@ namespace StokesMatrixFree
                                                       prm.solver_a_expensive,
                                                       prm.solver_schur_expensive);
             }
-          else if (prm.smoother_preconditioner_type == "Diagonal")
+          else if (prm.prm_multigrid.smoother_preconditioner_type == "Diagonal")
             {
               solve_gmg<DiagonalMatrix<typename LinearAlgebra::Vector>, dim, LinearAlgebra, spacedim>(solver_control_refined,
                                                       *stokes_operator,
@@ -433,6 +435,7 @@ namespace StokesMatrixFree
                                                       *schur_block_operator,
                                                       completely_distributed_solution,
                                                       system_rhs,
+                                                      prm.prm_multigrid,
                                                       mapping_collection,
                                                       quadrature_collection_v,
                                                       dof_handlers,

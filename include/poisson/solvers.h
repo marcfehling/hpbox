@@ -23,6 +23,7 @@
 #include <multigrid/extended_diagonal.h>
 #include <multigrid/patch_indices.h>
 #include <multigrid/reduce_and_assemble.h>
+#include <multigrid/parameter.h>
 #include <multigrid/mg_solver.h>
 
 
@@ -74,6 +75,7 @@ namespace Poisson
             const OperatorType<dim, LinearAlgebra, spacedim>   &poisson_operator,
             typename LinearAlgebra::Vector                     &dst,
             const typename LinearAlgebra::Vector               &src,
+            const MGSolverParameters                           &mg_data,
             const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
             const dealii::hp::QCollection<dim>                 &q_collection,
             const dealii::DoFHandler<dim, spacedim>            &dof_handler,
@@ -82,8 +84,6 @@ namespace Poisson
     using namespace dealii;
 
     using VectorType = typename LinearAlgebra::Vector;
-
-    const MGSolverParameters mg_data;
 
     // Create a DoFHandler and operator for each multigrid level defined
     // by p-coarsening, as well as, create transfer operators.

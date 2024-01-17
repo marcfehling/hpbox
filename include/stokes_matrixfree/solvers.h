@@ -32,6 +32,7 @@
 #include <multigrid/extended_diagonal.h>
 #include <multigrid/patch_indices.h>
 #include <multigrid/reduce_and_assemble.h>
+#include <multigrid/parameter.h>
 #include <stokes_matrixfree/operators.h>
 
 
@@ -232,6 +233,7 @@ namespace StokesMatrixFree
             const OperatorType<dim, LinearAlgebra, spacedim>             &schur_block_operator,
             typename LinearAlgebra::BlockVector                          &dst,
             const typename LinearAlgebra::BlockVector                    &src,
+            const MGSolverParameters                                     &mg_data,
             const dealii::hp::MappingCollection<dim, spacedim>           &mapping_collection,
             const dealii::hp::QCollection<dim>                           &q_collection_v,
             const std::vector<const dealii::DoFHandler<dim, spacedim> *> &stokes_dof_handlers,
@@ -244,8 +246,6 @@ namespace StokesMatrixFree
     using namespace dealii;
 
     using VectorType = typename LinearAlgebra::Vector;
-
-    const MGSolverParameters mg_data;
 
     // TODO: this is only temporary
     // only work on velocity dofhandlers for now
@@ -519,26 +519,30 @@ namespace StokesMatrixFree
     // https://github.com/peterrum/dealii-asm/blob/d998b9b344a19c9d2890e087f953c2f93e6546ae/include/precondition.templates.h#L292-L316
     std::vector<double> min_eigenvalues(max_level + 1, numbers::signaling_nan<double>());
     std::vector<double> max_eigenvalues(max_level + 1, numbers::signaling_nan<double>());
-    for (unsigned int level = min_level + 1; level <= max_level; level++)
+    if (mg_data.estimate_eigenvalues == true)
       {
-        SmootherType chebyshev;
-        chebyshev.initialize(*operators[level], smoother_data[level]);
+        for (unsigned int level = min_level + 1; level <= max_level; level++)
+          {
+            SmootherType chebyshev;
+            chebyshev.initialize(*operators[level], smoother_data[level]);
 
-        VectorType vec;
-        operators[level]->initialize_dof_vector(vec);
-        const auto evs = chebyshev.estimate_eigenvalues(vec);
+            VectorType vec;
+            operators[level]->initialize_dof_vector(vec);
+            const auto evs = chebyshev.estimate_eigenvalues(vec);
 
-        min_eigenvalues[level] = evs.min_eigenvalue_estimate;
-        max_eigenvalues[level] = evs.max_eigenvalue_estimate;
+            min_eigenvalues[level] = evs.min_eigenvalue_estimate;
+            max_eigenvalues[level] = evs.max_eigenvalue_estimate;
 
-        // We already computed eigenvalues, reset the one in the actual smoother
-        smoother_data[level].eig_cg_n_iterations = 0;
-        smoother_data[level].max_eigenvalue = evs.max_eigenvalue_estimate * 1.1;
+            // We already computed eigenvalues, reset the one in the actual smoother
+            smoother_data[level].eig_cg_n_iterations = 0;
+            smoother_data[level].max_eigenvalue = evs.max_eigenvalue_estimate * 1.1;
+          }
+
+        // log maximum over all levels
+        const double max = *std::max_element(++(max_eigenvalues.begin()), max_eigenvalues.end());
+        getPCOut() << "   Max EV on all MG levels:      " << max << std::endl;
+        getTable().add_value("max_ev", max);
       }
-    // log maximum
-    const double max = *std::max_element(++(max_eigenvalues.begin()), max_eigenvalues.end());
-    getPCOut() << "   Max EV on all MG levels:      " << max << std::endl;
-    getTable().add_value("max_ev", max);
     // ----------
 
     MGSmootherRelaxation<LevelMatrixType, SmootherType, VectorType> mg_smoother;
@@ -583,28 +587,31 @@ namespace StokesMatrixFree
     for (unsigned int i = 0; i < all_mg_timers.size(); ++i)
       all_mg_timers[i].resize(7);
 
-    const auto create_mg_timer_function = [&](const unsigned int i, const std::string &label) {
-      return [i, label, &all_mg_timers](const bool flag, const unsigned int level) {
-        // if (false && flag)
-        //   std::cout << label << " " << level << std::endl;
-        if (flag)
-          all_mg_timers[level][i].second = std::chrono::system_clock::now();
-        else
-          all_mg_timers[level][i].first +=
-            std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now() -
-                                                                 all_mg_timers[level][i].second)
-              .count() /
-            1e9;
-      };
-    };
+    if (mg_data.log_levels == true)
+      {
+        const auto create_mg_timer_function = [&](const unsigned int i, const std::string &label) {
+          return [i, label, &all_mg_timers](const bool flag, const unsigned int level) {
+            // if (false && flag)
+            //   std::cout << label << " " << level << std::endl;
+            if (flag)
+              all_mg_timers[level][i].second = std::chrono::system_clock::now();
+            else
+              all_mg_timers[level][i].first +=
+                std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now() -
+                                                                    all_mg_timers[level][i].second)
+                  .count() /
+                1e9;
+          };
+        };
 
-    mg_a_block.connect_pre_smoother_step(create_mg_timer_function(0, "pre_smoother_step"));
-    mg_a_block.connect_residual_step(create_mg_timer_function(1, "residual_step"));
-    mg_a_block.connect_restriction(create_mg_timer_function(2, "restriction"));
-    mg_a_block.connect_coarse_solve(create_mg_timer_function(3, "coarse_solve"));
-    mg_a_block.connect_prolongation(create_mg_timer_function(4, "prolongation"));
-    mg_a_block.connect_edge_prolongation(create_mg_timer_function(5, "edge_prolongation"));
-    mg_a_block.connect_post_smoother_step(create_mg_timer_function(6, "post_smoother_step"));
+        mg_a_block.connect_pre_smoother_step(create_mg_timer_function(0, "pre_smoother_step"));
+        mg_a_block.connect_residual_step(create_mg_timer_function(1, "residual_step"));
+        mg_a_block.connect_restriction(create_mg_timer_function(2, "restriction"));
+        mg_a_block.connect_coarse_solve(create_mg_timer_function(3, "coarse_solve"));
+        mg_a_block.connect_prolongation(create_mg_timer_function(4, "prolongation"));
+        mg_a_block.connect_edge_prolongation(create_mg_timer_function(5, "edge_prolongation"));
+        mg_a_block.connect_post_smoother_step(create_mg_timer_function(6, "post_smoother_step"));
+      }
     // ----------
 
     // Convert it to a preconditioner.
@@ -646,7 +653,7 @@ namespace StokesMatrixFree
 
     // ----------
     // dump to Table and then file system
-    if (Utilities::MPI::this_mpi_process(dof_handler.get_communicator()) == 0)
+    if ((mg_data.log_levels == true) && (Utilities::MPI::this_mpi_process(dof_handler.get_communicator()) == 0))
       {
         dealii::ConvergenceTable table;
         for (unsigned int level = 0; level < all_mg_timers.size(); ++level)
@@ -659,8 +666,11 @@ namespace StokesMatrixFree
             table.add_value("prolongation", all_mg_timers[level][4].first);
             table.add_value("edge_prolongation", all_mg_timers[level][5].first);
             table.add_value("post_smoother_step", all_mg_timers[level][6].first);
-            table.add_value("min_eigenvalue", min_eigenvalues[level]);
-            table.add_value("max_eigenvalue", max_eigenvalues[level]);
+            if (mg_data.estimate_eigenvalues == true)
+              {
+                table.add_value("min_eigenvalue", min_eigenvalues[level]);
+                table.add_value("max_eigenvalue", max_eigenvalues[level]);
+              }
           }
         std::ofstream mg_level_stream(filename_mg_level);
         table.write_text(mg_level_stream);

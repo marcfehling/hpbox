@@ -273,36 +273,39 @@ namespace Poisson
       {
         if constexpr (std::is_same_v<LinearAlgebra, dealiiTrilinos>)
           {
-            if (prm.smoother_preconditioner_type == "Extended Diagonal")
+            if (prm.prm_multigrid.smoother_preconditioner_type == "Extended Diagonal")
               {
                 solve_gmg<PreconditionExtendedDiagonal<typename LinearAlgebra::Vector>, dim, LinearAlgebra, spacedim>(solver_control,
                                                         *poisson_operator,
                                                         completely_distributed_solution,
                                                         system_rhs,
+                                                        prm.prm_multigrid,
                                                         /*boundary_values=*/mapping_collection,
                                                         quadrature_collection,
                                                         dof_handler,
                                                         filename_stem + "-mglevel-cycle_" +
                                                           std::to_string(cycle) + ".log");
               }
-            else if (prm.smoother_preconditioner_type == "ASM")
+            else if (prm.prm_multigrid.smoother_preconditioner_type == "ASM")
               {
                 solve_gmg<PreconditionASM<typename LinearAlgebra::Vector>, dim, LinearAlgebra, spacedim>(solver_control,
                                                           *poisson_operator,
                                                           completely_distributed_solution,
                                                           system_rhs,
+                                                          prm.prm_multigrid,
                                                           /*boundary_values=*/mapping_collection,
                                                           quadrature_collection,
                                                           dof_handler,
                                                           filename_stem + "-mglevel-cycle_" +
                                                             std::to_string(cycle) + ".log");
               }
-            else if (prm.smoother_preconditioner_type == "Diagonal")
+            else if (prm.prm_multigrid.smoother_preconditioner_type == "Diagonal")
               {
                 solve_gmg<DiagonalMatrix<typename LinearAlgebra::Vector>, dim, LinearAlgebra, spacedim>(solver_control,
                                                           *poisson_operator,
                                                           completely_distributed_solution,
                                                           system_rhs,
+                                                          prm.prm_multigrid,
                                                           /*boundary_values=*/mapping_collection,
                                                           quadrature_collection,
                                                           dof_handler,

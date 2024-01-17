@@ -20,6 +20,7 @@
 #include <deal.II/base/parameter_acceptor.h>
 
 #include <adaptation/parameter.h>
+#include <multigrid/parameter.h>
 
 
 struct Parameter : public dealii::ParameterAcceptor
@@ -49,9 +50,6 @@ struct Parameter : public dealii::ParameterAcceptor
 
     operator_type = "MatrixFree";
     add_parameter("operator type", operator_type);
-
-    smoother_preconditioner_type = "Extended Diagonal";
-    add_parameter("smoother preconditioner type", smoother_preconditioner_type);
 
     solver_type = "GMG";
     add_parameter("solver type", solver_type);
@@ -108,6 +106,7 @@ struct Parameter : public dealii::ParameterAcceptor
   bool         log_nonzero_elements;
 
   Adaptation::Parameter prm_adaptation;
+  MGSolverParameters    prm_multigrid;
 };
 
 
