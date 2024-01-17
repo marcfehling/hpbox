@@ -72,13 +72,12 @@ reduce_constraints(const dealii::AffineConstraints<Number>         &constraints_
                    std::set<dealii::types::global_dof_index>       &all_indices_assemble)
 {
   Assert(constraints_full.is_closed(),
-         dealii::ExcMessage("constraints_full needs to have all chains of constraints resolved"));
+         dealii::ExcMessage("constraints_full needs to have all chains of constraints "
+                            "and boundary constraints resolved."));
 
   // 1) reduce constraints
 
   // store those locally active indices that are constrained
-  // TODO: use constraints_reduced.get_local_lines() instead
-  //       of building all_indices_constrained manually?
   std::set<dealii::types::global_dof_index> all_indices_constrained;
 
   // extract constraints of locally active dofs against any locally relevant patch index
