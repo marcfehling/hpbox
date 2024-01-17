@@ -32,18 +32,18 @@
 
 template <int dim, int spacedim>
 std::set<dealii::types::global_dof_index>
-extract_relevant(const dealii::DoFHandler<dim, spacedim>                         &dof_handler,
-                 const std::vector<std::vector<dealii::types::global_dof_index>> &patch_indices)
+extract_relevant(const std::vector<std::vector<dealii::types::global_dof_index>> &patch_indices,
+                 const Partitioning                                              &partitioning,
+                 const dealii::DoFHandler<dim, spacedim>                         &dof_handler)
 {
   std::set<dealii::types::global_dof_index> all_indices_relevant;
 
   // ----------
   // TODO: is there a better way to do that?
   //       via GridTools::exchange_cell_data_to_ghosts
-  const dealii::IndexSet &owned = dof_handler.locally_owned_dofs();
-  const dealii::IndexSet  relevant = dealii::DoFTools::extract_locally_relevant_dofs(dof_handler);
+  dealii::LinearAlgebra::distributed::Vector<float> count_patch_dofs(
+    partitioning.get_owned_dofs(), partitioning.get_relevant_dofs(), dof_handler.get_communicator());
 
-  dealii::LinearAlgebra::distributed::Vector<float> count_patch_dofs (owned, relevant, dof_handler.get_communicator());
   for (const auto& indices : patch_indices)
     for (const auto i : indices)
       ++count_patch_dofs[i];
@@ -51,12 +51,12 @@ extract_relevant(const dealii::DoFHandler<dim, spacedim>                        
   count_patch_dofs.compress(dealii::VectorOperation::add);
   count_patch_dofs.update_ghost_values();
 
-  for (const auto i : relevant)
+  for (const auto i : partitioning.get_relevant_dofs())
     if (count_patch_dofs[i] > 0.)
       all_indices_relevant.insert(i);
   // ----------
 
-  // relevant now contains locally relevant dofs that are patch dofs
+  // all_indices_relevant now contains locally relevant dofs that are patch dofs
 
   return all_indices_relevant;
 }

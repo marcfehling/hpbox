@@ -435,7 +435,7 @@ namespace StokesMatrixFree
             AffineConstraints<double> constraints_reduced;
             constraints_reduced.reinit(partitioning.get_owned_dofs(), partitioning.get_relevant_dofs());
 
-            const auto all_indices_relevant = extract_relevant(dof_handler, patch_indices);
+            const auto all_indices_relevant = extract_relevant(patch_indices, partitioning, dof_handler);
 
             std::set<types::global_dof_index> all_indices_assemble;
             reduce_constraints(constraint, DoFTools::extract_locally_active_dofs(dof_handler), all_indices_relevant,
@@ -458,7 +458,6 @@ namespace StokesMatrixFree
             smoother_preconditioners[level] = std::make_shared<SmootherPreconditionerType>(std::move(patch_indices));
             //smoother_data[level].preconditioner->initialize(mg_matrices[level]->get_system_matrix(), dsp, inverse_diagonal, all_indices_relevant);
             smoother_preconditioners[level]->initialize(reduced_sparse_matrix, reduced_sparsity_pattern, inverse_diagonal, all_indices_relevant);
-            // ----------
           }
         else
           {
