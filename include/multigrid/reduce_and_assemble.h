@@ -13,8 +13,8 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef precondition_reduce_and_assemble_h
-#define precondition_reduce_and_assemble_h
+#ifndef multigrid_reduce_and_assemble_h
+#define multigrid_reduce_and_assemble_h
 
 
 #include <deal.II/dofs/dof_handler.h>

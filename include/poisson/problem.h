@@ -21,10 +21,9 @@
 #include <deal.II/distributed/tria.h>
 
 #include <adaptation/base.h>
-#include <operator_base.h>
+#include <multigrid/operator_base.h>
 #include <parameter.h>
 #include <problem_base.h>
-
 
 
 namespace Poisson

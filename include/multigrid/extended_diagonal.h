@@ -13,8 +13,8 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef precondition_diag_ext_h
-#define precondition_diag_ext_h
+#ifndef multigrid_extended_diagonal_ext_h
+#define multigrid_extended_diagonal_ext_h
 
 
 #include <deal.II/dofs/dof_handler.h>
@@ -26,8 +26,8 @@
 
 #include <global.h>
 
-DEAL_II_NAMESPACE_OPEN
 
+DEAL_II_NAMESPACE_OPEN
 
 template<typename VectorType>
 class PreconditionExtendedDiagonal
@@ -250,5 +250,6 @@ private:
 };
 
 DEAL_II_NAMESPACE_CLOSE
+
 
 #endif

@@ -27,11 +27,11 @@
 #include <deal.II/lac/solver_gmres.h>
 
 #include <linear_algebra.h>
-#include <mg_solver.h>
-#include <precondition/asm.h>
-#include <precondition/extended_diagonal.h>
-#include <precondition/patch_indices.h>
-#include <precondition/reduce_and_assemble.h>
+#include <multigrid/mg_solver.h>
+#include <multigrid/asm.h>
+#include <multigrid/extended_diagonal.h>
+#include <multigrid/patch_indices.h>
+#include <multigrid/reduce_and_assemble.h>
 #include <stokes_matrixfree/operators.h>
 
 

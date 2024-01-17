@@ -13,15 +13,8 @@
 //
 // ---------------------------------------------------------------------
 
-
-/*
- * NOTE:
- * Adopted from
- * https://github.com/peterrum/dealii-asm/blob/d998b9b344a19c9d2890e087f953c2f93e6546ae/include/preconditioners.h#L145.
- */
-
-#ifndef precondition_asm_h
-#define precondition_asm_h
+#ifndef multigrid_asm_h
+#define multigrid_asm_h
 
 
 #include <deal.II/dofs/dof_handler.h>
@@ -31,8 +24,13 @@
 
 #include <global.h>
 
-DEAL_II_NAMESPACE_OPEN
 
+// NOTE:
+// Adopted from
+// https://github.com/peterrum/dealii-asm/blob/d998b9b344a19c9d2890e087f953c2f93e6546ae/include/preconditioners.h#L145.
+
+
+DEAL_II_NAMESPACE_OPEN
 
 template <typename VectorType>
 class PreconditionASM
@@ -203,5 +201,6 @@ private:
 };
 
 DEAL_II_NAMESPACE_CLOSE
+
 
 #endif

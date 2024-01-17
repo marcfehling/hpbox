@@ -19,7 +19,7 @@
 
 #include <deal.II/matrix_free/tools.h>
 
-#include <operator_base.h>
+#include <multigrid/operator_base.h>
 
 
 namespace PoissonMatrixFree

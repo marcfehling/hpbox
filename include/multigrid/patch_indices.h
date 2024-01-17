@@ -13,8 +13,8 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef precondition_patch_indices_h
-#define precondition_patch_indices_h
+#ifndef multigrid_patch_indices_h
+#define multigrid_patch_indices_h
 
 
 #include <deal.II/dofs/dof_handler.h>

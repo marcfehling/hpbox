@@ -19,10 +19,11 @@
 
 #include <deal.II/matrix_free/tools.h>
 
-#include <precondition/asm.h>
-#include <precondition/extended_diagonal.h>
-#include <precondition/patch_indices.h>
-#include <precondition/reduce_and_assemble.h>
+#include <multigrid/asm.h>
+#include <multigrid/extended_diagonal.h>
+#include <multigrid/patch_indices.h>
+#include <multigrid/reduce_and_assemble.h>
+#include <multigrid/mg_solver.h>
 
 
 namespace Poisson

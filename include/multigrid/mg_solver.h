@@ -13,17 +13,8 @@
 //
 // ---------------------------------------------------------------------
 
-
-/*
- * NOTE:
- * This file is copied from WIP PR #11699 which determines the interface
- * of the MGSolverOperatorBase class.
- */
-
-
-
-#ifndef dealii_mg_solver_h
-#define dealii_mg_solver_h
+#ifndef multigrid_mg_solver_h
+#define multigrid_mg_solver_h
 
 
 #include <deal.II/base/config.h>
@@ -33,247 +24,35 @@
 #include <deal.II/base/signaling_nan.h>
 
 #include <deal.II/lac/diagonal_matrix.h>
-#include <deal.II/lac/sparse_matrix.h>
-#include <deal.II/lac/sparsity_pattern.h>
-#include <deal.II/lac/dynamic_sparsity_pattern.h>
 #include <deal.II/lac/precondition.h>
 #include <deal.II/lac/solver_control.h>
 
 #ifdef DEAL_II_WITH_TRILINOS
 #  include <deal.II/lac/trilinos_precondition.h>
-#  include <deal.II/lac/trilinos_sparse_matrix.h>
-#  include <deal.II/lac/trilinos_sparsity_pattern.h>
 #endif
 
 #include <deal.II/multigrid/mg_coarse.h>
-#include <deal.II/multigrid/mg_constrained_dofs.h>
 #include <deal.II/multigrid/mg_matrix.h>
 #include <deal.II/multigrid/mg_smoother.h>
-#include <deal.II/multigrid/mg_tools.h>
-#include <deal.II/multigrid/mg_transfer_global_coarsening.h>
 #include <deal.II/multigrid/multigrid.h>
 
+#include <multigrid/parameter.h>
+#include <multigrid/operator_base.h>
 #include <global.h>
 
 #include <vector>
 
+
+// NOTE:
+// This section is modified from WIP PR #11699 which determines the interface
+// of the MGSolverOperatorBase class.
+
+
 DEAL_II_NAMESPACE_OPEN
-
-
-
-// struct MGSolverParameters
-//{
-//  struct CoarseSolverParameters
-//  {
-//    std::string  type            = "cg_with_amg";
-//    unsigned int maxiter         = 10000;
-//    double       abstol          = 1e-20;
-//    double       reltol          = 1e-4;
-//    unsigned int smoother_sweeps = 1;
-//    unsigned int n_cycles        = 1;
-//    std::string  smoother_type   = "ILU";
-//  };
-
-//  struct SmootherParameters
-//  {
-//    std::string  type                = "chebyshev";
-//    double       smoothing_range     = 20;
-//    unsigned int degree              = 5;
-//    unsigned int eig_cg_n_iterations = 20;
-//  };
-
-//  SmootherParameters     smoother;
-//  CoarseSolverParameters coarse_solver;
-//};
-struct MGSolverParameters
-{
-  struct
-  {
-    std::string  type            = "cg_with_amg";
-    unsigned int maxiter         = 10000;
-    double       abstol          = 1e-20;
-    double       reltol          = 1e-4;
-    unsigned int smoother_sweeps = 1;
-    unsigned int n_cycles        = 1;
-    std::string  smoother_type   = "ILU";
-  } coarse_solver;
-
-  struct
-  {
-    std::string  type                = "chebyshev";
-    double       smoothing_range     = 20;
-    unsigned int degree              = 5;
-    unsigned int eig_cg_n_iterations = 20;
-  } smoother;
-
-  struct
-  {
-    MGTransferGlobalCoarseningTools::PolynomialCoarseningSequenceType p_sequence =
-      MGTransferGlobalCoarseningTools::PolynomialCoarseningSequenceType::decrease_by_one;
-    bool perform_h_transfer = true;
-  } transfer;
-};
-
-
-
-// template <int dim_, typename number>
-// class MGSolverOperatorBase : public Subscriptor
-//{
-// public:
-//  static const int dim = dim_;
-//  using value_type     = number;
-//  using VectorType     = LinearAlgebra::distributed::Vector<number>;
-template <int dim, typename VectorType, typename MatrixType>
-class MGSolverOperatorBase : public Subscriptor
-{
-public:
-  using value_type = typename VectorType::value_type;
-
-  // Return number of rows of the matrix. Since we are dealing with a
-  // symmetrical matrix, the returned value is the same as the number of
-  // columns.
-  virtual types::global_dof_index
-  m() const;
-
-  // Access a particular element in the matrix. This function is neither
-  // needed nor implemented, however, is required to compile the program.
-  virtual value_type
-  el(unsigned int, unsigned int) const;
-
-  // Allocate memory for a distributed vector.
-  virtual void
-  initialize_dof_vector(VectorType &vec) const;
-
-  // Perform an operator application on the vector @p src.
-  virtual void
-  vmult(VectorType &dst, const VectorType &src) const;
-
-  // Perform the transposed operator evaluation. Since we are considering
-  // symmetric matrices, this function is identical to the above function.
-  virtual void
-  Tvmult(VectorType &dst, const VectorType &src) const;
-
-  // Compute the inverse of the diagonal of the vector and store it into the
-  // provided vector. The inverse diagonal is used below in a Chebyshev
-  // smoother.
-  virtual void
-  compute_inverse_diagonal(VectorType &diagonal) const;
-
-  // Return the actual system matrix, which can be used in any matrix-based
-  // solvers (like AMG).
-  virtual const MatrixType &
-  get_system_matrix() const;
-
-private:
-  const MatrixType dummy_sparse_matrix;
-};
-
-
-
-// template <int dim_, typename number>
-// types::global_dof_index
-// MGSolverOperatorBase<dim_, number>::m() const
-template <int dim, typename VectorType, typename MatrixType>
-types::global_dof_index
-MGSolverOperatorBase<dim, VectorType, MatrixType>::m() const
-{
-  Assert(false, ExcNotImplemented());
-  return 0;
-}
-
-
-
-// template <int dim_, typename number>
-// number
-// MGSolverOperatorBase<dim_, number>::el(unsigned int, unsigned int) const
-template <int dim, typename VectorType, typename MatrixType>
-typename MGSolverOperatorBase<dim, VectorType, MatrixType>::value_type
-MGSolverOperatorBase<dim, VectorType, MatrixType>::el(unsigned int, unsigned int) const
-{
-  Assert(false, ExcNotImplemented());
-  return 0;
-}
-
-
-
-// template <int dim_, typename number>
-// void
-// MGSolverOperatorBase<dim_, number>::initialize_dof_vector(VectorType &vec)
-// const
-template <int dim, typename VectorType, typename MatrixType>
-void
-MGSolverOperatorBase<dim, VectorType, MatrixType>::initialize_dof_vector(VectorType &vec) const
-{
-  Assert(false, ExcNotImplemented());
-  (void)vec;
-}
-
-
-
-// template <int dim_, typename number>
-// void
-// MGSolverOperatorBase<dim_, number>::vmult(VectorType &      dst,
-//                                          const VectorType &src) const
-template <int dim, typename VectorType, typename MatrixType>
-void
-MGSolverOperatorBase<dim, VectorType, MatrixType>::vmult(VectorType       &dst,
-                                                         const VectorType &src) const
-{
-  Assert(false, ExcNotImplemented());
-  (void)dst;
-  (void)src;
-}
-
-
-
-// template <int dim_, typename number>
-// void
-// MGSolverOperatorBase<dim_, number>::Tvmult(VectorType &      dst,
-//                                           const VectorType &src) const
-template <int dim, typename VectorType, typename MatrixType>
-void
-MGSolverOperatorBase<dim, VectorType, MatrixType>::Tvmult(VectorType       &dst,
-                                                          const VectorType &src) const
-{
-  Assert(false, ExcNotImplemented());
-  (void)dst;
-  (void)src;
-}
-
-
-
-// template <int dim_, typename number>
-// void
-// MGSolverOperatorBase<dim_, number>::compute_inverse_diagonal(
-//  VectorType &diagonal) const
-template <int dim, typename VectorType, typename MatrixType>
-void
-MGSolverOperatorBase<dim, VectorType, MatrixType>::compute_inverse_diagonal(
-  VectorType &diagonal) const
-{
-  Assert(false, ExcNotImplemented());
-  (void)diagonal;
-}
-
-
-
-// template <int dim_, typename number>
-// const TrilinosWrappers::SparseMatrix &
-// MGSolverOperatorBase<dim_, number>::get_system_matrix() const
-template <int dim, typename VectorType, typename MatrixType>
-const MatrixType &
-MGSolverOperatorBase<dim, VectorType, MatrixType>::get_system_matrix() const
-{
-  Assert(false, ExcNotImplemented());
-  return dummy_sparse_matrix;
-}
-
-
-
-// ----- mg_solve -----
 
 template <typename VectorType,
           int dim,
+          int spacedim,
           typename SystemMatrixType,
           typename LevelMatrixType,
           typename SmootherPreconditionerType,
@@ -283,7 +62,7 @@ mg_solve(SolverControl                                         &solver_control,
          VectorType                                            &dst,
          const VectorType                                      &src,
          const MGSolverParameters                              &mg_data,
-         const DoFHandler<dim>                                 &dof,
+         const DoFHandler<dim, spacedim>                       &dof,
          const SystemMatrixType                                &fine_matrix,
          const MGLevelObject<std::unique_ptr<LevelMatrixType>> &mg_matrices,
          const MGLevelObject<std::shared_ptr<SmootherPreconditionerType>> &mg_smoother_preconditioners,
@@ -488,12 +267,7 @@ mg_solve(SolverControl                                         &solver_control,
   // ----------
 }
 
-#ifndef DOXYGEN
-
-
-
-#endif // DOXYGEN
-
 DEAL_II_NAMESPACE_CLOSE
+
 
 #endif
