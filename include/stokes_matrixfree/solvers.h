@@ -577,7 +577,6 @@ namespace StokesMatrixFree
     // Create multigrid object.
     Multigrid<VectorType> mg_a_block(mg_matrix, *mg_coarse, transfer, mg_smoother, mg_smoother);
 
-
     // ----------
     // TODO: timing based on peters dealii-multigrid
     // https://github.com/peterrum/dealii-multigrid/blob/c50581883c0dbe35c83132699e6de40da9b1b255/multigrid_throughput.cc#L1183-L1192
@@ -617,12 +616,10 @@ namespace StokesMatrixFree
     // Convert it to a preconditioner.
     PreconditionerType a_block_preconditioner(dof_handler, mg_a_block, transfer);
 
-
     InverseDiagonalMatrix<dim, LinearAlgebra, spacedim> inv_diagonal(schur_block_operator);
     PreconditionJacobi<InverseDiagonalMatrix<dim, LinearAlgebra, spacedim>>
       schur_block_preconditioner;
     schur_block_preconditioner.initialize(inv_diagonal);
-
 
     const BlockSchurPreconditioner<
       LinearAlgebra,
@@ -649,7 +646,6 @@ namespace StokesMatrixFree
                                                                      fgmres_data);
 
     solver.solve(stokes_operator, dst, src, preconditioner);
-
 
     // ----------
     // dump to Table and then file system

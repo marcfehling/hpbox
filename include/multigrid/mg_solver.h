@@ -129,10 +129,10 @@ mg_solve(SolverControl                                         &solver_control,
 
   // Initialize coarse-grid solver.
   ReductionControl     coarse_grid_solver_control(mg_data.coarse_solver.maxiter,
-                                              mg_data.coarse_solver.abstol,
-                                              mg_data.coarse_solver.reltol,
-                                              /*log_history=*/true,
-                                              /*log_result=*/true);
+                                                  mg_data.coarse_solver.abstol,
+                                                  mg_data.coarse_solver.reltol,
+                                                  /*log_history=*/true,
+                                                  /*log_result=*/true);
   SolverCG<VectorType> coarse_grid_solver(coarse_grid_solver_control);
 
   PreconditionIdentity precondition_identity;
@@ -248,7 +248,6 @@ mg_solve(SolverControl                                         &solver_control,
 
   // Finally, solve.
   SolverCG<VectorType>(solver_control).solve(fine_matrix, dst, src, preconditioner);
-
 
   // ----------
   // dump to Table and then file system
