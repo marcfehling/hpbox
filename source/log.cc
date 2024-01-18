@@ -240,13 +240,16 @@ namespace Log
   {
     std::set<types::global_dof_index> all_indices;
 
-    // patch_indices contains locally active dofs. patches are unique among all processes, but not all patch
-    // indices. so ideally we would need to exchange all patch indices via MPI. currently, it is just an estimate.
+    // patch_indices contains locally active dofs. patches are unique among all processes, but not
+    // all patch indices. so ideally we would need to exchange all patch indices via MPI. currently,
+    // it is just an estimate.
     for (const auto &indices : patch_indices)
       for (const auto i : indices)
         all_indices.insert(i);
 
-    const auto n_global_patch_dofs = Utilities::MPI::sum<types::global_dof_index>(all_indices.size(), dof_handler.get_communicator());
+    const auto n_global_patch_dofs =
+      Utilities::MPI::sum<types::global_dof_index>(all_indices.size(),
+                                                   dof_handler.get_communicator());
 
     getPCOut() << "   Number of patch DoFs:         " << n_global_patch_dofs << std::endl;
     getTable().add_value("patch_dofs", n_global_patch_dofs);

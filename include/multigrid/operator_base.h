@@ -106,7 +106,6 @@ MGSolverOperatorBase<dim, VectorType, MatrixType>::initialize_dof_vector(VectorT
 
 
 
-
 template <int dim, typename VectorType, typename MatrixType>
 void
 MGSolverOperatorBase<dim, VectorType, MatrixType>::vmult(VectorType       &dst,

@@ -95,8 +95,8 @@ struct Parameter : public dealii::ParameterAcceptor
   std::string smoother_preconditioner_type;
   std::string solver_type;
   double      solver_tolerance_factor;
-  bool solver_a_expensive;
-  bool solver_schur_expensive;
+  bool        solver_a_expensive;
+  bool        solver_schur_expensive;
 
   std::string  file_stem;
   unsigned int output_frequency;

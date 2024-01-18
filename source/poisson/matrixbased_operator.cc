@@ -71,9 +71,10 @@ namespace PoissonMatrixBased
 
   template <int dim, typename LinearAlgebra, int spacedim>
   void
-  PoissonOperator<dim, LinearAlgebra, spacedim>::reinit(const Partitioning                  &partitioning,
-                                                        const DoFHandler<dim, spacedim>     &dof_handler,
-                                                        const AffineConstraints<value_type> &constraints)
+  PoissonOperator<dim, LinearAlgebra, spacedim>::reinit(
+    const Partitioning                  &partitioning,
+    const DoFHandler<dim, spacedim>     &dof_handler,
+    const AffineConstraints<value_type> &constraints)
   {
     {
       TimerOutput::Scope t(getTimer(), "setup_system");
@@ -118,8 +119,7 @@ namespace PoissonMatrixBased
           local_dof_indices.resize(dofs_per_cell);
           cell->get_dof_indices(local_dof_indices);
 
-          constraints.distribute_local_to_global(
-            cell_matrix, local_dof_indices, system_matrix);
+          constraints.distribute_local_to_global(cell_matrix, local_dof_indices, system_matrix);
         }
 
       system_matrix.compress(VectorOperation::values::add);
@@ -218,7 +218,9 @@ namespace PoissonMatrixBased
     // LA::distributed::Vector needs to know about ghost indices,
     // but Trilinos/PETSc::MPI::Vector must remain non-ghosted.
 
-    Assert(dealii_partitioner->n_mpi_processes() == 1 || dealii_partitioner->ghost_indices_initialized(), ExcInternalError());
+    Assert(dealii_partitioner->n_mpi_processes() == 1 ||
+             dealii_partitioner->ghost_indices_initialized(),
+           ExcInternalError());
     vec.reinit(dealii_partitioner, /*make_ghosted*/ false);
   }
 

@@ -73,7 +73,9 @@ public:
     // ATTENTION: This function modifies indices. Do not call this twice!
 
     const IndexSet relevant = DoFTools::extract_locally_relevant_dofs(dof_handler);
-    VectorType unprocessed_indices(dof_handler.locally_owned_dofs(), relevant, dof_handler.get_communicator());
+    VectorType     unprocessed_indices(dof_handler.locally_owned_dofs(),
+                                   relevant,
+                                   dof_handler.get_communicator());
 
     // 'indices' contains global indices on locally owned cells
     for (const auto &indices_i : indices)
@@ -121,8 +123,7 @@ public:
 
         weights.compress(VectorOperation::add);
         for (auto &i : weights)
-          i = (weighting_type == WeightingType::symm) ? std::sqrt(1.0 / i) :
-                                                        (1.0 / i);
+          i = (weighting_type == WeightingType::symm) ? std::sqrt(1.0 / i) : (1.0 / i);
         weights.update_ghost_values();
       }
 
@@ -139,26 +140,24 @@ public:
             for (unsigned int i = 0; i < dofs_per_cell; ++i)
               vector_weights[i] += weights[indices[cell][i]];
 
-            auto & block = blocks[cell];
+            auto &block = blocks[cell];
 
-            if (weighting_type == WeightingType::symm ||
-                weighting_type == WeightingType::right)
+            if (weighting_type == WeightingType::symm || weighting_type == WeightingType::right)
               {
                 // multiply weights from right B(wI), i.e.,
                 // multiply one weight for each column
                 for (unsigned int r = 0; r < dofs_per_cell; ++r)
                   for (unsigned int c = 0; c < dofs_per_cell; ++c)
-                    block(r,c) *= vector_weights[c];
+                    block(r, c) *= vector_weights[c];
               }
 
-            if (weighting_type == WeightingType::symm ||
-                weighting_type == WeightingType::left)
+            if (weighting_type == WeightingType::symm || weighting_type == WeightingType::left)
               {
                 // multiply weights from left (wI)B, i.e.,
                 // multiply one weight for each row
                 for (unsigned int r = 0; r < dofs_per_cell; ++r)
                   for (unsigned int c = 0; c < dofs_per_cell; ++c)
-                    block(r,c) *= vector_weights[r];
+                    block(r, c) *= vector_weights[r];
               }
           }
       }

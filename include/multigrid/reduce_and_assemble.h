@@ -20,14 +20,14 @@
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/dofs/dof_tools.h>
 
+#include <deal.II/grid/filtered_iterator.h>
+
 #include <deal.II/hp/fe_values.h>
 #include <deal.II/hp/q_collection.h>
 
 #include <deal.II/lac/affine_constraints.h>
 #include <deal.II/lac/full_matrix.h>
 #include <deal.II/lac/sparsity_pattern_base.h>
-
-#include <deal.II/grid/filtered_iterator.h>
 
 
 template <int dim, int spacedim>
@@ -42,9 +42,11 @@ extract_relevant(const std::vector<std::vector<dealii::types::global_dof_index>>
   // TODO: is there a better way to do that?
   //       via GridTools::exchange_cell_data_to_ghosts
   dealii::LinearAlgebra::distributed::Vector<float> count_patch_dofs(
-    partitioning.get_owned_dofs(), partitioning.get_relevant_dofs(), dof_handler.get_communicator());
+    partitioning.get_owned_dofs(),
+    partitioning.get_relevant_dofs(),
+    dof_handler.get_communicator());
 
-  for (const auto& indices : patch_indices)
+  for (const auto &indices : patch_indices)
     for (const auto i : indices)
       ++count_patch_dofs[i];
 
@@ -84,11 +86,9 @@ reduce_constraints(const dealii::AffineConstraints<Number>         &constraints_
   for (const auto i : locally_active_dofs)
     if (constraints_full.is_constrained(i))
       {
-        const auto constraint_entries =
-          constraints_full.get_constraint_entries(i);
+        const auto constraint_entries = constraints_full.get_constraint_entries(i);
 
-        std::vector<std::pair<dealii::types::global_dof_index, Number>>
-          constraint_entries_reduced;
+        std::vector<std::pair<dealii::types::global_dof_index, Number>> constraint_entries_reduced;
 
         if (constraint_entries != nullptr)
           for (const auto &entry : *constraint_entries)
@@ -107,12 +107,15 @@ reduce_constraints(const dealii::AffineConstraints<Number>         &constraints_
   constraints_reduced.close();
 
 
-  // 2) to assemble sparse matrices partially only on patch indices, we will create the set of indices necessary in all_indices_assemble.
+  // 2) to assemble sparse matrices partially only on patch indices, we will create the set of
+  // indices necessary in all_indices_assemble.
   all_indices_assemble.clear();
 
   // first, we need all patch indices on locally active cells
-  std::set_intersection(all_indices_relevant.begin(), all_indices_relevant.end(),
-                        locally_active_dofs.begin(), locally_active_dofs.end(),
+  std::set_intersection(all_indices_relevant.begin(),
+                        all_indices_relevant.end(),
+                        locally_active_dofs.begin(),
+                        locally_active_dofs.end(),
                         std::inserter(all_indices_assemble, all_indices_assemble.begin()));
 
   // second, we need those locally active indices that are constrained
@@ -137,7 +140,8 @@ make_sparsity_pattern(const dealii::DoFHandler<dim, spacedim>         &dof_handl
 
   // Note: there is a check for subdomain_id in DoFTools::make_sparsity_pattern,
   //       but we deemed it unnecessary here so we skipped it
-  for (const auto &cell : dof_handler.active_cell_iterators() | dealii::IteratorFilters::LocallyOwnedCell())
+  for (const auto &cell :
+       dof_handler.active_cell_iterators() | dealii::IteratorFilters::LocallyOwnedCell())
     {
       const unsigned int n_dofs_per_cell = cell->get_fe().n_dofs_per_cell();
       local_dof_indices.resize(n_dofs_per_cell);
@@ -158,24 +162,26 @@ make_sparsity_pattern(const dealii::DoFHandler<dim, spacedim>         &dof_handl
 
 template <int dim, int spacedim, typename Number, typename SparseMatrixType>
 void
-partially_assemble_poisson(const dealii::DoFHandler<dim, spacedim> &dof_handler,
-                           const dealii::AffineConstraints<Number> &constraints_reduced,
-                           const dealii::hp::QCollection<dim>      &quadrature_collection,
+partially_assemble_poisson(const dealii::DoFHandler<dim, spacedim>         &dof_handler,
+                           const dealii::AffineConstraints<Number>         &constraints_reduced,
+                           const dealii::hp::QCollection<dim>              &quadrature_collection,
                            const std::set<dealii::types::global_dof_index> &all_indices_assemble,
-                           SparseMatrixType                        &sparse_matrix)
+                           SparseMatrixType                                &sparse_matrix)
 {
   //
   // build local matrices, distribute to sparse matrix
   //
   dealii::hp::FEValues<dim, spacedim> hp_fe_values(dof_handler.get_fe_collection(),
                                                    quadrature_collection,
-                                                   dealii::update_gradients | dealii::update_JxW_values);
+                                                   dealii::update_gradients |
+                                                     dealii::update_JxW_values);
 
   dealii::FullMatrix<double>                   cell_matrix;
   std::vector<dealii::types::global_dof_index> local_dof_indices;
 
   // loop over locally owned cells
-  for (const auto &cell : dof_handler.active_cell_iterators() | dealii::IteratorFilters::LocallyOwnedCell())
+  for (const auto &cell :
+       dof_handler.active_cell_iterators() | dealii::IteratorFilters::LocallyOwnedCell())
     {
       hp_fe_values.reinit(cell);
 
@@ -204,10 +210,9 @@ partially_assemble_poisson(const dealii::DoFHandler<dim, spacedim> &dof_handler,
         {
           for (unsigned int i = 0; i < dof_indices.size(); ++i)
             for (unsigned int j = 0; j < dof_indices.size(); ++j)
-              cell_matrix(i, j) +=
-                (fe_values.shape_grad(dof_indices[i], q) * // grad phi_i(x_q)
-                 fe_values.shape_grad(dof_indices[j], q) * // grad phi_j(x_q)
-                 fe_values.JxW(q));                        // dx
+              cell_matrix(i, j) += (fe_values.shape_grad(dof_indices[i], q) * // grad phi_i(x_q)
+                                    fe_values.shape_grad(dof_indices[j], q) * // grad phi_j(x_q)
+                                    fe_values.JxW(q));                        // dx
         }
 
       constraints_reduced.distribute_local_to_global(cell_matrix,
@@ -222,11 +227,11 @@ partially_assemble_poisson(const dealii::DoFHandler<dim, spacedim> &dof_handler,
 
 template <int dim, int spacedim, typename Number, typename SparseMatrixType>
 void
-partially_assemble_ablock(const dealii::DoFHandler<dim, spacedim> &dof_handler,
-                          const dealii::AffineConstraints<Number> &constraints_reduced,
-                          const dealii::hp::QCollection<dim>      &quadrature_collection,
+partially_assemble_ablock(const dealii::DoFHandler<dim, spacedim>         &dof_handler,
+                          const dealii::AffineConstraints<Number>         &constraints_reduced,
+                          const dealii::hp::QCollection<dim>              &quadrature_collection,
                           const std::set<dealii::types::global_dof_index> &all_indices_assemble,
-                          SparseMatrixType                        &sparse_matrix)
+                          SparseMatrixType                                &sparse_matrix)
 {
   //
   // build local matrices, distribute to sparse matrix
@@ -236,14 +241,16 @@ partially_assemble_ablock(const dealii::DoFHandler<dim, spacedim> &dof_handler,
 
   dealii::hp::FEValues<dim, spacedim> hp_fe_values(dof_handler.get_fe_collection(),
                                                    quadrature_collection,
-                                                   dealii::update_gradients | dealii::update_JxW_values);
+                                                   dealii::update_gradients |
+                                                     dealii::update_JxW_values);
 
   dealii::FullMatrix<double>                   cell_matrix;
   std::vector<dealii::Tensor<2, dim>>          grad_phi_u;
   std::vector<dealii::types::global_dof_index> local_dof_indices;
 
   // loop over locally owned cells
-  for (const auto &cell : dof_handler.active_cell_iterators() | dealii::IteratorFilters::LocallyOwnedCell())
+  for (const auto &cell :
+       dof_handler.active_cell_iterators() | dealii::IteratorFilters::LocallyOwnedCell())
     {
       hp_fe_values.reinit(cell);
 
@@ -280,8 +287,8 @@ partially_assemble_ablock(const dealii::DoFHandler<dim, spacedim> &dof_handler,
 
           for (unsigned int i = 0; i < dof_indices.size(); ++i)
             for (unsigned int j = 0; j < dof_indices.size(); ++j)
-              cell_matrix(i, j) += viscosity * scalar_product(grad_phi_u[i], grad_phi_u[j]) *
-                                   fe_values.JxW(q);
+              cell_matrix(i, j) +=
+                viscosity * scalar_product(grad_phi_u[i], grad_phi_u[j]) * fe_values.JxW(q);
         }
 
       constraints_reduced.distribute_local_to_global(cell_matrix,

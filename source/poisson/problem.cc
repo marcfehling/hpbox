@@ -227,7 +227,7 @@ namespace Poisson
         }
 
 #if false
-#ifdef DEBUG
+#  ifdef DEBUG
       // We have not dealt with chains of constraints on ghost cells yet.
       // Thus, we are content with verifying their consistency for now.
       const std::vector<IndexSet> locally_owned_dofs_per_processor =
@@ -241,7 +241,7 @@ namespace Poisson
                                                         mpi_communicator,
                                                         /*verbose=*/true),
                   ExcMessage("AffineConstraints object contains inconsistencies!"));
-#endif
+#  endif
 #endif
       constraints.close();
     }
@@ -273,43 +273,53 @@ namespace Poisson
       {
         if constexpr (std::is_same_v<LinearAlgebra, dealiiTrilinos>)
           {
-            const std::string filename_mg_level = filename_stem + "-mglevel-cycle_" + std::to_string(cycle) + ".log";
+            const std::string filename_mg_level =
+              filename_stem + "-mglevel-cycle_" + std::to_string(cycle) + ".log";
 
             if (prm.prm_multigrid.smoother_preconditioner_type == "Extended Diagonal")
               {
-                solve_gmg<PreconditionExtendedDiagonal<typename LinearAlgebra::Vector>, dim, LinearAlgebra, spacedim>(solver_control,
-                                                        *poisson_operator,
-                                                        completely_distributed_solution,
-                                                        system_rhs,
-                                                        prm.prm_multigrid,
-                                                        /*boundary_values=*/mapping_collection,
-                                                        quadrature_collection,
-                                                        dof_handler,
-                                                        filename_mg_level);
+                solve_gmg<PreconditionExtendedDiagonal<typename LinearAlgebra::Vector>,
+                          dim,
+                          LinearAlgebra,
+                          spacedim>(solver_control,
+                                    *poisson_operator,
+                                    completely_distributed_solution,
+                                    system_rhs,
+                                    prm.prm_multigrid,
+                                    /*boundary_values=*/mapping_collection,
+                                    quadrature_collection,
+                                    dof_handler,
+                                    filename_mg_level);
               }
             else if (prm.prm_multigrid.smoother_preconditioner_type == "ASM")
               {
-                solve_gmg<PreconditionASM<typename LinearAlgebra::Vector>, dim, LinearAlgebra, spacedim>(solver_control,
-                                                        *poisson_operator,
-                                                        completely_distributed_solution,
-                                                        system_rhs,
-                                                        prm.prm_multigrid,
-                                                        /*boundary_values=*/mapping_collection,
-                                                        quadrature_collection,
-                                                        dof_handler,
-                                                        filename_mg_level);
+                solve_gmg<PreconditionASM<typename LinearAlgebra::Vector>,
+                          dim,
+                          LinearAlgebra,
+                          spacedim>(solver_control,
+                                    *poisson_operator,
+                                    completely_distributed_solution,
+                                    system_rhs,
+                                    prm.prm_multigrid,
+                                    /*boundary_values=*/mapping_collection,
+                                    quadrature_collection,
+                                    dof_handler,
+                                    filename_mg_level);
               }
             else if (prm.prm_multigrid.smoother_preconditioner_type == "Diagonal")
               {
-                solve_gmg<DiagonalMatrix<typename LinearAlgebra::Vector>, dim, LinearAlgebra, spacedim>(solver_control,
-                                                        *poisson_operator,
-                                                        completely_distributed_solution,
-                                                        system_rhs,
-                                                        prm.prm_multigrid,
-                                                        /*boundary_values=*/mapping_collection,
-                                                        quadrature_collection,
-                                                        dof_handler,
-                                                        filename_mg_level);
+                solve_gmg<DiagonalMatrix<typename LinearAlgebra::Vector>,
+                          dim,
+                          LinearAlgebra,
+                          spacedim>(solver_control,
+                                    *poisson_operator,
+                                    completely_distributed_solution,
+                                    system_rhs,
+                                    prm.prm_multigrid,
+                                    /*boundary_values=*/mapping_collection,
+                                    quadrature_collection,
+                                    dof_handler,
+                                    filename_mg_level);
               }
             else
               {
@@ -388,7 +398,8 @@ namespace Poisson
     Vector<float> future_fe_degrees(triangulation.n_active_cells());
     for (const auto &cell : dof_handler.active_cell_iterators())
       if (cell->is_locally_owned())
-        future_fe_degrees(cell->active_cell_index()) = fe_collection[cell->future_fe_index()].degree;
+        future_fe_degrees(cell->active_cell_index()) =
+          fe_collection[cell->future_fe_index()].degree;
 
     Vector<float> subdomain(triangulation.n_active_cells());
     for (auto &subd : subdomain)

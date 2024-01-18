@@ -29,7 +29,7 @@
 
 DEAL_II_NAMESPACE_OPEN
 
-template<typename VectorType>
+template <typename VectorType>
 class PreconditionExtendedDiagonal
 {
 private:
@@ -46,7 +46,8 @@ private:
   using Number = typename VectorType::value_type;
 
 public:
-  PreconditionExtendedDiagonal(const std::vector<std::vector<types::global_dof_index>> &patch_indices)
+  PreconditionExtendedDiagonal(
+    const std::vector<std::vector<types::global_dof_index>> &patch_indices)
     : patch_indices(patch_indices)
   {}
 
@@ -56,9 +57,9 @@ public:
 
   template <typename GlobalSparseMatrixType, typename GlobalSparsityPattern>
   void
-  initialize(const GlobalSparseMatrixType &global_sparse_matrix,
-             const GlobalSparsityPattern  &global_sparsity_pattern,
-             const VectorType             &inverse_diagonal,
+  initialize(const GlobalSparseMatrixType            &global_sparse_matrix,
+             const GlobalSparsityPattern             &global_sparsity_pattern,
+             const VectorType                        &inverse_diagonal,
              const std::set<types::global_dof_index> &all_indices_relevant)
   {
     TimerOutput::Scope t(getTimer(), "initialize_extended_diagonal");
@@ -99,8 +100,7 @@ public:
 
         weights.compress(VectorOperation::add);
         for (auto &i : weights)
-          i = (weighting_type == WeightingType::symm) ? std::sqrt(1.0 / i) :
-                                                        (1.0 / i);
+          i = (weighting_type == WeightingType::symm) ? std::sqrt(1.0 / i) : (1.0 / i);
         weights.update_ghost_values();
       }
 
@@ -117,26 +117,24 @@ public:
             for (unsigned int i = 0; i < dofs_per_cell; ++i)
               vector_weights[i] += weights[patch_indices[cell][i]];
 
-            auto & block = patch_matrices[cell];
+            auto &block = patch_matrices[cell];
 
-            if (weighting_type == WeightingType::symm ||
-                weighting_type == WeightingType::right)
+            if (weighting_type == WeightingType::symm || weighting_type == WeightingType::right)
               {
                 // multiply weights from right B(wI), i.e.,
                 // multiply one weight for each column
                 for (unsigned int r = 0; r < dofs_per_cell; ++r)
                   for (unsigned int c = 0; c < dofs_per_cell; ++c)
-                    block(r,c) *= vector_weights[c];
+                    block(r, c) *= vector_weights[c];
               }
 
-            if (weighting_type == WeightingType::symm ||
-                weighting_type == WeightingType::left)
+            if (weighting_type == WeightingType::symm || weighting_type == WeightingType::left)
               {
                 // multiply weights from left (wI)B, i.e.,
                 // multiply one weight for each row
                 for (unsigned int r = 0; r < dofs_per_cell; ++r)
                   for (unsigned int c = 0; c < dofs_per_cell; ++c)
-                    block(r,c) *= vector_weights[r];
+                    block(r, c) *= vector_weights[r];
               }
           }
       }
@@ -147,14 +145,14 @@ public:
     // TODO: use std::move?
     reduced_inverse_diagonal = inverse_diagonal;
 
-//    for (const auto l : large_partitioner->locally_owned_range())
-//      if (all_indices[l] > 0)
-//        reduced_inverse_diagonal[l] = 0.0;
-//
-//    std::vector<types::global_dof_index> ghost_indices;
-//    for (const auto g : large_partitioner->ghost_indices())
-//      if (all_indices[g] > 0)
-//        ghost_indices.push_back(g);
+    // for (const auto l : large_partitioner->locally_owned_range())
+    //   if (all_indices[l] > 0)
+    //     reduced_inverse_diagonal[l] = 0.0;
+
+    // std::vector<types::global_dof_index> ghost_indices;
+    // for (const auto g : large_partitioner->ghost_indices())
+    //   if (all_indices[g] > 0)
+    //     ghost_indices.push_back(g);
 
     std::vector<types::global_dof_index> ghost_indices;
     for (const auto i : all_indices_relevant)
@@ -180,11 +178,10 @@ public:
     Assert(ghost_indices_is.is_subset_of(large_partitioner->ghost_indices()),
            ExcMessage("Ghost range mismatch!"));
 
-    const auto partitioner =
-      std::make_shared<const Utilities::MPI::Partitioner>(
-        large_partitioner->locally_owned_range(),
-        ghost_indices_is,
-        large_partitioner->get_mpi_communicator());
+    const auto partitioner = std::make_shared<const Utilities::MPI::Partitioner>(
+      large_partitioner->locally_owned_range(),
+      ghost_indices_is,
+      large_partitioner->get_mpi_communicator());
 
     this->embedded_partitioner =
       internal::create_embedded_partitioner(partitioner, large_partitioner);
@@ -199,8 +196,7 @@ public:
     internal::DiagonalMatrix::assign_and_scale(dst, src, reduced_inverse_diagonal);
 
     // apply ASM: 1) update ghost values
-    internal::SimpleVectorDataExchange<Number> data_exchange(
-      embedded_partitioner, buffer);
+    internal::SimpleVectorDataExchange<Number> data_exchange(embedded_partitioner, buffer);
     data_exchange.update_ghost_values(src);
 
     Vector<Number> vector_src, vector_dst;

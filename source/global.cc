@@ -36,9 +36,7 @@ getPCOut()
 TimerOutput &
 getTimer()
 {
-  static TimerOutput computing_timer(getPCOut(),
-                                     TimerOutput::never,
-                                     TimerOutput::wall_times);
+  static TimerOutput computing_timer(getPCOut(), TimerOutput::never, TimerOutput::wall_times);
   return computing_timer;
 }
 

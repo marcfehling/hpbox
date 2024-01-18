@@ -37,8 +37,8 @@ namespace // TODO: Testing environment
 {
   template <int dim, int spacedim>
   void
-  prepare_c_and_r_prototype(DoFHandler<dim, spacedim>&    dof_handler,
-                            Triangulation<dim, spacedim>& triangulation)
+  prepare_c_and_r_prototype(DoFHandler<dim, spacedim>    &dof_handler,
+                            Triangulation<dim, spacedim> &triangulation)
   {
     // store backup of refine flags
     std::vector<bool> refine_flags;
@@ -47,7 +47,8 @@ namespace // TODO: Testing environment
     triangulation.save_coarsen_flags(coarsen_flags);
 
     // translate future FE indices into flags
-    for (const auto& cell : dof_handler.active_cell_iterators() | IteratorFilters::LocallyOwnedCell())
+    for (const auto &cell :
+         dof_handler.active_cell_iterators() | IteratorFilters::LocallyOwnedCell())
       {
         cell->clear_refine_flag();
         cell->clear_coarsen_flag();
@@ -65,15 +66,15 @@ namespace // TODO: Testing environment
     // If you comment this line out, no refinement flags should be altered in the end
 
     // translate flags back to future FE indices
-    for (const auto& cell : dof_handler.active_cell_iterators() | IteratorFilters::LocallyOwnedCell())
+    for (const auto &cell :
+         dof_handler.active_cell_iterators() | IteratorFilters::LocallyOwnedCell())
       {
         cell->clear_future_fe_index();
 
         if (cell->refine_flag_set())
           {
             const unsigned int super_fe_index =
-              dof_handler.get_fe_collection().next_in_hierarchy(
-                cell->active_fe_index());
+              dof_handler.get_fe_collection().next_in_hierarchy(cell->active_fe_index());
 
             // Reject update if already most superordinate element.
             if (super_fe_index != cell->active_fe_index())
@@ -82,8 +83,7 @@ namespace // TODO: Testing environment
         else if (cell->coarsen_flag_set())
           {
             const unsigned int sub_fe_index =
-              dof_handler.get_fe_collection().previous_in_hierarchy(
-                cell->active_fe_index());
+              dof_handler.get_fe_collection().previous_in_hierarchy(cell->active_fe_index());
 
             // Reject update if already least subordinate element.
             if (sub_fe_index != cell->active_fe_index())
@@ -95,7 +95,7 @@ namespace // TODO: Testing environment
     triangulation.load_refine_flags(refine_flags);
     triangulation.load_coarsen_flags(coarsen_flags);
   }
-}
+} // namespace
 
 
 namespace Adaptation

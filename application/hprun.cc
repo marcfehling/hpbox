@@ -14,11 +14,11 @@
 // ---------------------------------------------------------------------
 
 
+#include <deal.II/base/logstream.h>
+
 #include <factory.h>
 #include <global.h>
 #include <parameter.h>
-
-#include <deal.II/base/logstream.h>
 
 
 int

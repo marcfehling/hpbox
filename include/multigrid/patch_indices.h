@@ -32,19 +32,17 @@ prepare_patch_indices(const dealii::DoFHandler<dim, spacedim> &dof_handler,
   std::vector<std::vector<dealii::types::global_dof_index>> patch_indices;
 
   std::vector<dealii::types::global_dof_index> local_indices;
-  for (const auto &cell : dof_handler.active_cell_iterators() | dealii::IteratorFilters::LocallyOwnedCell())
+  for (const auto &cell :
+       dof_handler.active_cell_iterators() | dealii::IteratorFilters::LocallyOwnedCell())
     for (const auto f : cell->face_indices())
       if (cell->at_boundary(f) == false)
         {
           bool flag = false;
 
           if (cell->face(f)->has_children())
-            for (unsigned int sf = 0;
-                  sf < cell->face(f)->n_children();
-                  ++sf)
+            for (unsigned int sf = 0; sf < cell->face(f)->n_children(); ++sf)
               {
-                const auto neighbor_subface =
-                  cell->neighbor_child_on_subface(f, sf);
+                const auto neighbor_subface = cell->neighbor_child_on_subface(f, sf);
 
                 // problem criterion: cell faces h-refined cell with lower polynomial degree
                 // (corresponds to 'version 6' in previous experiments)
@@ -59,8 +57,7 @@ prepare_patch_indices(const dealii::DoFHandler<dim, spacedim> &dof_handler,
             continue;
 
           local_indices.resize(cell->get_fe().n_dofs_per_face());
-          cell->face(f)->get_dof_indices(local_indices,
-                                        cell->active_fe_index());
+          cell->face(f)->get_dof_indices(local_indices, cell->active_fe_index());
 
           std::vector<dealii::types::global_dof_index> local_unconstrained_indices;
           for (const auto i : local_indices)

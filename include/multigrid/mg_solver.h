@@ -36,9 +36,9 @@
 #include <deal.II/multigrid/mg_smoother.h>
 #include <deal.II/multigrid/multigrid.h>
 
-#include <multigrid/parameter.h>
-#include <multigrid/operator_base.h>
 #include <global.h>
+#include <multigrid/operator_base.h>
+#include <multigrid/parameter.h>
 
 #include <vector>
 
@@ -58,16 +58,17 @@ template <typename VectorType,
           typename SmootherPreconditionerType,
           typename MGTransferType>
 static void
-mg_solve(SolverControl                                         &solver_control,
-         VectorType                                            &dst,
-         const VectorType                                      &src,
-         const MGSolverParameters                              &mg_data,
-         const DoFHandler<dim, spacedim>                       &dof,
-         const SystemMatrixType                                &fine_matrix,
-         const MGLevelObject<std::unique_ptr<LevelMatrixType>> &mg_matrices,
-         const MGLevelObject<std::shared_ptr<SmootherPreconditionerType>> &mg_smoother_preconditioners,
-         const MGTransferType                                  &mg_transfer,
-         const std::string                                     &filename_mg_level)
+mg_solve(
+  SolverControl                                                    &solver_control,
+  VectorType                                                       &dst,
+  const VectorType                                                 &src,
+  const MGSolverParameters                                         &mg_data,
+  const DoFHandler<dim, spacedim>                                  &dof,
+  const SystemMatrixType                                           &fine_matrix,
+  const MGLevelObject<std::unique_ptr<LevelMatrixType>>            &mg_matrices,
+  const MGLevelObject<std::shared_ptr<SmootherPreconditionerType>> &mg_smoother_preconditioners,
+  const MGTransferType                                             &mg_transfer,
+  const std::string                                                &filename_mg_level)
 {
   AssertThrow(mg_data.smoother.type == "chebyshev", ExcNotImplemented());
 
@@ -114,7 +115,7 @@ mg_solve(SolverControl                                         &solver_control,
 
           // We already computed eigenvalues, reset the one in the actual smoother
           smoother_data[level].eig_cg_n_iterations = 0;
-          smoother_data[level].max_eigenvalue = evs.max_eigenvalue_estimate * 1.1;
+          smoother_data[level].max_eigenvalue      = evs.max_eigenvalue_estimate * 1.1;
         }
 
       // log maximum over all levels
@@ -129,10 +130,10 @@ mg_solve(SolverControl                                         &solver_control,
 
   // Initialize coarse-grid solver.
   ReductionControl     coarse_grid_solver_control(mg_data.coarse_solver.maxiter,
-                                                  mg_data.coarse_solver.abstol,
-                                                  mg_data.coarse_solver.reltol,
-                                                  /*log_history=*/true,
-                                                  /*log_result=*/true);
+                                              mg_data.coarse_solver.abstol,
+                                              mg_data.coarse_solver.reltol,
+                                              /*log_history=*/true,
+                                              /*log_result=*/true);
   SolverCG<VectorType> coarse_grid_solver(coarse_grid_solver_control);
 
   PreconditionIdentity precondition_identity;
@@ -172,9 +173,9 @@ mg_solve(SolverControl                                         &solver_control,
       precondition_chebyshev.initialize(*mg_matrices[min_level], smoother_data);
 
       mg_coarse = std::make_unique<MGCoarseGridIterativeSolver<VectorType,
-                                                              SolverCG<VectorType>,
-                                                              LevelMatrixType,
-                                                              decltype(precondition_chebyshev)>>(
+                                                               SolverCG<VectorType>,
+                                                               LevelMatrixType,
+                                                               decltype(precondition_chebyshev)>>(
         coarse_grid_solver, *mg_matrices[min_level], precondition_chebyshev);
     }
   else if (mg_data.coarse_solver.type == "cg_with_amg")
@@ -226,8 +227,8 @@ mg_solve(SolverControl                                         &solver_control,
             all_mg_timers[level][i].second = std::chrono::system_clock::now();
           else
             all_mg_timers[level][i].first +=
-              std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now() -
-                                                                    all_mg_timers[level][i].second)
+              std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::system_clock::now() - all_mg_timers[level][i].second)
                 .count() /
               1e9;
         };
@@ -251,7 +252,8 @@ mg_solve(SolverControl                                         &solver_control,
 
   // ----------
   // dump to Table and then file system
-  if ((mg_data.log_levels == true) && (Utilities::MPI::this_mpi_process(dof.get_communicator()) == 0))
+  if ((mg_data.log_levels == true) &&
+      (Utilities::MPI::this_mpi_process(dof.get_communicator()) == 0))
     {
       dealii::ConvergenceTable table;
       for (unsigned int level = 0; level < all_mg_timers.size(); ++level)

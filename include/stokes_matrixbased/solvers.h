@@ -118,8 +118,8 @@ namespace StokesMatrixBased
             typename LinearAlgebra::BlockVector                   &dst,
             const typename LinearAlgebra::BlockVector             &src,
             const dealii::DoFHandler<dim, spacedim>               &dof_handler,
-            const bool do_solve_A,
-            const bool do_solve_Schur_complement)
+            const bool                                             do_solve_A,
+            const bool                                             do_solve_Schur_complement)
   {
     typename LinearAlgebra::PreconditionAMG::AdditionalData Amg_data;
     if constexpr (std::is_same<LinearAlgebra, PETSc>::value)

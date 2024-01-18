@@ -27,12 +27,12 @@
 #include <deal.II/lac/solver_gmres.h>
 
 #include <linear_algebra.h>
-#include <multigrid/mg_solver.h>
 #include <multigrid/asm.h>
 #include <multigrid/extended_diagonal.h>
+#include <multigrid/mg_solver.h>
+#include <multigrid/parameter.h>
 #include <multigrid/patch_indices.h>
 #include <multigrid/reduce_and_assemble.h>
-#include <multigrid/parameter.h>
 #include <stokes_matrixfree/operators.h>
 
 
@@ -113,7 +113,8 @@ namespace StokesMatrixFree
                        schur_complement_preconditioner);
 
           // TODO: (temporary) log S-Block solver iterations
-          getPCOut() << "   S-Block solved in " << solver_control.last_step() << " iterations." << std::endl;
+          getPCOut() << "   S-Block solved in " << solver_control.last_step() << " iterations."
+                     << std::endl;
         }
       else
         schur_complement_preconditioner.vmult(dst.block(1), src.block(1));
@@ -137,7 +138,8 @@ namespace StokesMatrixFree
           solver.solve(*a_block, dst.block(0), utmp.block(0), a_block_preconditioner);
 
           // TODO: (temporary) log A-Block solver iterations
-          getPCOut() << "   A-Block solved in " << solver_control.last_step() << " iterations." << std::endl;
+          getPCOut() << "   A-Block solved in " << solver_control.last_step() << " iterations."
+                     << std::endl;
         }
       else
         a_block_preconditioner.vmult(dst.block(0), utmp.block(0));
@@ -165,8 +167,8 @@ namespace StokesMatrixFree
             const OperatorType<dim, LinearAlgebra, spacedim> &schur_block_operator,
             typename LinearAlgebra::BlockVector              &dst,
             const typename LinearAlgebra::BlockVector        &src,
-            const bool do_solve_A,
-            const bool do_solve_Schur_complement)
+            const bool                                        do_solve_A,
+            const bool                                        do_solve_Schur_complement)
   {
     typename LinearAlgebra::PreconditionAMG::AdditionalData Amg_data;
     if constexpr (std::is_same<LinearAlgebra, PETSc>::value)
@@ -225,7 +227,10 @@ namespace StokesMatrixFree
 
 
 
-  template <typename SmootherPreconditionerType, int dim, typename LinearAlgebra, int spacedim = dim>
+  template <typename SmootherPreconditionerType,
+            int dim,
+            typename LinearAlgebra,
+            int spacedim = dim>
   static void
   solve_gmg(dealii::SolverControl &solver_control_refined,
             const StokesMatrixFree::StokesOperator<dim, LinearAlgebra, spacedim> &stokes_operator,
@@ -238,8 +243,8 @@ namespace StokesMatrixFree
             const dealii::hp::QCollection<dim>                           &q_collection_v,
             const std::vector<const dealii::DoFHandler<dim, spacedim> *> &stokes_dof_handlers,
             const std::string                                             filename_mg_level,
-            const bool do_solve_A,
-            const bool do_solve_Schur_complement)
+            const bool                                                    do_solve_A,
+            const bool                                                    do_solve_Schur_complement)
   {
     // poisson has mappingcollection and dofhandler as additional parameters
 
@@ -359,7 +364,8 @@ namespace StokesMatrixFree
     MGLevelObject<AffineConstraints<typename VectorType::value_type>> constraints(minlevel,
                                                                                   maxlevel);
 
-    MGLevelObject<std::shared_ptr<SmootherPreconditionerType>> smoother_preconditioners(minlevel, maxlevel);
+    MGLevelObject<std::shared_ptr<SmootherPreconditionerType>> smoother_preconditioners(minlevel,
+                                                                                        maxlevel);
 
     //
     // TODO: Generalise, maybe for operator and blockoperatorbase?
@@ -398,7 +404,8 @@ namespace StokesMatrixFree
         if constexpr (std::is_same_v<SmootherPreconditionerType, DiagonalMatrix<VectorType>>)
           {
             smoother_preconditioners[level] = std::make_shared<SmootherPreconditionerType>();
-            operators[level]->compute_inverse_diagonal(smoother_preconditioners[level]->get_vector());
+            operators[level]->compute_inverse_diagonal(
+              smoother_preconditioners[level]->get_vector());
           }
         else if constexpr (std::is_same_v<SmootherPreconditionerType, PreconditionASM<VectorType>>)
           {
@@ -409,16 +416,24 @@ namespace StokesMatrixFree
             // so far I only created temporary sparsity patterns in the LinearAlgebra namespace,
             // but they are no longer available here
             // so for the sake of trying ASM out, I'll just create another one here
-            const unsigned int myid = dealii::Utilities::MPI::this_mpi_process(dof_handler.get_communicator());
+            const unsigned int myid =
+              dealii::Utilities::MPI::this_mpi_process(dof_handler.get_communicator());
             typename LinearAlgebra::SparsityPattern sparsity_pattern;
-            sparsity_pattern.reinit(partitioning.get_owned_dofs(), partitioning.get_owned_dofs(), partitioning.get_relevant_dofs(), dof_handler.get_communicator());
+            sparsity_pattern.reinit(partitioning.get_owned_dofs(),
+                                    partitioning.get_owned_dofs(),
+                                    partitioning.get_relevant_dofs(),
+                                    dof_handler.get_communicator());
             DoFTools::make_sparsity_pattern(dof_handler, sparsity_pattern, constraint, false, myid);
             sparsity_pattern.compress();
 
-            smoother_preconditioners[level] = std::make_shared<SmootherPreconditionerType>(std::move(patch_indices));
-            smoother_preconditioners[level]->initialize(operators[level]->get_system_matrix(), sparsity_pattern, dof_handler);
+            smoother_preconditioners[level] =
+              std::make_shared<SmootherPreconditionerType>(std::move(patch_indices));
+            smoother_preconditioners[level]->initialize(operators[level]->get_system_matrix(),
+                                                        sparsity_pattern,
+                                                        dof_handler);
           }
-        else if constexpr (std::is_same_v<SmootherPreconditionerType, PreconditionExtendedDiagonal<VectorType>>)
+        else if constexpr (std::is_same_v<SmootherPreconditionerType,
+                                          PreconditionExtendedDiagonal<VectorType>>)
           {
             const auto patch_indices = prepare_patch_indices(dof_handler, constraint);
 
@@ -426,38 +441,60 @@ namespace StokesMatrixFree
               Log::log_patch_dofs(patch_indices, dof_handler);
 
             // full matrix
-            //const unsigned int myid = dealii::Utilities::MPI::this_mpi_process(communicator);
-            //DynamicSparsityPattern dsp(relevant_dofs);
-            //DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false, myid);
-            //SparsityTools::distribute_sparsity_pattern(dsp, owned_dofs, communicator, relevant_dofs);
+            // const unsigned int myid = dealii::Utilities::MPI::this_mpi_process(communicator);
+            // DynamicSparsityPattern dsp(relevant_dofs);
+            // DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false, myid);
+            // SparsityTools::distribute_sparsity_pattern(dsp, owned_dofs, communicator,
+            // relevant_dofs);
 
             // reduced matrix
             AffineConstraints<double> constraints_reduced;
-            constraints_reduced.reinit(partitioning.get_owned_dofs(), partitioning.get_relevant_dofs());
+            constraints_reduced.reinit(partitioning.get_owned_dofs(),
+                                       partitioning.get_relevant_dofs());
 
-            const auto all_indices_relevant = extract_relevant(patch_indices, partitioning, dof_handler);
+            const auto all_indices_relevant =
+              extract_relevant(patch_indices, partitioning, dof_handler);
 
             std::set<types::global_dof_index> all_indices_assemble;
-            reduce_constraints(constraint, DoFTools::extract_locally_active_dofs(dof_handler), all_indices_relevant,
-                               constraints_reduced, all_indices_assemble);
+            reduce_constraints(constraint,
+                               DoFTools::extract_locally_active_dofs(dof_handler),
+                               all_indices_relevant,
+                               constraints_reduced,
+                               all_indices_assemble);
 
             // TODO: only works for Trilinos so far
             typename LinearAlgebra::SparsityPattern reduced_sparsity_pattern;
-            reduced_sparsity_pattern.reinit(partitioning.get_owned_dofs(), partitioning.get_owned_dofs(), partitioning.get_relevant_dofs(), dof_handler.get_communicator());
-            make_sparsity_pattern(dof_handler, all_indices_assemble, reduced_sparsity_pattern, constraints_reduced);
+            reduced_sparsity_pattern.reinit(partitioning.get_owned_dofs(),
+                                            partitioning.get_owned_dofs(),
+                                            partitioning.get_relevant_dofs(),
+                                            dof_handler.get_communicator());
+            make_sparsity_pattern(dof_handler,
+                                  all_indices_assemble,
+                                  reduced_sparsity_pattern,
+                                  constraints_reduced);
             reduced_sparsity_pattern.compress();
 
             typename LinearAlgebra::SparseMatrix reduced_sparse_matrix;
             reduced_sparse_matrix.reinit(reduced_sparsity_pattern);
-            partially_assemble_ablock(dof_handler, constraints_reduced, q_collection_v, all_indices_assemble,
+            partially_assemble_ablock(dof_handler,
+                                      constraints_reduced,
+                                      q_collection_v,
+                                      all_indices_assemble,
                                       reduced_sparse_matrix);
 
             VectorType inverse_diagonal;
             operators[level]->compute_inverse_diagonal(inverse_diagonal);
 
-            smoother_preconditioners[level] = std::make_shared<SmootherPreconditionerType>(std::move(patch_indices));
-            //smoother_data[level].preconditioner->initialize(mg_matrices[level]->get_system_matrix(), dsp, inverse_diagonal, all_indices_relevant);
-            smoother_preconditioners[level]->initialize(reduced_sparse_matrix, reduced_sparsity_pattern, inverse_diagonal, all_indices_relevant);
+            smoother_preconditioners[level] =
+              std::make_shared<SmootherPreconditionerType>(std::move(patch_indices));
+            // smoother_preconditioners[level]->initialize(mg_matrices[level]->get_system_matrix(),
+            //                                             dsp,
+            //                                             inverse_diagonal,
+            //                                             all_indices_relevant);
+            smoother_preconditioners[level]->initialize(reduced_sparse_matrix,
+                                                        reduced_sparsity_pattern,
+                                                        inverse_diagonal,
+                                                        all_indices_relevant);
           }
         else
           {
@@ -535,7 +572,7 @@ namespace StokesMatrixFree
 
             // We already computed eigenvalues, reset the one in the actual smoother
             smoother_data[level].eig_cg_n_iterations = 0;
-            smoother_data[level].max_eigenvalue = evs.max_eigenvalue_estimate * 1.1;
+            smoother_data[level].max_eigenvalue      = evs.max_eigenvalue_estimate * 1.1;
           }
 
         // log maximum over all levels
@@ -596,8 +633,8 @@ namespace StokesMatrixFree
               all_mg_timers[level][i].second = std::chrono::system_clock::now();
             else
               all_mg_timers[level][i].first +=
-                std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now() -
-                                                                    all_mg_timers[level][i].second)
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                  std::chrono::system_clock::now() - all_mg_timers[level][i].second)
                   .count() /
                 1e9;
           };
@@ -649,7 +686,8 @@ namespace StokesMatrixFree
 
     // ----------
     // dump to Table and then file system
-    if ((mg_data.log_levels == true) && (Utilities::MPI::this_mpi_process(dof_handler.get_communicator()) == 0))
+    if ((mg_data.log_levels == true) &&
+        (Utilities::MPI::this_mpi_process(dof_handler.get_communicator()) == 0))
       {
         dealii::ConvergenceTable table;
         for (unsigned int level = 0; level < all_mg_timers.size(); ++level)
