@@ -133,25 +133,18 @@ namespace StokesMatrixFree
         solution_function_p = Factory::create_function<dim>("kovasznay exact pressure");
 
         rhs_function_v = Factory::create_function<dim>("kovasznay rhs velocity");
-        // rhs_function_p      = Factory::create_function<dim>("kovasznay rhs pressure");
+        // rhs_function_p = Factory::create_function<dim>("kovasznay rhs pressure");
         rhs_function_p = std::make_shared<Functions::ZeroFunction<dim>>(1);
       }
     else if (prm.grid_type == "y-pipe")
       {
         // boundary_function = Factory::create_function<dim>("zero");
-        // solution_function = Factory::create_function<dim>("zero");
-        // rhs_function      = Factory::create_function<dim>("zero");
 
-        // solution_function_v = Factory::create_function<dim>("zero", /*n_components=*/dim);
-        // solution_function_p = Factory::create_function<dim>("zero", /*n_components=*/1);
-        // rhs_function_v = Factory::create_function<dim>("zero", /*n_components=*/dim);
-        // rhs_function_p = Factory::create_function<dim>("zero", /*n_components=*/1);
+        solution_function_v = Factory::create_function<dim>("zero", /*n_components=*/dim);
+        solution_function_p = Factory::create_function<dim>("zero", /*n_components=*/1);
 
-        solution_function_v = std::make_unique<Functions::ZeroFunction<dim>>(dim);
-        solution_function_p = std::make_unique<Functions::ZeroFunction<dim>>(1);
-
-        rhs_function_v = std::make_shared<Functions::ZeroFunction<dim>>(dim);
-        rhs_function_p = std::make_shared<Functions::ZeroFunction<dim>>(1);
+        rhs_function_v = Factory::create_function<dim>("zero", /*n_components=*/dim);
+        rhs_function_p = Factory::create_function<dim>("zero", /*n_components=*/1);
       }
     else
       {
