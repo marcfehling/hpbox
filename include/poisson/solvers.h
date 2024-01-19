@@ -240,6 +240,9 @@ namespace Poisson
           {
             const auto patch_indices = prepare_patch_indices(dof_handler, constraint);
 
+            if (level == maxlevel)
+              Log::log_patch_dofs(patch_indices, dof_handler);
+
             // full matrix
             // TODO: this is a nasty way to get the sparsity pattern
             // so far I only created temporary sparsity patterns in the LinearAlgebra namespace,
