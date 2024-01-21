@@ -18,7 +18,6 @@
 
 
 #include <deal.II/base/exceptions.h>
-// #include <deal.II/base/flow_function.h>
 
 #include <adaptation/h.h>
 #include <adaptation/hp_fourier.h>
@@ -71,28 +70,29 @@ namespace Factory
   std::unique_ptr<dealii::Function<dim>>
   create_function(const std::string &type, Args &&...args)
   {
-    if (type == "zero")
-      return std::make_unique<dealii::Functions::ZeroFunction<dim>>(std::forward<Args>(args)...);
-    else if (type == "reentrant corner")
-      return std::make_unique<Function::ReentrantCorner<dim>>(std::forward<Args>(args)...);
-    else if (type == "kovasznay exact")
-      return std::make_unique<Function::KovasznayExact<dim>>(std::forward<Args>(args)...);
-    else if (type == "kovasznay exact velocity")
-      return std::make_unique<Function::KovasznayExactVelocity<dim>>(std::forward<Args>(args)...);
-    else if (type == "kovasznay exact pressure")
-      return std::make_unique<Function::KovasznayExactPressure<dim>>(std::forward<Args>(args)...);
-    else if (type == "kovasznay rhs")
-      return std::make_unique<Function::KovasznayRHS<dim>>(std::forward<Args>(args)...);
-    else if (type == "kovasznay rhs velocity")
-      return std::make_unique<Function::KovasznayRHSVelocity<dim>>(std::forward<Args>(args)...);
-    // else if (type == "poisseuille")
-    //   return std::make_unique<dealii::Functions::PoisseuilleFlow<dim>>(std::forward<Args>(args)...);
-    // else if (type == "poisseuille velocity")
-    //   return std::make_unique<Function::PoisseuilleFlowVelocity<dim>>(std::forward<Args>(args)...);
-    // else if (type == "poisseuille pressure")
-    //   return std::make_unique<Function::PoisseuilleFlowPressure<dim>>(std::forward<Args>(args)...);
-    // TODO: parameter pack needs to be same size as constructor parameters
-    //       group with if constexpr sizeof(Args) == 1
+    if constexpr (sizeof...(Args) == 0)
+      {
+        if (type == "zero")
+          return std::make_unique<dealii::Functions::ZeroFunction<dim>>();
+        else if (type == "reentrant corner")
+          return std::make_unique<Function::ReentrantCorner<dim>>();
+        else if (type == "kovasznay exact")
+          return std::make_unique<Function::KovasznayExact<dim>>();
+        else if (type == "kovasznay exact velocity")
+          return std::make_unique<Function::KovasznayExactVelocity<dim>>();
+        else if (type == "kovasznay exact pressure")
+          return std::make_unique<Function::KovasznayExactPressure<dim>>();
+        else if (type == "kovasznay rhs")
+          return std::make_unique<Function::KovasznayRHS<dim>>();
+        else if (type == "kovasznay rhs velocity")
+          return std::make_unique<Function::KovasznayRHSVelocity<dim>>();
+      }
+    else if constexpr (sizeof...(Args) == 1)
+      {
+        if (type == "zero")
+          return std::make_unique<dealii::Functions::ZeroFunction<dim>>(
+            std::forward<Args>(args)...);
+      }
 
     AssertThrow(false, dealii::ExcNotImplemented());
     return std::unique_ptr<dealii::Function<dim>>();
