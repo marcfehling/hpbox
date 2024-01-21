@@ -457,7 +457,7 @@ namespace StokesMatrixFree
     this->rhs_functions = &rhs_functions;
 
     typename MatrixFree<dim, value_type>::AdditionalData data;
-    data.mapping_update_flags = update_gradients | update_quadrature_points ;
+    data.mapping_update_flags = update_gradients | update_quadrature_points;
     // TODO: we need quad points only for rhs function. hide between nullptr check
 
     matrix_free.reinit(
@@ -465,7 +465,10 @@ namespace StokesMatrixFree
 
     this->initialize_dof_vector(system_rhs);
     // TODO: check if nullptr
-    matrix_free.cell_loop(&StokesOperator::do_cell_rhs_function_range, this, system_rhs, system_rhs);
+    matrix_free.cell_loop(&StokesOperator::do_cell_rhs_function_range,
+                          this,
+                          system_rhs,
+                          system_rhs);
 
     // residual: r = f - Au0
     // TODO: that is just the -Au0 part. add the rhs function part (check step-37/step-67)
@@ -624,9 +627,9 @@ namespace StokesMatrixFree
   template <int dim, typename LinearAlgebra, int spacedim>
   void
   StokesOperator<dim, LinearAlgebra, spacedim>::do_cell_rhs_function_range(
-    const MatrixFree<dim, value_type>           &matrix_free,
-    VectorType                                  &system_rhs,
-    const VectorType                            &/*dummy*/,
+    const MatrixFree<dim, value_type> &matrix_free,
+    VectorType                        &system_rhs,
+    const VectorType & /*dummy*/,
     const std::pair<unsigned int, unsigned int> &range) const
   {
     FEEvaluation<dim, -1, 0, dim, value_type> velocity(matrix_free, range, 0);
@@ -639,17 +642,16 @@ namespace StokesMatrixFree
 
         for (unsigned int q = 0; q < velocity.n_q_points; ++q)
           {
-            const Point<dim, VectorizedArray<value_type> > p_vect =
-              velocity.quadrature_point(q);
-            Tensor<1, dim, VectorizedArray<value_type>> f_vect;
-            for (unsigned int i=0; i<VectorizedArray<value_type>::size(); ++i)
+            const Point<dim, VectorizedArray<value_type>> p_vect = velocity.quadrature_point(q);
+            Tensor<1, dim, VectorizedArray<value_type>>   f_vect;
+            for (unsigned int i = 0; i < VectorizedArray<value_type>::size(); ++i)
               {
                 Point<dim> p;
-                for (unsigned int d=0; d<dim; ++d)
+                for (unsigned int d = 0; d < dim; ++d)
                   p[d] = p_vect[d][i];
                 Vector<value_type> f(dim);
                 (*rhs_functions)[0]->vector_value(p, f);
-                for (unsigned int d=0; d<dim; ++d)
+                for (unsigned int d = 0; d < dim; ++d)
                   f_vect[d][i] = f[d];
               }
             velocity.submit_value(f_vect, q);
@@ -657,13 +659,12 @@ namespace StokesMatrixFree
 
         for (unsigned int q = 0; q < pressure.n_q_points; ++q)
           {
-            const Point<dim, VectorizedArray<value_type> > p_vect =
-              pressure.quadrature_point(q);
-            VectorizedArray<value_type> f_vect = 0.;
-            for (unsigned int i=0; i<VectorizedArray<value_type>::size(); ++i)
+            const Point<dim, VectorizedArray<value_type>> p_vect = pressure.quadrature_point(q);
+            VectorizedArray<value_type>                   f_vect = 0.;
+            for (unsigned int i = 0; i < VectorizedArray<value_type>::size(); ++i)
               {
                 Point<dim> p;
-                for (unsigned int d=0; d<dim; ++d)
+                for (unsigned int d = 0; d < dim; ++d)
                   p[d] = p_vect[d][i];
                 f_vect[i] = (*rhs_functions)[1]->value(p);
               }

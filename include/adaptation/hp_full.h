@@ -38,10 +38,10 @@ namespace Adaptation
   class hpFull : public Base
   {
   public:
-    hpFull(const Parameter                               &prm,
-           const VectorType                              &locally_relevant_solution,
-           const dealii::hp::FECollection<dim, spacedim> &fe_collection,
-           dealii::DoFHandler<dim, spacedim>             &dof_handler,
+    hpFull(const Parameter                                             &prm,
+           const VectorType                                            &locally_relevant_solution,
+           const dealii::hp::FECollection<dim, spacedim>               &fe_collection,
+           dealii::DoFHandler<dim, spacedim>                           &dof_handler,
            dealii::parallel::distributed::Triangulation<dim, spacedim> &triangulation,
            const dealii::ComponentMask &component_mask = dealii::ComponentMask());
 
