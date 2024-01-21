@@ -111,6 +111,10 @@ namespace StokesMatrixFree
                        dst.block(1),
                        src.block(1),
                        schur_complement_preconditioner);
+
+          // TODO: (temporary) log S-Block solver iterations
+          getPCOut() << "   S-Block solved in " << solver_control.last_step() << " iterations."
+                     << std::endl;
         }
       else
         schur_complement_preconditioner.vmult(dst.block(1), src.block(1));
@@ -132,6 +136,10 @@ namespace StokesMatrixFree
           typename LinearAlgebra::SolverCG solver(solver_control);
 
           solver.solve(*a_block, dst.block(0), utmp.block(0), a_block_preconditioner);
+
+          // TODO: (temporary) log A-Block solver iterations
+          getPCOut() << "   A-Block solved in " << solver_control.last_step() << " iterations."
+                     << std::endl;
         }
       else
         a_block_preconditioner.vmult(dst.block(0), utmp.block(0));
