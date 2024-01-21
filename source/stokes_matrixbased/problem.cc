@@ -313,7 +313,9 @@ namespace StokesMatrixBased
                                                 *schur_block_operator,
                                                 completely_distributed_solution,
                                                 system_rhs,
-                                                dof_handler);
+                                                dof_handler,
+                                                prm.solver_a_expensive,
+                                                prm.solver_schur_expensive);
       }
     else
       {

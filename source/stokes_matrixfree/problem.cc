@@ -378,7 +378,9 @@ namespace StokesMatrixFree
                                                 *a_block_operator,
                                                 *schur_block_operator,
                                                 completely_distributed_solution,
-                                                system_rhs);
+                                                system_rhs,
+                                                prm.solver_a_expensive,
+                                                prm.solver_schur_expensive);
       }
     else if (prm.solver_type == "GMG")
       {
@@ -400,7 +402,9 @@ namespace StokesMatrixFree
                                 mapping_collection,
                                 quadrature_collection_v,
                                 dof_handlers,
-                                filename_mg_level);
+                                filename_mg_level,
+                                prm.solver_a_expensive,
+                                prm.solver_schur_expensive);
           }
         else if (prm.prm_multigrid.smoother_preconditioner_type == "ASM")
           {
@@ -417,7 +421,9 @@ namespace StokesMatrixFree
                                 mapping_collection,
                                 quadrature_collection_v,
                                 dof_handlers,
-                                filename_mg_level);
+                                filename_mg_level,
+                                prm.solver_a_expensive,
+                                prm.solver_schur_expensive);
           }
         else if (prm.prm_multigrid.smoother_preconditioner_type == "Diagonal")
           {
@@ -432,7 +438,9 @@ namespace StokesMatrixFree
               mapping_collection,
               quadrature_collection_v,
               dof_handlers,
-              filename_mg_level);
+              filename_mg_level,
+              prm.solver_a_expensive,
+              prm.solver_schur_expensive);
           }
         else
           {
