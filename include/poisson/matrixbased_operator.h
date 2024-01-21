@@ -21,7 +21,7 @@
 
 #include <deal.II/hp/fe_values.h>
 
-#include <operator_base.h>
+#include <multigrid/operator_base.h>
 
 
 namespace PoissonMatrixBased

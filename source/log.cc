@@ -232,6 +232,33 @@ namespace Log
 
 
 
+  template <int dim, int spacedim>
+  void
+  log_patch_dofs(const std::vector<std::vector<types::global_dof_index>> &patch_indices,
+                 const DoFHandler<dim, spacedim>                         &dof_handler)
+  {
+    std::set<types::global_dof_index> all_indices;
+
+    // patch_indices contains locally active dofs. patches are unique among all processes, but not
+    // all patch indices. so ideally we would need to exchange all patch indices via MPI. currently,
+    // it is just an estimate.
+    for (const auto &indices : patch_indices)
+      for (const auto i : indices)
+        all_indices.insert(i);
+
+    const auto n_global_patch_dofs =
+      Utilities::MPI::sum<types::global_dof_index>(all_indices.size(),
+                                                   dof_handler.get_communicator());
+
+    getPCOut() << "   Number of patch DoFs:         " << n_global_patch_dofs << std::endl;
+    getTable().add_value("patch_dofs", n_global_patch_dofs);
+
+    const float fraction = static_cast<float>(n_global_patch_dofs) / dof_handler.n_dofs();
+    getPCOut() << "   Fraction of patch DoFs:       " << 100 * fraction << "%" << std::endl;
+  }
+
+
+
   // explicit instantiations
   template void
   log_hp_diagnostics<2, double, 2>(const parallel::distributed::Triangulation<2, 2> &,
@@ -241,6 +268,13 @@ namespace Log
   log_hp_diagnostics<3, double, 3>(const parallel::distributed::Triangulation<3, 3> &,
                                    const DoFHandler<3, 3> &,
                                    const AffineConstraints<double> &);
+
+  template void
+  log_patch_dofs<2, 2>(const std::vector<std::vector<dealii::types::global_dof_index>> &,
+                       const DoFHandler<2, 2> &);
+  template void
+  log_patch_dofs<3, 3>(const std::vector<std::vector<dealii::types::global_dof_index>> &,
+                       const DoFHandler<3, 3> &);
 
 #ifdef DEAL_II_WITH_TRILINOS
   template void

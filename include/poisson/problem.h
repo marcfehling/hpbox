@@ -21,10 +21,9 @@
 #include <deal.II/distributed/tria.h>
 
 #include <adaptation/base.h>
-#include <operator_base.h>
+#include <multigrid/operator_base.h>
 #include <parameter.h>
 #include <problem_base.h>
-
 
 
 namespace Poisson
@@ -62,6 +61,7 @@ namespace Poisson
     MPI_Comm mpi_communicator;
 
     const Parameter &prm;
+    std::string      filename_stem;
     std::string      filename_log;
 
     dealii::parallel::distributed::Triangulation<dim> triangulation;

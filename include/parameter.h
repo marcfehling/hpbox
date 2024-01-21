@@ -20,6 +20,7 @@
 #include <deal.II/base/parameter_acceptor.h>
 
 #include <adaptation/parameter.h>
+#include <multigrid/parameter.h>
 
 
 struct Parameter : public dealii::ParameterAcceptor
@@ -96,6 +97,7 @@ struct Parameter : public dealii::ParameterAcceptor
   bool         log_nonzero_elements;
 
   Adaptation::Parameter prm_adaptation;
+  MGSolverParameters    prm_multigrid;
 };
 
 

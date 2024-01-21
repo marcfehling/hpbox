@@ -22,11 +22,17 @@
 #include <deal.II/dofs/dof_handler.h>
 
 #include <deal.II/lac/affine_constraints.h>
+// #include <deal.II/lac/dynamic_sparsity_pattern.h>
 #include <deal.II/lac/solver_control.h>
 #include <deal.II/lac/solver_gmres.h>
 
 #include <linear_algebra.h>
-#include <mg_solver.h>
+#include <multigrid/asm.h>
+#include <multigrid/extended_diagonal.h>
+#include <multigrid/mg_solver.h>
+#include <multigrid/parameter.h>
+#include <multigrid/patch_indices.h>
+#include <multigrid/reduce_and_assemble.h>
 #include <stokes_matrixfree/operators.h>
 
 
@@ -211,7 +217,7 @@ namespace StokesMatrixFree
 
 
 
-  template <int dim, typename LinearAlgebra, int spacedim = dim>
+  template <typename SmootherPreconditionerType, int dim, typename LinearAlgebra, int spacedim>
   static void
   solve_gmg(dealii::SolverControl &solver_control_refined,
             const StokesMatrixFree::StokesOperator<dim, LinearAlgebra, spacedim> &stokes_operator,
@@ -219,17 +225,17 @@ namespace StokesMatrixFree
             const OperatorType<dim, LinearAlgebra, spacedim>             &schur_block_operator,
             typename LinearAlgebra::BlockVector                          &dst,
             const typename LinearAlgebra::BlockVector                    &src,
+            const MGSolverParameters                                     &mg_data,
             const dealii::hp::MappingCollection<dim, spacedim>           &mapping_collection,
+            const dealii::hp::QCollection<dim>                           &q_collection_v,
             const std::vector<const dealii::DoFHandler<dim, spacedim> *> &stokes_dof_handlers,
-            const std::string                                             filename_mg_timers)
+            const std::string                                            &filename_mg_level)
   {
     // poisson has mappingcollection and dofhandler as additional parameters
 
     using namespace dealii;
 
     using VectorType = typename LinearAlgebra::Vector;
-
-    const MGSolverParameters mg_data;
 
     // TODO: this is only temporary
     // only work on velocity dofhandlers for now
@@ -343,6 +349,9 @@ namespace StokesMatrixFree
     MGLevelObject<AffineConstraints<typename VectorType::value_type>> constraints(minlevel,
                                                                                   maxlevel);
 
+    MGLevelObject<std::shared_ptr<SmootherPreconditionerType>> smoother_preconditioners(minlevel,
+                                                                                        maxlevel);
+
     //
     // TODO: Generalise, maybe for operator and blockoperatorbase?
     //       Pass this part as lambda function?
@@ -372,6 +381,113 @@ namespace StokesMatrixFree
         // ... operator (just like on the finest level)
         operators[level] = a_block_operator.replicate();
         operators[level]->reinit(partitioning, dof_handler, constraint);
+
+
+        // WIP: build smoother preconditioners here
+        // necessary on all levels or just minlevel+1 to maxlevel?
+
+        if constexpr (std::is_same_v<SmootherPreconditionerType, DiagonalMatrix<VectorType>>)
+          {
+            smoother_preconditioners[level] = std::make_shared<SmootherPreconditionerType>();
+            operators[level]->compute_inverse_diagonal(
+              smoother_preconditioners[level]->get_vector());
+          }
+        else if constexpr (std::is_same_v<SmootherPreconditionerType, PreconditionASM<VectorType>>)
+          {
+            const auto patch_indices = prepare_patch_indices(dof_handler, constraint);
+
+            if (level == maxlevel)
+              Log::log_patch_dofs(patch_indices, dof_handler);
+
+            // full matrix
+            // TODO: this is a nasty way to get the sparsity pattern
+            // so far I only created temporary sparsity patterns in the LinearAlgebra namespace,
+            // but they are no longer available here
+            // so for the sake of trying ASM out, I'll just create another one here
+            const unsigned int myid =
+              dealii::Utilities::MPI::this_mpi_process(dof_handler.get_communicator());
+            typename LinearAlgebra::SparsityPattern sparsity_pattern;
+            sparsity_pattern.reinit(partitioning.get_owned_dofs(),
+                                    partitioning.get_owned_dofs(),
+                                    partitioning.get_relevant_dofs(),
+                                    dof_handler.get_communicator());
+            DoFTools::make_sparsity_pattern(dof_handler, sparsity_pattern, constraint, false, myid);
+            sparsity_pattern.compress();
+
+            smoother_preconditioners[level] =
+              std::make_shared<SmootherPreconditionerType>(std::move(patch_indices));
+            smoother_preconditioners[level]->initialize(operators[level]->get_system_matrix(),
+                                                        sparsity_pattern,
+                                                        dof_handler);
+          }
+        else if constexpr (std::is_same_v<SmootherPreconditionerType,
+                                          PreconditionExtendedDiagonal<VectorType>>)
+          {
+            const auto patch_indices = prepare_patch_indices(dof_handler, constraint);
+
+            if (level == maxlevel)
+              Log::log_patch_dofs(patch_indices, dof_handler);
+
+            // full matrix
+            // const unsigned int myid = dealii::Utilities::MPI::this_mpi_process(communicator);
+            // DynamicSparsityPattern dsp(relevant_dofs);
+            // DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false, myid);
+            // SparsityTools::distribute_sparsity_pattern(dsp, owned_dofs, communicator,
+            // relevant_dofs);
+
+            // reduced matrix
+            AffineConstraints<double> constraints_reduced;
+            constraints_reduced.reinit(partitioning.get_owned_dofs(),
+                                       partitioning.get_relevant_dofs());
+
+            const auto all_indices_relevant =
+              extract_relevant(patch_indices, partitioning, dof_handler);
+
+            std::set<types::global_dof_index> all_indices_assemble;
+            reduce_constraints(constraint,
+                               DoFTools::extract_locally_active_dofs(dof_handler),
+                               all_indices_relevant,
+                               constraints_reduced,
+                               all_indices_assemble);
+
+            // TODO: only works for Trilinos so far
+            typename LinearAlgebra::SparsityPattern reduced_sparsity_pattern;
+            reduced_sparsity_pattern.reinit(partitioning.get_owned_dofs(),
+                                            partitioning.get_owned_dofs(),
+                                            partitioning.get_relevant_dofs(),
+                                            dof_handler.get_communicator());
+            make_sparsity_pattern(dof_handler,
+                                  all_indices_assemble,
+                                  reduced_sparsity_pattern,
+                                  constraints_reduced);
+            reduced_sparsity_pattern.compress();
+
+            typename LinearAlgebra::SparseMatrix reduced_sparse_matrix;
+            reduced_sparse_matrix.reinit(reduced_sparsity_pattern);
+            partially_assemble_ablock(dof_handler,
+                                      constraints_reduced,
+                                      q_collection_v,
+                                      all_indices_assemble,
+                                      reduced_sparse_matrix);
+
+            VectorType inverse_diagonal;
+            operators[level]->compute_inverse_diagonal(inverse_diagonal);
+
+            smoother_preconditioners[level] =
+              std::make_shared<SmootherPreconditionerType>(std::move(patch_indices));
+            // smoother_preconditioners[level]->initialize(mg_matrices[level]->get_system_matrix(),
+            //                                             dsp,
+            //                                             inverse_diagonal,
+            //                                             all_indices_relevant);
+            smoother_preconditioners[level]->initialize(reduced_sparse_matrix,
+                                                        reduced_sparsity_pattern,
+                                                        inverse_diagonal,
+                                                        all_indices_relevant);
+          }
+        else
+          {
+            AssertThrow(false, ExcNotImplemented());
+          }
       }
 
     // Set up intergrid operators.
@@ -401,7 +517,6 @@ namespace StokesMatrixFree
     using LevelMatrixType = OperatorType<dim, LinearAlgebra, spacedim>;
     using MGTransferType  = MGTransferGlobalCoarsening<dim, VectorType>;
 
-    using SmootherPreconditionerType = DiagonalMatrix<VectorType>;
     using SmootherType =
       PreconditionChebyshev<LevelMatrixType, VectorType, SmootherPreconditionerType>;
     using PreconditionerType = PreconditionMG<dim, VectorType, MGTransferType>;
@@ -417,23 +532,53 @@ namespace StokesMatrixFree
 
     for (unsigned int level = min_level; level <= max_level; level++)
       {
-        smoother_data[level].preconditioner = std::make_shared<SmootherPreconditionerType>();
-        operators[level]->compute_inverse_diagonal(
-          smoother_data[level].preconditioner->get_vector());
+        smoother_data[level].preconditioner      = smoother_preconditioners[level];
         smoother_data[level].smoothing_range     = mg_data.smoother.smoothing_range;
         smoother_data[level].degree              = mg_data.smoother.degree;
         smoother_data[level].eig_cg_n_iterations = mg_data.smoother.eig_cg_n_iterations;
       }
 
-    MGSmootherPrecondition<LevelMatrixType, SmootherType, VectorType> mg_smoother;
+    // ----------
+    // Estimate eigenvalues on all levels, i.e., all operators
+    // TODO: based on peter's code
+    // https://github.com/peterrum/dealii-asm/blob/d998b9b344a19c9d2890e087f953c2f93e6546ae/include/precondition.templates.h#L292-L316
+    std::vector<double> min_eigenvalues(max_level + 1, numbers::signaling_nan<double>());
+    std::vector<double> max_eigenvalues(max_level + 1, numbers::signaling_nan<double>());
+    if (mg_data.estimate_eigenvalues == true)
+      {
+        for (unsigned int level = min_level + 1; level <= max_level; level++)
+          {
+            SmootherType chebyshev;
+            chebyshev.initialize(*operators[level], smoother_data[level]);
+
+            VectorType vec;
+            operators[level]->initialize_dof_vector(vec);
+            const auto evs = chebyshev.estimate_eigenvalues(vec);
+
+            min_eigenvalues[level] = evs.min_eigenvalue_estimate;
+            max_eigenvalues[level] = evs.max_eigenvalue_estimate;
+
+            // We already computed eigenvalues, reset the one in the actual smoother
+            smoother_data[level].eig_cg_n_iterations = 0;
+            smoother_data[level].max_eigenvalue      = evs.max_eigenvalue_estimate * 1.1;
+          }
+
+        // log maximum over all levels
+        const double max = *std::max_element(++(max_eigenvalues.begin()), max_eigenvalues.end());
+        getPCOut() << "   Max EV on all MG levels:      " << max << std::endl;
+        getTable().add_value("max_ev", max);
+      }
+    // ----------
+
+    MGSmootherRelaxation<LevelMatrixType, SmootherType, VectorType> mg_smoother;
     mg_smoother.initialize(operators, smoother_data);
 
     // Initialize coarse-grid solver.
     ReductionControl     coarse_grid_solver_control(mg_data.coarse_solver.maxiter,
                                                 mg_data.coarse_solver.abstol,
                                                 mg_data.coarse_solver.reltol,
-                                                false,
-                                                false);
+                                                /*log_history=*/true,
+                                                /*log_result=*/true);
     SolverCG<VectorType> coarse_grid_solver(coarse_grid_solver_control);
 
     std::unique_ptr<MGCoarseGridBase<VectorType>> mg_coarse;
@@ -457,7 +602,6 @@ namespace StokesMatrixFree
     // Create multigrid object.
     Multigrid<VectorType> mg_a_block(mg_matrix, *mg_coarse, transfer, mg_smoother, mg_smoother);
 
-
     // ----------
     // TODO: timing based on peters dealii-multigrid
     // https://github.com/peterrum/dealii-multigrid/blob/c50581883c0dbe35c83132699e6de40da9b1b255/multigrid_throughput.cc#L1183-L1192
@@ -467,39 +611,40 @@ namespace StokesMatrixFree
     for (unsigned int i = 0; i < all_mg_timers.size(); ++i)
       all_mg_timers[i].resize(7);
 
-    const auto create_mg_timer_function = [&](const unsigned int i, const std::string &label) {
-      return [i, label, &all_mg_timers](const bool flag, const unsigned int level) {
-        // if (false && flag)
-        //   std::cout << label << " " << level << std::endl;
-        if (flag)
-          all_mg_timers[level][i].second = std::chrono::system_clock::now();
-        else
-          all_mg_timers[level][i].first +=
-            std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now() -
-                                                                 all_mg_timers[level][i].second)
-              .count() /
-            1e9;
-      };
-    };
+    if (mg_data.log_levels == true)
+      {
+        const auto create_mg_timer_function = [&](const unsigned int i, const std::string &label) {
+          return [i, label, &all_mg_timers](const bool flag, const unsigned int level) {
+            // if (false && flag)
+            //   std::cout << label << " " << level << std::endl;
+            if (flag)
+              all_mg_timers[level][i].second = std::chrono::system_clock::now();
+            else
+              all_mg_timers[level][i].first +=
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                  std::chrono::system_clock::now() - all_mg_timers[level][i].second)
+                  .count() /
+                1e9;
+          };
+        };
 
-    mg_a_block.connect_pre_smoother_step(create_mg_timer_function(0, "pre_smoother_step"));
-    mg_a_block.connect_residual_step(create_mg_timer_function(1, "residual_step"));
-    mg_a_block.connect_restriction(create_mg_timer_function(2, "restriction"));
-    mg_a_block.connect_coarse_solve(create_mg_timer_function(3, "coarse_solve"));
-    mg_a_block.connect_prolongation(create_mg_timer_function(4, "prolongation"));
-    mg_a_block.connect_edge_prolongation(create_mg_timer_function(5, "edge_prolongation"));
-    mg_a_block.connect_post_smoother_step(create_mg_timer_function(6, "post_smoother_step"));
+        mg_a_block.connect_pre_smoother_step(create_mg_timer_function(0, "pre_smoother_step"));
+        mg_a_block.connect_residual_step(create_mg_timer_function(1, "residual_step"));
+        mg_a_block.connect_restriction(create_mg_timer_function(2, "restriction"));
+        mg_a_block.connect_coarse_solve(create_mg_timer_function(3, "coarse_solve"));
+        mg_a_block.connect_prolongation(create_mg_timer_function(4, "prolongation"));
+        mg_a_block.connect_edge_prolongation(create_mg_timer_function(5, "edge_prolongation"));
+        mg_a_block.connect_post_smoother_step(create_mg_timer_function(6, "post_smoother_step"));
+      }
     // ----------
 
     // Convert it to a preconditioner.
     PreconditionerType a_block_preconditioner(dof_handler, mg_a_block, transfer);
 
-
     InverseDiagonalMatrix<dim, LinearAlgebra, spacedim> inv_diagonal(schur_block_operator);
     PreconditionJacobi<InverseDiagonalMatrix<dim, LinearAlgebra, spacedim>>
       schur_block_preconditioner;
     schur_block_preconditioner.initialize(inv_diagonal);
-
 
     const BlockSchurPreconditioner<
       LinearAlgebra,
@@ -527,10 +672,10 @@ namespace StokesMatrixFree
 
     solver.solve(stokes_operator, dst, src, preconditioner);
 
-
     // ----------
     // dump to Table and then file system
-    if (Utilities::MPI::this_mpi_process(dof_handler.get_communicator()) == 0)
+    if ((mg_data.log_levels == true) &&
+        (Utilities::MPI::this_mpi_process(dof_handler.get_communicator()) == 0))
       {
         dealii::ConvergenceTable table;
         for (unsigned int level = 0; level < all_mg_timers.size(); ++level)
@@ -543,9 +688,14 @@ namespace StokesMatrixFree
             table.add_value("prolongation", all_mg_timers[level][4].first);
             table.add_value("edge_prolongation", all_mg_timers[level][5].first);
             table.add_value("post_smoother_step", all_mg_timers[level][6].first);
+            if (mg_data.estimate_eigenvalues == true)
+              {
+                table.add_value("min_eigenvalue", min_eigenvalues[level]);
+                table.add_value("max_eigenvalue", max_eigenvalues[level]);
+              }
           }
-        std::ofstream mg_timers_stream(filename_mg_timers);
-        table.write_text(mg_timers_stream);
+        std::ofstream mg_level_stream(filename_mg_level);
+        table.write_text(mg_level_stream);
       }
     // ----------
   }

@@ -19,11 +19,17 @@
 
 #include <deal.II/matrix_free/tools.h>
 
+#include <multigrid/asm.h>
+#include <multigrid/extended_diagonal.h>
+#include <multigrid/mg_solver.h>
+#include <multigrid/parameter.h>
+#include <multigrid/patch_indices.h>
+#include <multigrid/reduce_and_assemble.h>
 
 
 namespace Poisson
 {
-  template <int dim, typename LinearAlgebra, int spacedim = dim>
+  template <int dim, typename LinearAlgebra, int spacedim>
   static void
   solve_amg(dealii::SolverControl                            &solver_control,
             const OperatorType<dim, LinearAlgebra, spacedim> &poisson_operator,
@@ -63,20 +69,21 @@ namespace Poisson
 
 
 
-  template <int dim, typename LinearAlgebra, int spacedim = dim>
+  template <typename SmootherPreconditionerType, int dim, typename LinearAlgebra, int spacedim>
   static void
   solve_gmg(dealii::SolverControl                              &solver_control,
             const OperatorType<dim, LinearAlgebra, spacedim>   &poisson_operator,
             typename LinearAlgebra::Vector                     &dst,
             const typename LinearAlgebra::Vector               &src,
+            const MGSolverParameters                           &mg_data,
             const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
-            const dealii::DoFHandler<dim, spacedim>            &dof_handler)
+            const dealii::hp::QCollection<dim>                 &q_collection,
+            const dealii::DoFHandler<dim, spacedim>            &dof_handler,
+            const std::string                                  &filename_mg_level)
   {
     using namespace dealii;
 
     using VectorType = typename LinearAlgebra::Vector;
-
-    const MGSolverParameters mg_data;
 
     // Create a DoFHandler and operator for each multigrid level defined
     // by p-coarsening, as well as, create transfer operators.
@@ -186,6 +193,9 @@ namespace Poisson
     MGLevelObject<AffineConstraints<typename VectorType::value_type>> constraints(minlevel,
                                                                                   maxlevel);
 
+    MGLevelObject<std::shared_ptr<SmootherPreconditionerType>> smoother_preconditioners(minlevel,
+                                                                                        maxlevel);
+
     //
     // TODO: Generalise, maybe for operator and blockoperatorbase?
     //       Pass this part as lambda function?
@@ -210,6 +220,115 @@ namespace Poisson
         // ... operator (just like on the finest level)
         operators[level] = poisson_operator.replicate();
         operators[level]->reinit(partitioning, dof_handler, constraint);
+
+        // TODO: Also store sparsity patterns?
+
+
+        // WIP: build smoother preconditioners here
+        // necessary on all levels or just minlevel+1 to maxlevel?
+
+        if constexpr (std::is_same_v<SmootherPreconditionerType, DiagonalMatrix<VectorType>>)
+          {
+            smoother_preconditioners[level] = std::make_shared<SmootherPreconditionerType>();
+            operators[level]->compute_inverse_diagonal(
+              smoother_preconditioners[level]->get_vector());
+          }
+        else if constexpr (std::is_same_v<SmootherPreconditionerType, PreconditionASM<VectorType>>)
+          {
+            const auto patch_indices = prepare_patch_indices(dof_handler, constraint);
+
+            if (level == maxlevel)
+              Log::log_patch_dofs(patch_indices, dof_handler);
+
+            // full matrix
+            // TODO: this is a nasty way to get the sparsity pattern
+            // so far I only created temporary sparsity patterns in the LinearAlgebra namespace,
+            // but they are no longer available here
+            // so for the sake of trying ASM out, I'll just create another one here
+            const unsigned int myid =
+              dealii::Utilities::MPI::this_mpi_process(dof_handler.get_communicator());
+            typename LinearAlgebra::SparsityPattern sparsity_pattern;
+            sparsity_pattern.reinit(partitioning.get_owned_dofs(),
+                                    partitioning.get_owned_dofs(),
+                                    partitioning.get_relevant_dofs(),
+                                    dof_handler.get_communicator());
+            DoFTools::make_sparsity_pattern(dof_handler, sparsity_pattern, constraint, false, myid);
+            sparsity_pattern.compress();
+
+            smoother_preconditioners[level] =
+              std::make_shared<SmootherPreconditionerType>(std::move(patch_indices));
+            smoother_preconditioners[level]->initialize(operators[level]->get_system_matrix(),
+                                                        sparsity_pattern,
+                                                        dof_handler);
+          }
+        else if constexpr (std::is_same_v<SmootherPreconditionerType,
+                                          PreconditionExtendedDiagonal<VectorType>>)
+          {
+            const auto patch_indices = prepare_patch_indices(dof_handler, constraint);
+
+            if (level == maxlevel)
+              Log::log_patch_dofs(patch_indices, dof_handler);
+
+            // full matrix
+            // const unsigned int myid = dealii::Utilities::MPI::this_mpi_process(communicator);
+            // DynamicSparsityPattern dsp(relevant_dofs);
+            // DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false, myid);
+            // SparsityTools::distribute_sparsity_pattern(dsp, owned_dofs, communicator,
+            // relevant_dofs);
+
+            // reduced matrix
+            AffineConstraints<double> constraints_reduced;
+            constraints_reduced.reinit(partitioning.get_owned_dofs(),
+                                       partitioning.get_relevant_dofs());
+
+            const auto all_indices_relevant =
+              extract_relevant(patch_indices, partitioning, dof_handler);
+
+            std::set<types::global_dof_index> all_indices_assemble;
+            reduce_constraints(constraint,
+                               DoFTools::extract_locally_active_dofs(dof_handler),
+                               all_indices_relevant,
+                               constraints_reduced,
+                               all_indices_assemble);
+
+            // TODO: only works for Trilinos so far
+            typename LinearAlgebra::SparsityPattern reduced_sparsity_pattern;
+            reduced_sparsity_pattern.reinit(partitioning.get_owned_dofs(),
+                                            partitioning.get_owned_dofs(),
+                                            partitioning.get_relevant_dofs(),
+                                            dof_handler.get_communicator());
+            make_sparsity_pattern(dof_handler,
+                                  all_indices_assemble,
+                                  reduced_sparsity_pattern,
+                                  constraints_reduced);
+            reduced_sparsity_pattern.compress();
+
+            typename LinearAlgebra::SparseMatrix reduced_sparse_matrix;
+            reduced_sparse_matrix.reinit(reduced_sparsity_pattern);
+            partially_assemble_poisson(dof_handler,
+                                       constraints_reduced,
+                                       q_collection,
+                                       all_indices_assemble,
+                                       reduced_sparse_matrix);
+
+            VectorType inverse_diagonal;
+            operators[level]->compute_inverse_diagonal(inverse_diagonal);
+
+            smoother_preconditioners[level] =
+              std::make_shared<SmootherPreconditionerType>(std::move(patch_indices));
+            // smoother_preconditioners[level]->->initialize(operators[level]->get_system_matrix(),
+            //                                               dsp,
+            //                                               inverse_diagonal,
+            //                                               all_indices_relevant);
+            smoother_preconditioners[level]->initialize(reduced_sparse_matrix,
+                                                        reduced_sparsity_pattern,
+                                                        inverse_diagonal,
+                                                        all_indices_relevant);
+          }
+        else
+          {
+            AssertThrow(false, ExcNotImplemented());
+          }
       }
 
     // Set up intergrid operators.
@@ -232,7 +351,16 @@ namespace Poisson
     });
 
     // Proceed to solve the problem with multigrid.
-    mg_solve(solver_control, dst, src, mg_data, dof_handler, poisson_operator, operators, transfer);
+    mg_solve(solver_control,
+             dst,
+             src,
+             mg_data,
+             dof_handler,
+             poisson_operator,
+             operators,
+             smoother_preconditioners,
+             transfer,
+             filename_mg_level);
   }
 } // namespace Poisson
 
