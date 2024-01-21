@@ -14,11 +14,16 @@ subsection adaptation
 end
 subsection input output
   set checkpoint each n steps = 0
-  set file stem               = fichera_matrixfree_amg
+  set file stem               = fichera_matrixfree_mg_asm
   set log deallog             = false
   set log nonzero elements    = false
   set output each n steps     = 0
   set resume from filename    = 
+end
+subsection multigrid
+  set smoother preconditioner type = ASM
+  set estimate eigenvalues         = true
+  set log levels                   = false
 end
 subsection problem
   set adaptation type         = hp Legendre
@@ -28,5 +33,5 @@ subsection problem
   set operator type           = MatrixFree
   set problem type            = Poisson
   set solver tolerance factor = 1e-12
-  set solver type             = AMG
+  set solver type             = GMG
 end
