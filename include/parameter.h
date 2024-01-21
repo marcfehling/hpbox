@@ -71,6 +71,9 @@ struct Parameter : public dealii::ParameterAcceptor
     checkpoint_frequency = 0;
     add_parameter("checkpoint each n steps", checkpoint_frequency);
 
+    log_deallog = false;
+    add_parameter("log deallog", log_deallog);
+
     log_nonzero_elements = false;
     add_parameter("log nonzero elements", log_nonzero_elements);
   }
@@ -89,6 +92,7 @@ struct Parameter : public dealii::ParameterAcceptor
   unsigned int output_frequency;
   std::string  resume_filename;
   unsigned int checkpoint_frequency;
+  bool         log_deallog;
   bool         log_nonzero_elements;
 
   Adaptation::Parameter prm_adaptation;

@@ -14,6 +14,8 @@
 // ---------------------------------------------------------------------
 
 
+#include <deal.II/base/logstream.h>
+
 #include <factory.h>
 #include <global.h>
 #include <parameter.h>
@@ -31,6 +33,9 @@ main(int argc, char *argv[])
       const std::string filename        = (argc > 1) ? argv[1] : "";
       const std::string output_filename = (argc > 1) ? "" : "poisson.prm";
       dealii::ParameterAcceptor::initialize(filename, output_filename);
+
+      if (prm.log_deallog && getPCOut().is_active())
+        dealii::deallog.attach(getPCOut().get_stream());
 
       getPCOut() << "Running with " << prm.linear_algebra << " on "
                  << dealii::Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD) << " MPI rank(s)..."
