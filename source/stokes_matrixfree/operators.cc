@@ -168,13 +168,16 @@ namespace StokesMatrixFree
 
     for (unsigned int q = 0; q < velocity.n_q_points; ++q)
       {
-        Tensor<1, dim, Tensor<1, dim, VectorizedArray<double>>> grad_u = velocity.get_gradient(q);
+        SymmetricTensor<2, dim, VectorizedArray<double>> sym_grad_u =
+          velocity.get_symmetric_gradient(q);
 
         // TODO: Move viscosity to class member
-        constexpr double viscosity = 0.1;
-        grad_u *= viscosity;
+        constexpr double viscosity    = 0.1;
+        constexpr double viscosity_x2 = 2 * viscosity;
 
-        velocity.submit_gradient(grad_u, q);
+        sym_grad_u *= viscosity_x2;
+
+        velocity.submit_symmetric_gradient(sym_grad_u, q);
       }
 
     velocity.integrate(EvaluationFlags::gradients);
@@ -192,13 +195,16 @@ namespace StokesMatrixFree
 
     for (unsigned int q = 0; q < velocity.n_q_points; ++q)
       {
-        Tensor<1, dim, Tensor<1, dim, VectorizedArray<double>>> grad_u = velocity.get_gradient(q);
+        SymmetricTensor<2, dim, VectorizedArray<double>> sym_grad_u =
+          velocity.get_symmetric_gradient(q);
 
         // TODO: Move viscosity to class member
-        constexpr double viscosity = 0.1;
-        grad_u *= viscosity;
+        constexpr double viscosity    = 0.1;
+        constexpr double viscosity_x2 = 2 * viscosity;
 
-        velocity.submit_gradient(grad_u, q);
+        sym_grad_u *= viscosity_x2;
+
+        velocity.submit_symmetric_gradient(sym_grad_u, q);
       }
 
     velocity.integrate_scatter(EvaluationFlags::gradients, dst);
@@ -600,21 +606,23 @@ namespace StokesMatrixFree
 
         for (unsigned int q = 0; q < velocity.n_q_points; ++q)
           {
-            Tensor<1, dim, Tensor<1, dim, VectorizedArray<double>>> grad_u =
-              velocity.get_gradient(q);
+            SymmetricTensor<2, dim, VectorizedArray<double>> sym_grad_u =
+              velocity.get_symmetric_gradient(q);
             VectorizedArray<double> pres  = pressure.get_value(q);
-            VectorizedArray<double> div_u = velocity.get_divergence(q);
+            VectorizedArray<double> div_u = trace(sym_grad_u);
             pressure.submit_value(-div_u, q);
 
             // TODO: Move viscosity to class member
-            constexpr double viscosity = 0.1;
-            grad_u *= viscosity;
+            constexpr double viscosity    = 0.1;
+            constexpr double viscosity_x2 = 2 * viscosity;
+
+            sym_grad_u *= viscosity_x2;
 
             // subtract p * I
             for (unsigned int d = 0; d < dim; ++d)
-              grad_u[d][d] -= pres;
+              sym_grad_u[d][d] -= pres;
 
-            velocity.submit_gradient(grad_u, q);
+            velocity.submit_symmetric_gradient(sym_grad_u, q);
           }
 
         velocity.integrate_scatter(EvaluationFlags::gradients, dst.block(0));
