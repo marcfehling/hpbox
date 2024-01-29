@@ -34,11 +34,15 @@ namespace StokesMatrixFree
 
     using FECellIntegrator = dealii::FEEvaluation<dim, -1, 0, dim, value_type>;
 
-    ABlockOperator(const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
-                   const dealii::hp::QCollection<dim>                 &quadrature_collection);
+    ABlockOperator(const dealii::MatrixFree<dim, value_type> &matrix_free);
 
     std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>
     replicate() const override;
+
+    void
+    reinit(const Partitioning                          &partitioning,
+           const dealii::DoFHandler<dim, spacedim>     &matrix_free,
+           const dealii::AffineConstraints<value_type> &constraints) override;
 
     void
     reinit(const Partitioning                          &partitioning,
@@ -64,6 +68,9 @@ namespace StokesMatrixFree
     void
     compute_inverse_diagonal(VectorType &diagonal) const override;
 
+    const MatrixFree<dim, value_type> &
+    get_matrix_free() const override;
+
     const typename LinearAlgebra::SparseMatrix &
     get_system_matrix() const override;
 
@@ -76,6 +83,9 @@ namespace StokesMatrixFree
     dealii::SmartPointer<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
     dealii::SmartPointer<const dealii::hp::QCollection<dim>>                 quadrature_collection;
     dealii::SmartPointer<const dealii::AffineConstraints<value_type>>        constraints;
+
+    constexpr unsigned int velocity_index = 0;
+    dealii::SmartPointer<const dealii::MatrixFree<dim, value_type>>          matrix_free;
 
     // TODO: Add RHS function to constructor
     //       Grab and set as RHS in reinit
@@ -97,7 +107,7 @@ namespace StokesMatrixFree
 
     // TODO: Make partitioning a pointer? Or leave it like this?
     Partitioning                        partitioning;
-    dealii::MatrixFree<dim, value_type> matrix_free;
+    // dealii::MatrixFree<dim, value_type> matrix_free;
 
     mutable typename LinearAlgebra::SparseMatrix a_block_matrix;
   };
@@ -120,6 +130,11 @@ namespace StokesMatrixFree
 
     void
     reinit(const Partitioning                          &partitioning,
+           const dealii::MatrixFree<dim, spacedim>     &matrix_free,
+           const dealii::AffineConstraints<value_type> &constraints) override;
+
+    void
+    reinit(const Partitioning                          &partitioning,
            const dealii::DoFHandler<dim, spacedim>     &dof_handler,
            const dealii::AffineConstraints<value_type> &constraints) override;
 
@@ -141,6 +156,9 @@ namespace StokesMatrixFree
 
     void
     compute_inverse_diagonal(VectorType &diagonal) const override;
+
+    const MatrixFree<dim, value_type> &
+    get_matrix_free() const override;
 
     const typename LinearAlgebra::SparseMatrix &
     get_system_matrix() const override;
@@ -215,6 +233,9 @@ namespace StokesMatrixFree
     void
     compute_inverse_diagonal(VectorType &diagonal) const override;
 
+    const MatrixFree<dim, value_type> &
+    get_matrix_free() const;
+
     const typename LinearAlgebra::BlockSparseMatrix &
     get_system_matrix() const override;
 
@@ -243,6 +264,9 @@ namespace StokesMatrixFree
 
     // TODO: Make partitioning a pointer? Or leave it like this?
     Partitioning                        partitioning;
+
+    constexpr unsigned int velocity_index = 0;
+    constexpr unsigned int pressure_index = 1;
     dealii::MatrixFree<dim, value_type> matrix_free;
 
     mutable typename LinearAlgebra::BlockSparseMatrix dummy;

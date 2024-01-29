@@ -686,10 +686,13 @@ namespace StokesMatrixFree
                  ExcMessage("Active FE indices differ!"));
 #endif
 
-          a_block_operator->reinit(partitioning_v, dof_handler_v, constraints_v);
-          schur_block_operator->reinit(partitioning_p, dof_handler_p, constraints_p);
           stokes_operator->reinit(
-            partitionings, dof_handlers, constraints, system_rhs, rhs_functions);
+                      partitionings, dof_handlers, constraints, system_rhs, rhs_functions);
+
+          a_block_operator->reinit(partitioning_v, stokes_operator->get_matrix_free(), constraints_v);
+
+          schur_block_operator->reinit(partitioning_p, dof_handler_p, constraints_p);
+
 
           if (prm.log_nonzero_elements)
             Log::log_nonzero_elements(stokes_operator->get_system_matrix());

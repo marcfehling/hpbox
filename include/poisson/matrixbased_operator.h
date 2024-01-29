@@ -46,6 +46,11 @@ namespace PoissonMatrixBased
 
     void
     reinit(const Partitioning                          &partitioning,
+           const dealii::MatrixFree<dim, value_type>   &matrix_free,
+           const dealii::AffineConstraints<value_type> &constraints) override;
+
+    void
+    reinit(const Partitioning                          &partitioning,
            const dealii::DoFHandler<dim, spacedim>     &dof_handler,
            const dealii::AffineConstraints<value_type> &constraints) override;
 
@@ -68,6 +73,9 @@ namespace PoissonMatrixBased
     void
     compute_inverse_diagonal(VectorType &diagonal) const override;
 
+    const dealii::MatrixFree<dim, value_type> &
+    get_matrix_free() const override;
+
     const typename LinearAlgebra::SparseMatrix &
     get_system_matrix() const override;
 
@@ -85,6 +93,7 @@ namespace PoissonMatrixBased
     // dealii::Function<dim> rhs_function;
 
     dealii::hp::FEValues<dim, spacedim> fe_values_collection;
+    dealii::MatrixFree<dim, value_type> dummy;
 
     typename LinearAlgebra::SparseMatrix system_matrix;
 

@@ -155,6 +155,8 @@ DEAL_II_NAMESPACE_CLOSE
 // ----------------------------------------
 
 
+#include <deal.II/matrix_free/matrix_free.h>
+
 #include <multigrid/mg_solver.h>
 #include <partitioning.h>
 
@@ -175,6 +177,11 @@ public:
 
   virtual void
   reinit(const Partitioning                          &partitioning,
+         const dealii::MatrixFree<dim, value_type>   &matrix_free,
+         const dealii::AffineConstraints<value_type> &constraints) = 0;
+
+  virtual void
+  reinit(const Partitioning                          &partitioning,
          const dealii::DoFHandler<dim, spacedim>     &dof_handler,
          const dealii::AffineConstraints<value_type> &constraints) = 0;
 
@@ -185,6 +192,9 @@ public:
          VectorType                                  &system_rhs,
          const dealii::Function<spacedim>            *rhs_function) = 0;
   // TODO: make rhs function a reference?
+
+  virtual const dealii::MatrixFree<dim, value_type> &
+  get_matrix_free() const = 0;
 
   virtual const MatrixType &
   get_system_matrix() const override = 0;

@@ -72,6 +72,18 @@ namespace PoissonMatrixBased
   template <int dim, typename LinearAlgebra, int spacedim>
   void
   PoissonOperator<dim, LinearAlgebra, spacedim>::reinit(
+    const Partitioning                  &,
+    const MatrixFree<dim, value_type>   &,
+    const AffineConstraints<value_type> &)
+  {
+    Assert(false, ExcNotImplemented());
+  }
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
+  void
+  PoissonOperator<dim, LinearAlgebra, spacedim>::reinit(
     const Partitioning                  &partitioning,
     const DoFHandler<dim, spacedim>     &dof_handler,
     const AffineConstraints<value_type> &constraints)
@@ -246,6 +258,16 @@ namespace PoissonMatrixBased
       diagonal[n] = 1.0 / system_matrix.diag_element(n);
 
     diagonal.compress(VectorOperation::values::insert);
+  }
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
+  const MatrixFree<dim, value_type> &
+  PoissonOperator<dim, LinearAlgebra, spacedim>::get_matrix_free() const
+  {
+    Assert(false, ExcNotImplemented());
+    return dummy;
   }
 
 

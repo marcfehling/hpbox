@@ -52,6 +52,18 @@ namespace PoissonMatrixFree
   template <int dim, typename LinearAlgebra, int spacedim>
   void
   PoissonOperator<dim, LinearAlgebra, spacedim>::reinit(
+    const Partitioning                  &,
+    const MatrixFree<dim, value_type>   &,
+    const AffineConstraints<value_type> &)
+  {
+    Assert(false, ExcNotImplemented());
+  }
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
+  void
+  PoissonOperator<dim, LinearAlgebra, spacedim>::reinit(
     const Partitioning                  &partitioning,
     const DoFHandler<dim, spacedim>     &dof_handler,
     const AffineConstraints<value_type> &constraints)
@@ -164,6 +176,15 @@ namespace PoissonMatrixFree
     // invert diagonal
     for (auto &i : diagonal)
       i = (std::abs(i) > 1.0e-10) ? (1.0 / i) : 1.0;
+  }
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
+  const MatrixFree<dim, value_type> &
+  PoissonOperator<dim, LinearAlgebra, spacedim>::get_matrix_free() const
+  {
+    return matrix_free;
   }
 
 

@@ -46,6 +46,11 @@ namespace StokesMatrixBased
 
     void
     reinit(const Partitioning                          &partitioning,
+           const dealii::MatrixFree<dim, value_type>   &matrix_free,
+           const dealii::AffineConstraints<value_type> &constraints) override;
+
+    void
+    reinit(const Partitioning                          &partitioning,
            const dealii::DoFHandler<dim, spacedim>     &dof_handler,
            const dealii::AffineConstraints<value_type> &constraints) override;
 
@@ -85,6 +90,7 @@ namespace StokesMatrixBased
     // dealii::Function<dim> rhs_function;
 
     dealii::hp::FEValues<dim, spacedim> fe_values_collection;
+    dealii::MatrixFree<dim, value_type> dummy;
 
     typename LinearAlgebra::BlockSparseMatrix a_block_matrix;
 
@@ -116,6 +122,11 @@ namespace StokesMatrixBased
 
     void
     reinit(const Partitioning                          &partitioning,
+           const dealii::MatrixFree<dim, value_type>   &matrix_free,
+           const dealii::AffineConstraints<value_type> &constraints) override;
+
+    void
+    reinit(const Partitioning                          &partitioning,
            const dealii::DoFHandler<dim, spacedim>     &dof_handler,
            const dealii::AffineConstraints<value_type> &constraints) override;
 
@@ -155,6 +166,7 @@ namespace StokesMatrixBased
     // dealii::Function<dim> rhs_function;
 
     dealii::hp::FEValues<dim, spacedim> fe_values_collection;
+    dealii::MatrixFree<dim, value_type> dummy;
 
     typename LinearAlgebra::BlockSparseMatrix schur_block_matrix;
 
@@ -183,6 +195,11 @@ namespace StokesMatrixBased
 
     std::unique_ptr<BlockOperatorType<dim, LinearAlgebra, spacedim>>
     replicate() const override;
+
+    void
+    reinit(const Partitioning                          &partitioning,
+           const dealii::MatrixFree<dim, value_type>   &matrix_free,
+           const dealii::AffineConstraints<value_type> &constraints) override;
 
     void
     reinit(const Partitioning                          &partitioning,
@@ -225,6 +242,7 @@ namespace StokesMatrixBased
     // dealii::Function<dim> rhs_function;
 
     dealii::hp::FEValues<dim, spacedim> fe_values_collection;
+    dealii::MatrixFree<dim, value_type> dummy;
 
     typename LinearAlgebra::BlockSparseMatrix system_matrix;
 
