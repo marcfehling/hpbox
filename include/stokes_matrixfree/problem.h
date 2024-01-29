@@ -114,8 +114,8 @@ namespace StokesMatrixFree
     std::vector<const dealii::AffineConstraints<double> *> constraints;
 
     std::unique_ptr<StokesMatrixFree::StokesOperator<dim, LinearAlgebra, spacedim>> stokes_operator;
-    std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>> a_block_operator;
-    std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>> schur_block_operator;
+    std::unique_ptr<StokesMatrixFree::ABlockOperator<dim, LinearAlgebra, spacedim>> a_block_operator;
+    std::unique_ptr<StokesMatrixFree::SchurBlockOperator<dim, LinearAlgebra, spacedim>> schur_block_operator;
 
     typename LinearAlgebra::BlockVector locally_relevant_solution;
     typename LinearAlgebra::BlockVector system_rhs;

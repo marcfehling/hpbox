@@ -379,7 +379,7 @@ namespace StokesMatrixFree
         constraint.close();
 
         // ... operator (just like on the finest level)
-        operators[level] = a_block_operator.replicate();
+        operators[level] = std::make_unique<ABlockOperatorType>();
         operators[level]->reinit(partitioning, dof_handler, constraint);
 
 

@@ -30,22 +30,8 @@ namespace StokesMatrixFree
 {
   // --- ABlockOperator ---
   template <int dim, typename LinearAlgebra, int spacedim>
-  ABlockOperator<dim, LinearAlgebra, spacedim>::ABlockOperator(
-    const hp::MappingCollection<dim, spacedim> &mapping_collection,
-    const hp::QCollection<dim>                 &quadrature_collection)
-    : mapping_collection(&mapping_collection)
-    , quadrature_collection(&quadrature_collection)
+  ABlockOperator<dim, LinearAlgebra, spacedim>::ABlockOperator()
   {}
-
-
-
-  template <int dim, typename LinearAlgebra, int spacedim>
-  std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>
-  ABlockOperator<dim, LinearAlgebra, spacedim>::replicate() const
-  {
-    return std::make_unique<ABlockOperator<dim, LinearAlgebra, spacedim>>(*mapping_collection,
-                                                                          *quadrature_collection);
-  }
 
 
 
@@ -53,7 +39,7 @@ namespace StokesMatrixFree
   void
   ABlockOperator<dim, LinearAlgebra, spacedim>::reinit(
     const Partitioning                  &partitioning,
-    const DoFHandler<dim, spacedim>     &dof_handler,
+    const MatrixFree<dim, value_type>   &matrix_free,
     const AffineConstraints<value_type> &constraints)
   {
     TimerOutput::Scope t(getTimer(), "setup_system");
@@ -61,25 +47,8 @@ namespace StokesMatrixFree
     this->a_block_matrix.clear();
 
     this->partitioning = partitioning;
+    this->matrix_free  = &matrix_free;
     this->constraints  = &constraints;
-
-    typename MatrixFree<dim, value_type>::AdditionalData data;
-    data.mapping_update_flags = update_gradients;
-
-    matrix_free.reinit(*mapping_collection, dof_handler, constraints, *quadrature_collection, data);
-  }
-
-
-
-  template <int dim, typename LinearAlgebra, int spacedim>
-  void
-  ABlockOperator<dim, LinearAlgebra, spacedim>::reinit(const Partitioning &,
-                                                       const DoFHandler<dim, spacedim> &,
-                                                       const AffineConstraints<value_type> &,
-                                                       VectorType &,
-                                                       const dealii::Function<spacedim> *)
-  {
-    Assert(false, ExcNotImplemented());
   }
 
 
@@ -99,7 +68,7 @@ namespace StokesMatrixFree
   void
   ABlockOperator<dim, LinearAlgebra, spacedim>::initialize_dof_vector(VectorType &vec) const
   {
-    matrix_free.initialize_dof_vector(vec);
+    matrix_free.initialize_dof_vector(vec, velocity_index);
   }
 
 
@@ -108,7 +77,7 @@ namespace StokesMatrixFree
   types::global_dof_index
   ABlockOperator<dim, LinearAlgebra, spacedim>::m() const
   {
-    return matrix_free.get_dof_handler().n_dofs();
+    return matrix_free.get_dof_handler(velocity_index).n_dofs();
   }
 
 
@@ -117,11 +86,13 @@ namespace StokesMatrixFree
   void
   ABlockOperator<dim, LinearAlgebra, spacedim>::compute_inverse_diagonal(VectorType &diagonal) const
   {
-    matrix_free.initialize_dof_vector(diagonal);
+    initialize_dof_vector(diagonal);
     MatrixFreeTools::compute_diagonal(matrix_free,
                                       diagonal,
                                       &ABlockOperator::do_cell_integral_local,
-                                      this);
+                                      this,
+                                      velocity_index,
+                                      velocity_index);
 
     // invert diagonal
     for (auto &i : diagonal)
@@ -137,12 +108,12 @@ namespace StokesMatrixFree
     // Check if matrix has already been set up.
     if (a_block_matrix.m() == 0 && a_block_matrix.n() == 0)
       {
-        const auto &dof_handler = this->matrix_free.get_dof_handler();
+        const auto &dof_handler = this->matrix_free.get_dof_handler(velocity_index);
 
         initialize_sparse_matrix(a_block_matrix, dof_handler, *constraints, partitioning);
 
         MatrixFreeTools::compute_matrix(
-          matrix_free, *constraints, a_block_matrix, &ABlockOperator::do_cell_integral_local, this);
+          matrix_free, *constraints, a_block_matrix, &ABlockOperator::do_cell_integral_local, this, velocity_index, velocity_index);
       }
 
     return this->a_block_matrix;
@@ -214,7 +185,7 @@ namespace StokesMatrixFree
     const VectorType                            &src,
     const std::pair<unsigned int, unsigned int> &range) const
   {
-    FECellIntegrator velocity(matrix_free, range);
+    FECellIntegrator velocity(matrix_free, range, velocity_index, velocity_index);
 
     for (unsigned int cell = range.first; cell < range.second; ++cell)
       {
@@ -227,22 +198,8 @@ namespace StokesMatrixFree
 
 
   template <int dim, typename LinearAlgebra, int spacedim>
-  SchurBlockOperator<dim, LinearAlgebra, spacedim>::SchurBlockOperator(
-    const hp::MappingCollection<dim, spacedim> &mapping_collection,
-    const hp::QCollection<dim>                 &quadrature_collection)
-    : mapping_collection(&mapping_collection)
-    , quadrature_collection(&quadrature_collection)
+  SchurBlockOperator<dim, LinearAlgebra, spacedim>::SchurBlockOperator()
   {}
-
-
-
-  template <int dim, typename LinearAlgebra, int spacedim>
-  std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>
-  SchurBlockOperator<dim, LinearAlgebra, spacedim>::replicate() const
-  {
-    return std::make_unique<SchurBlockOperator<dim, LinearAlgebra, spacedim>>(
-      *mapping_collection, *quadrature_collection);
-  }
 
 
 
@@ -250,7 +207,7 @@ namespace StokesMatrixFree
   void
   SchurBlockOperator<dim, LinearAlgebra, spacedim>::reinit(
     const Partitioning                  &partitioning,
-    const DoFHandler<dim, spacedim>     &dof_handler,
+    const MatrixFree<dim, value_type>   &matrix_free,
     const AffineConstraints<value_type> &constraints)
   {
     TimerOutput::Scope t(getTimer(), "setup_system");
@@ -258,25 +215,8 @@ namespace StokesMatrixFree
     this->schur_block_matrix.clear();
 
     this->partitioning = partitioning;
+    this->matrix_free  = &matrix_free;
     this->constraints  = &constraints;
-
-    typename MatrixFree<dim, value_type>::AdditionalData data;
-    data.mapping_update_flags = update_gradients;
-
-    matrix_free.reinit(*mapping_collection, dof_handler, constraints, *quadrature_collection, data);
-  }
-
-
-
-  template <int dim, typename LinearAlgebra, int spacedim>
-  void
-  SchurBlockOperator<dim, LinearAlgebra, spacedim>::reinit(const Partitioning &,
-                                                           const DoFHandler<dim, spacedim> &,
-                                                           const AffineConstraints<value_type> &,
-                                                           VectorType &,
-                                                           const dealii::Function<spacedim> *)
-  {
-    Assert(false, ExcNotImplemented());
   }
 
 
@@ -297,7 +237,7 @@ namespace StokesMatrixFree
   void
   SchurBlockOperator<dim, LinearAlgebra, spacedim>::initialize_dof_vector(VectorType &vec) const
   {
-    matrix_free.initialize_dof_vector(vec);
+    matrix_free.initialize_dof_vector(vec, pressure_index);
   }
 
 
@@ -306,7 +246,7 @@ namespace StokesMatrixFree
   types::global_dof_index
   SchurBlockOperator<dim, LinearAlgebra, spacedim>::m() const
   {
-    return matrix_free.get_dof_handler().n_dofs();
+    return matrix_free.get_dof_handler(pressure_index).n_dofs();
   }
 
 
@@ -316,11 +256,13 @@ namespace StokesMatrixFree
   SchurBlockOperator<dim, LinearAlgebra, spacedim>::compute_inverse_diagonal(
     VectorType &diagonal) const
   {
-    matrix_free.initialize_dof_vector(diagonal);
+    initialize_dof_vector(diagonal);
     MatrixFreeTools::compute_diagonal(matrix_free,
                                       diagonal,
                                       &SchurBlockOperator::do_cell_integral_local,
-                                      this);
+                                      this,
+                                      pressure_index,
+                                      pressure_index);
 
     // invert diagonal
     for (auto &i : diagonal)
@@ -336,7 +278,7 @@ namespace StokesMatrixFree
     // Check if matrix has already been set up.
     if (schur_block_matrix.m() == 0 && schur_block_matrix.n() == 0)
       {
-        const auto &dof_handler = this->matrix_free.get_dof_handler();
+        const auto &dof_handler = this->matrix_free.get_dof_handler(pressure_index);
 
         initialize_sparse_matrix(schur_block_matrix, dof_handler, *constraints, partitioning);
 
@@ -344,7 +286,9 @@ namespace StokesMatrixFree
                                         *constraints,
                                         schur_block_matrix,
                                         &SchurBlockOperator::do_cell_integral_local,
-                                        this);
+                                        this,
+                                        pressure_index,
+                                        pressure_index);
       }
 
     return this->schur_block_matrix;
@@ -420,7 +364,7 @@ namespace StokesMatrixFree
     const VectorType                            &src,
     const std::pair<unsigned int, unsigned int> &range) const
   {
-    FECellIntegrator pressure(matrix_free, range);
+    FECellIntegrator pressure(matrix_free, range, pressure_index, pressure_index);
 
     for (unsigned int cell = range.first; cell < range.second; ++cell)
       {
@@ -474,13 +418,13 @@ namespace StokesMatrixFree
     // TODO: that is just the -Au0 part. add the rhs function part (check step-37/step-67)
     {
       AffineConstraints<value_type> constraints_v_without_dbc;
-      constraints_v_without_dbc.reinit(partitionings[0]->get_relevant_dofs());
-      DoFTools::make_hanging_node_constraints(*dof_handlers[0], constraints_v_without_dbc);
+      constraints_v_without_dbc.reinit(partitionings[velocity_index]->get_relevant_dofs());
+      DoFTools::make_hanging_node_constraints(*dof_handlers[velocity_index], constraints_v_without_dbc);
       constraints_v_without_dbc.close();
 
       AffineConstraints<value_type> constraints_p_without_dbc;
-      constraints_p_without_dbc.reinit(partitionings[1]->get_relevant_dofs());
-      DoFTools::make_hanging_node_constraints(*dof_handlers[1], constraints_p_without_dbc);
+      constraints_p_without_dbc.reinit(partitionings[pressure_index]->get_relevant_dofs());
+      DoFTools::make_hanging_node_constraints(*dof_handlers[pressure_index], constraints_p_without_dbc);
       constraints_p_without_dbc.close();
 
       const std::vector<const AffineConstraints<value_type> *> constraints_without_dbc = {
@@ -492,26 +436,26 @@ namespace StokesMatrixFree
 
       VectorType b;
       b.reinit(2);
-      matrix_free.initialize_dof_vector(b.block(0), 0);
-      matrix_free.initialize_dof_vector(b.block(1), 1);
+      matrix_free.initialize_dof_vector(b.block(velocity_index), velocity_index);
+      matrix_free.initialize_dof_vector(b.block(pressure_index), pressure_index);
       b.collect_sizes();
 
       VectorType x;
       x.reinit(2);
-      matrix_free.initialize_dof_vector(x.block(0), 0);
-      matrix_free.initialize_dof_vector(x.block(1), 1);
+      matrix_free.initialize_dof_vector(x.block(velocity_index), velocity_index);
+      matrix_free.initialize_dof_vector(x.block(pressure_index), pressure_index);
       x.collect_sizes();
 
-      constraints[0]->distribute(x.block(0));
-      constraints[1]->distribute(x.block(1));
+      constraints[velocity_index]->distribute(x.block(velocity_index));
+      constraints[pressure_index]->distribute(x.block(pressure_index));
 
       // only zero rhs function supported for now
       // TODO: evaluate rhs function here
 
       matrix_free.cell_loop(&StokesOperator::do_cell_integral_range, this, b, x);
 
-      constraints[0]->set_zero(b.block(0));
-      constraints[1]->set_zero(b.block(1));
+      constraints[velocity_index]->set_zero(b.block(velocity_index));
+      constraints[pressure_index]->set_zero(b.block(pressure_index));
 
       system_rhs -= b;
     }
@@ -535,8 +479,8 @@ namespace StokesMatrixFree
   StokesOperator<dim, LinearAlgebra, spacedim>::initialize_dof_vector(VectorType &vec) const
   {
     vec.reinit(2);
-    matrix_free.initialize_dof_vector(vec.block(0), 0);
-    matrix_free.initialize_dof_vector(vec.block(1), 1);
+    matrix_free.initialize_dof_vector(vec.block(velocity_index), velocity_index);
+    matrix_free.initialize_dof_vector(vec.block(pressure_index), pressure_index);
     vec.collect_sizes();
   }
 
@@ -546,7 +490,7 @@ namespace StokesMatrixFree
   types::global_dof_index
   StokesOperator<dim, LinearAlgebra, spacedim>::m() const
   {
-    return matrix_free.get_dof_handler(0).n_dofs() + matrix_free.get_dof_handler(1).n_dofs();
+    return matrix_free.get_dof_handler(velocity_index).n_dofs() + matrix_free.get_dof_handler(pressure_index).n_dofs();
   }
 
 
@@ -588,15 +532,15 @@ namespace StokesMatrixFree
     const VectorType                            &src,
     const std::pair<unsigned int, unsigned int> &range) const
   {
-    FEEvaluation<dim, -1, 0, dim, value_type> velocity(matrix_free, range, 0);
-    FEEvaluation<dim, -1, 0, 1, value_type>   pressure(matrix_free, range, 1);
+    FEEvaluation<dim, -1, 0, dim, value_type> velocity(matrix_free, range, velocity_index, velocity_index);
+    FEEvaluation<dim, -1, 0, 1, value_type>   pressure(matrix_free, range, pressure_index, pressure_index);
 
     for (unsigned int cell = range.first; cell < range.second; ++cell)
       {
         velocity.reinit(cell);
-        velocity.gather_evaluate(src.block(0), EvaluationFlags::gradients);
+        velocity.gather_evaluate(src.block(velocity_index), EvaluationFlags::gradients);
         pressure.reinit(cell);
-        pressure.gather_evaluate(src.block(1), EvaluationFlags::values);
+        pressure.gather_evaluate(src.block(pressure_index), EvaluationFlags::values);
 
         for (unsigned int q = 0; q < velocity.n_q_points; ++q)
           {
@@ -617,8 +561,8 @@ namespace StokesMatrixFree
             velocity.submit_gradient(grad_u, q);
           }
 
-        velocity.integrate_scatter(EvaluationFlags::gradients, dst.block(0));
-        pressure.integrate_scatter(EvaluationFlags::values, dst.block(1));
+        velocity.integrate_scatter(EvaluationFlags::gradients, dst.block(velocity_index));
+        pressure.integrate_scatter(EvaluationFlags::values, dst.block(pressure_index));
       }
   }
 
@@ -632,8 +576,8 @@ namespace StokesMatrixFree
     const VectorType & /*dummy*/,
     const std::pair<unsigned int, unsigned int> &range) const
   {
-    FEEvaluation<dim, -1, 0, dim, value_type> velocity(matrix_free, range, 0);
-    FEEvaluation<dim, -1, 0, 1, value_type>   pressure(matrix_free, range, 1);
+    FEEvaluation<dim, -1, 0, dim, value_type> velocity(matrix_free, range, velocity_index, velocity_index);
+    FEEvaluation<dim, -1, 0, 1, value_type>   pressure(matrix_free, range, pressure_index, pressure_index);
 
     for (unsigned int cell = range.first; cell < range.second; ++cell)
       {
@@ -650,7 +594,7 @@ namespace StokesMatrixFree
                 for (unsigned int d = 0; d < dim; ++d)
                   p[d] = p_vect[d][i];
                 Vector<value_type> f(dim);
-                (*rhs_functions)[0]->vector_value(p, f);
+                (*rhs_functions)[velocity_index]->vector_value(p, f);
                 for (unsigned int d = 0; d < dim; ++d)
                   f_vect[d][i] = f[d];
               }
@@ -666,13 +610,13 @@ namespace StokesMatrixFree
                 Point<dim> p;
                 for (unsigned int d = 0; d < dim; ++d)
                   p[d] = p_vect[d][i];
-                f_vect[i] = (*rhs_functions)[1]->value(p);
+                f_vect[i] = (*rhs_functions)[pressure_index]->value(p);
               }
             pressure.submit_value(f_vect, q);
           }
 
-        velocity.integrate_scatter(EvaluationFlags::values, system_rhs.block(0));
-        pressure.integrate_scatter(EvaluationFlags::values, system_rhs.block(1));
+        velocity.integrate_scatter(EvaluationFlags::values, system_rhs.block(velocity_index));
+        pressure.integrate_scatter(EvaluationFlags::values, system_rhs.block(pressure_index));
       }
   }
 
