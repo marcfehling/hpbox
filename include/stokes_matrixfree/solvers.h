@@ -127,12 +127,12 @@ namespace StokesMatrixFree
 
   template <int dim, typename LinearAlgebra, int spacedim = dim>
   static void
-  solve_amg(dealii::SolverControl &solver_control_refined,
-            const StokesMatrixFree::StokesOperator<dim, LinearAlgebra, spacedim> &stokes_operator,
-            const OperatorType<dim, LinearAlgebra, spacedim>                     &a_block_operator,
-            const OperatorType<dim, LinearAlgebra, spacedim> &schur_block_operator,
-            typename LinearAlgebra::BlockVector              &dst,
-            const typename LinearAlgebra::BlockVector        &src)
+  solve_amg(dealii::SolverControl                                  &solver_control_refined,
+            const StokesOperator<dim, LinearAlgebra, spacedim>     &stokes_operator,
+            const ABlockOperator<dim, LinearAlgebra, spacedim>     &a_block_operator,
+            const SchurBlockOperator<dim, LinearAlgebra, spacedim> &schur_block_operator,
+            typename LinearAlgebra::BlockVector                    &dst,
+            const typename LinearAlgebra::BlockVector              &src)
   {
     typename LinearAlgebra::PreconditionAMG::AdditionalData Amg_data;
     if constexpr (std::is_same<LinearAlgebra, PETSc>::value)
@@ -193,15 +193,15 @@ namespace StokesMatrixFree
 
   template <typename SmootherPreconditionerType, int dim, typename LinearAlgebra, int spacedim>
   static void
-  solve_gmg(dealii::SolverControl &solver_control_refined,
-            const StokesMatrixFree::StokesOperator<dim, LinearAlgebra, spacedim> &stokes_operator,
-            const OperatorType<dim, LinearAlgebra, spacedim>                     &a_block_operator,
-            const OperatorType<dim, LinearAlgebra, spacedim>             &schur_block_operator,
+  solve_gmg(dealii::SolverControl                                        &solver_control_refined,
+            const StokesOperator<dim, LinearAlgebra, spacedim>           &stokes_operator,
+            const ABlockOperator<dim, LinearAlgebra, spacedim>           &a_block_operator,
+            const SchurBlockOperator<dim, LinearAlgebra, spacedim>       &schur_block_operator,
             typename LinearAlgebra::BlockVector                          &dst,
             const typename LinearAlgebra::BlockVector                    &src,
             const MGSolverParameters                                     &mg_data,
             const dealii::hp::MappingCollection<dim, spacedim>           &mapping_collection,
-            const dealii::hp::QCollection<dim>                           &q_collection_v,
+            const dealii::hp::QCollection<dim>                           &q_collection,
             const std::vector<const dealii::DoFHandler<dim, spacedim> *> &stokes_dof_handlers,
             const std::string                                            &filename_mg_level)
   {
@@ -213,13 +213,13 @@ namespace StokesMatrixFree
 
     // TODO: this is only temporary
     // only work on velocity dofhandlers for now
-    const DoFHandler<dim, spacedim> &dof_handler = *(stokes_dof_handlers[0]);
+    const DoFHandler<dim, spacedim> &dof_handler = *(stokes_dof_handlers[velocity_index]);
 
     // Create a DoFHandler and operator for each multigrid level defined
     // by p-coarsening, as well as, create transfer operators.
-    MGLevelObject<DoFHandler<dim, spacedim>>                                   dof_handlers;
-    MGLevelObject<std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>> operators;
-    MGLevelObject<MGTwoLevelTransfer<dim, VectorType>>                         transfers;
+    MGLevelObject<DoFHandler<dim, spacedim>>                    dof_handlers;
+    MGLevelObject<ABlockOperator<dim, LinearAlgebra, spacedim>> operators;
+    MGLevelObject<MGTwoLevelTransfer<dim, VectorType>>          transfers;
 
     std::vector<std::shared_ptr<const Triangulation<dim, spacedim>>> coarse_grid_triangulations;
     if (mg_data.transfer.perform_h_transfer)
@@ -353,8 +353,8 @@ namespace StokesMatrixFree
         constraint.close();
 
         // ... operator (just like on the finest level)
-        operators[level] = a_block_operator.replicate();
-        operators[level]->reinit(partitioning, dof_handler, constraint);
+        operators[level].reinit(
+          partitioning, mapping_collection, dof_handler, constraint, q_collection);
 
 
         // WIP: build smoother preconditioners here
@@ -364,7 +364,7 @@ namespace StokesMatrixFree
           {
             smoother_preconditioners[level] =
               std::make_shared<SmootherPreconditionerType>("vmult_diagonal_ABlock");
-            operators[level]->compute_inverse_diagonal(
+            operators[level].compute_inverse_diagonal(
               smoother_preconditioners[level]->get_vector());
           }
         else if constexpr (std::is_same_v<SmootherPreconditionerType, PreconditionASM<VectorType>>)
@@ -391,7 +391,7 @@ namespace StokesMatrixFree
 
             smoother_preconditioners[level] =
               std::make_shared<SmootherPreconditionerType>(std::move(patch_indices));
-            smoother_preconditioners[level]->initialize(operators[level]->get_system_matrix(),
+            smoother_preconditioners[level]->initialize(operators[level].get_system_matrix(),
                                                         sparsity_pattern,
                                                         dof_handler);
           }
@@ -441,12 +441,12 @@ namespace StokesMatrixFree
             reduced_sparse_matrix.reinit(reduced_sparsity_pattern);
             partially_assemble_ablock(dof_handler,
                                       constraints_reduced,
-                                      q_collection_v,
+                                      q_collection,
                                       all_indices_assemble,
                                       reduced_sparse_matrix);
 
             VectorType inverse_diagonal;
-            operators[level]->compute_inverse_diagonal(inverse_diagonal);
+            operators[level].compute_inverse_diagonal(inverse_diagonal);
 
             smoother_preconditioners[level] =
               std::make_shared<SmootherPreconditionerType>(std::move(patch_indices));
@@ -481,15 +481,14 @@ namespace StokesMatrixFree
     // Collect transfer operators within a single operator as needed by
     // the Multigrid solver class.
     MGTransferGlobalCoarsening<dim, VectorType> transfer(transfers, [&](const auto l, auto &vec) {
-      operators[l]->initialize_dof_vector(vec);
+      operators[l].initialize_dof_vector(vec);
     });
 
     //
     // setup coarse solver
     //
 
-    // using LevelMatrixType = StokesMatrixFree::ABlockOperator<dim, LinearAlgebra, spacedim>;
-    using LevelMatrixType = OperatorType<dim, LinearAlgebra, spacedim>;
+    using LevelMatrixType = ABlockOperator<dim, LinearAlgebra, spacedim>;
     using MGTransferType  = MGTransferGlobalCoarsening<dim, VectorType>;
 
     using SmootherType =
@@ -524,10 +523,10 @@ namespace StokesMatrixFree
         for (unsigned int level = min_level + 1; level <= max_level; level++)
           {
             SmootherType chebyshev;
-            chebyshev.initialize(*operators[level], smoother_data[level]);
+            chebyshev.initialize(operators[level], smoother_data[level]);
 
             VectorType vec;
-            operators[level]->initialize_dof_vector(vec);
+            operators[level].initialize_dof_vector(vec);
             const auto evs = chebyshev.estimate_eigenvalues(vec);
 
             min_eigenvalues[level] = evs.min_eigenvalue_estimate;
@@ -565,13 +564,13 @@ namespace StokesMatrixFree
     amg_data.smoother_type   = mg_data.coarse_solver.smoother_type.c_str();
 
     // CG with AMG as preconditioner
-    precondition_amg.initialize(operators[min_level]->get_system_matrix(), amg_data);
+    precondition_amg.initialize(operators[min_level].get_system_matrix(), amg_data);
 
     mg_coarse = std::make_unique<MGCoarseGridIterativeSolver<VectorType,
                                                              SolverCG<VectorType>,
                                                              LevelMatrixType,
                                                              decltype(precondition_amg)>>(
-      coarse_grid_solver, *operators[min_level], precondition_amg);
+      coarse_grid_solver, operators[min_level], precondition_amg);
 #endif
 
     // Create multigrid object.
@@ -623,9 +622,9 @@ namespace StokesMatrixFree
     schur_block_preconditioner.initialize(inv_diagonal);
 
     const BlockSchurPreconditioner<LinearAlgebra,
-                                   StokesMatrixFree::StokesOperator<dim, LinearAlgebra, spacedim>,
-                                   OperatorType<dim, LinearAlgebra, spacedim>,
-                                   OperatorType<dim, LinearAlgebra, spacedim>,
+                                   StokesOperator<dim, LinearAlgebra, spacedim>,
+                                   ABlockOperator<dim, LinearAlgebra, spacedim>,
+                                   SchurBlockOperator<dim, LinearAlgebra, spacedim>,
                                    PreconditionerType,
                                    PreconditionJacobi<DiagonalMatrixTimer<VectorType>>>
       preconditioner(stokes_operator,

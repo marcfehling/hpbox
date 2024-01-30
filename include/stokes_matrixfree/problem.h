@@ -86,10 +86,8 @@ namespace StokesMatrixFree
     dealii::hp::FECollection<dim, spacedim> fe_collection_v;
     dealii::hp::FECollection<dim, spacedim> fe_collection_p;
 
-    dealii::hp::QCollection<dim>              quadrature_collection_v;
-    dealii::hp::QCollection<dim>              quadrature_collection_p;
-    std::vector<dealii::hp::QCollection<dim>> quadrature_collections;
-    dealii::hp::QCollection<dim>              quadrature_collection_for_errors;
+    dealii::hp::QCollection<dim> quadrature_collection;
+    dealii::hp::QCollection<dim> quadrature_collection_for_errors;
 
     std::unique_ptr<dealii::hp::FEValues<dim, spacedim>> fe_values_collection;
     std::unique_ptr<Adaptation::Base>                    adaptation_strategy_p;
@@ -113,9 +111,9 @@ namespace StokesMatrixFree
     dealii::AffineConstraints<double>                      constraints_p;
     std::vector<const dealii::AffineConstraints<double> *> constraints;
 
-    std::unique_ptr<StokesMatrixFree::StokesOperator<dim, LinearAlgebra, spacedim>> stokes_operator;
-    std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>> a_block_operator;
-    std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>> schur_block_operator;
+    StokesOperator<dim, LinearAlgebra, spacedim>     stokes_operator;
+    ABlockOperator<dim, LinearAlgebra, spacedim>     a_block_operator;
+    SchurBlockOperator<dim, LinearAlgebra, spacedim> schur_block_operator;
 
     typename LinearAlgebra::BlockVector locally_relevant_solution;
     typename LinearAlgebra::BlockVector system_rhs;

@@ -24,9 +24,13 @@
 
 namespace StokesMatrixFree
 {
+  static constexpr unsigned int velocity_index = 0;
+  static constexpr unsigned int pressure_index = 1;
 
   template <int dim, typename LinearAlgebra, int spacedim = dim>
-  class ABlockOperator : public OperatorType<dim, LinearAlgebra, spacedim>
+  class ABlockOperator : public dealii::MGSolverOperatorBase<dim,
+                                                             typename LinearAlgebra::Vector,
+                                                             typename LinearAlgebra::SparseMatrix>
   {
   public:
     using VectorType = typename LinearAlgebra::Vector;
@@ -34,23 +38,19 @@ namespace StokesMatrixFree
 
     using FECellIntegrator = dealii::FEEvaluation<dim, -1, 0, dim, value_type>;
 
-    ABlockOperator(const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
-                   const dealii::hp::QCollection<dim>                 &quadrature_collection);
-
-    std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>
-    replicate() const override;
+    ABlockOperator() = default;
 
     void
-    reinit(const Partitioning                          &partitioning,
-           const dealii::DoFHandler<dim, spacedim>     &dof_handler,
-           const dealii::AffineConstraints<value_type> &constraints) override;
+    reinit(const Partitioning                                         &partitioning,
+           const std::shared_ptr<dealii::MatrixFree<dim, value_type>> &matrix_free,
+           const dealii::AffineConstraints<value_type>                &constraints);
 
     void
-    reinit(const Partitioning                          &partitioning,
-           const dealii::DoFHandler<dim, spacedim>     &dof_handler,
-           const dealii::AffineConstraints<value_type> &constraints,
-           VectorType                                  &system_rhs,
-           const dealii::Function<spacedim>            *rhs_function) override;
+    reinit(const Partitioning                                 &partitioning,
+           const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
+           const dealii::DoFHandler<dim, spacedim>            &dof_handler,
+           const dealii::AffineConstraints<value_type>        &constraints,
+           const dealii::hp::QCollection<dim>                 &quadrature_collection);
 
     void
     vmult(VectorType &dst, const VectorType &src) const override;
@@ -73,13 +73,10 @@ namespace StokesMatrixFree
   private:
     // const Parameters &prm;
 
-    dealii::SmartPointer<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
-    dealii::SmartPointer<const dealii::hp::QCollection<dim>>                 quadrature_collection;
-    dealii::SmartPointer<const dealii::AffineConstraints<value_type>>        constraints;
+    std::shared_ptr<dealii::MatrixFree<dim, value_type>> matrix_free;
 
-    // TODO: Add RHS function to constructor
-    //       Grab and set as RHS in reinit
-    // dealii::Function<dim> rhs_function;
+    Partitioning                                                      partitioning;
+    dealii::SmartPointer<const dealii::AffineConstraints<value_type>> constraints;
 
     void
     do_cell_integral_local(FECellIntegrator &integrator) const;
@@ -95,16 +92,15 @@ namespace StokesMatrixFree
                            const VectorType                            &src,
                            const std::pair<unsigned int, unsigned int> &range) const;
 
-    // TODO: Make partitioning a pointer? Or leave it like this?
-    Partitioning                        partitioning;
-    dealii::MatrixFree<dim, value_type> matrix_free;
-
     mutable typename LinearAlgebra::SparseMatrix a_block_matrix;
   };
 
 
   template <int dim, typename LinearAlgebra, int spacedim = dim>
-  class SchurBlockOperator : public OperatorType<dim, LinearAlgebra, spacedim>
+  class SchurBlockOperator
+    : public dealii::MGSolverOperatorBase<dim,
+                                          typename LinearAlgebra::Vector,
+                                          typename LinearAlgebra::SparseMatrix>
   {
   public:
     using VectorType = typename LinearAlgebra::Vector;
@@ -112,23 +108,12 @@ namespace StokesMatrixFree
 
     using FECellIntegrator = dealii::FEEvaluation<dim, -1, 0, 1, value_type>;
 
-    SchurBlockOperator(const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
-                       const dealii::hp::QCollection<dim>                 &quadrature_collection);
-
-    std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>
-    replicate() const override;
+    SchurBlockOperator() = default;
 
     void
-    reinit(const Partitioning                          &partitioning,
-           const dealii::DoFHandler<dim, spacedim>     &dof_handler,
-           const dealii::AffineConstraints<value_type> &constraints) override;
-
-    void
-    reinit(const Partitioning                          &partitioning,
-           const dealii::DoFHandler<dim, spacedim>     &dof_handler,
-           const dealii::AffineConstraints<value_type> &constraints,
-           VectorType                                  &system_rhs,
-           const dealii::Function<spacedim>            *rhs_function) override;
+    reinit(const Partitioning                                         &partitioning,
+           const std::shared_ptr<dealii::MatrixFree<dim, value_type>> &matrix_free,
+           const dealii::AffineConstraints<value_type>                &constraints);
 
     void
     vmult(VectorType &dst, const VectorType &src) const override;
@@ -151,9 +136,10 @@ namespace StokesMatrixFree
   private:
     // const Parameters &prm;
 
-    dealii::SmartPointer<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
-    dealii::SmartPointer<const dealii::hp::QCollection<dim>>                 quadrature_collection;
-    dealii::SmartPointer<const dealii::AffineConstraints<value_type>>        constraints;
+    std::shared_ptr<dealii::MatrixFree<dim, value_type>> matrix_free;
+
+    Partitioning                                                      partitioning;
+    dealii::SmartPointer<const dealii::AffineConstraints<value_type>> constraints;
 
     void
     do_cell_integral_local(FECellIntegrator &integrator) const;
@@ -168,13 +154,6 @@ namespace StokesMatrixFree
                            VectorType                                  &dst,
                            const VectorType                            &src,
                            const std::pair<unsigned int, unsigned int> &range) const;
-
-    // TODO: Add RHS function to constructor
-    //       Grab and set as RHS in reinit
-    // dealii::Function<dim> rhs_function;
-
-    Partitioning                        partitioning;
-    dealii::MatrixFree<dim, value_type> matrix_free;
 
     mutable typename LinearAlgebra::SparseMatrix schur_block_matrix;
   };
@@ -191,15 +170,14 @@ namespace StokesMatrixFree
     using VectorType = typename LinearAlgebra::BlockVector;
     using value_type = typename VectorType::value_type;
 
-    // using FECellIntegrator = dealii::FEEvaluation<dim, -1, 0, dim + 1, value_type>;
-
-    StokesOperator(const dealii::hp::MappingCollection<dim, spacedim> &mapping_collection,
-                   const std::vector<dealii::hp::QCollection<dim>>    &quadrature_collections);
+    StokesOperator() = default;
 
     void
     reinit(const std::vector<const Partitioning *>                          &partitionings,
+           const dealii::hp::MappingCollection<dim, spacedim>               &mapping_collection,
            const std::vector<const dealii::DoFHandler<dim, spacedim> *>     &dof_handlers,
            const std::vector<const dealii::AffineConstraints<value_type> *> &constraints,
+           const dealii::hp::QCollection<dim>                               &quadrature_collection,
            VectorType                                                       &system_rhs,
            const std::vector<const dealii::Function<spacedim> *>            &rhs_functions);
 
@@ -215,6 +193,9 @@ namespace StokesMatrixFree
     void
     compute_inverse_diagonal(VectorType &diagonal) const override;
 
+    const std::shared_ptr<dealii::MatrixFree<dim, value_type>> &
+    get_matrix_free() const;
+
     const typename LinearAlgebra::BlockSparseMatrix &
     get_system_matrix() const override;
 
@@ -224,10 +205,9 @@ namespace StokesMatrixFree
   private:
     // const Parameters &prm;
 
-    dealii::SmartPointer<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
-    const std::vector<dealii::hp::QCollection<dim>>                         *quadrature_collections;
-    const std::vector<const dealii::AffineConstraints<value_type> *>        *constraints;
-    const std::vector<const dealii::Function<spacedim> *>                   *rhs_functions;
+    std::shared_ptr<dealii::MatrixFree<dim, value_type>> matrix_free;
+
+    std::vector<const dealii::Function<spacedim> *> rhs_functions;
 
     void
     do_cell_integral_range(const dealii::MatrixFree<dim, value_type>   &matrix_free,
@@ -240,10 +220,6 @@ namespace StokesMatrixFree
                                VectorType                                &system_rhs,
                                const VectorType & /*dummy*/,
                                const std::pair<unsigned int, unsigned int> &range) const;
-
-    // TODO: Make partitioning a pointer? Or leave it like this?
-    Partitioning                        partitioning;
-    dealii::MatrixFree<dim, value_type> matrix_free;
 
     mutable typename LinearAlgebra::BlockSparseMatrix dummy;
   };

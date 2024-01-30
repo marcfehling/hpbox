@@ -80,21 +80,13 @@ namespace StokesMatrixFree
     for (unsigned int degree = 1; degree <= prm.prm_adaptation.max_p_degree; ++degree)
       {
         fe_collection_v.push_back(FESystem<dim, spacedim>(FE_Q<dim, spacedim>(degree), dim));
-        quadrature_collection_v.push_back(QGauss<dim>(degree + 1));
+        quadrature_collection.push_back(QGauss<dim>(degree + 1));
         quadrature_collection_for_errors.push_back(QGauss<dim>(degree + 2)); // TODO: reduce by one?
-      }
 
-    // Add dummy element
-    // TODO: Find more elegant solution
-    fe_collection_p.push_back(FE_Q<dim, spacedim>(1));
-    quadrature_collection_p.push_back(QGauss<dim>(2));
-    for (unsigned int degree = 1; degree <= prm.prm_adaptation.max_p_degree - 1; ++degree)
-      {
-        fe_collection_p.push_back(FE_Q<dim, spacedim>(degree));
-        quadrature_collection_p.push_back(QGauss<dim>(degree + 1));
+        // Add dummy element
+        // TODO: Find more elegant solution
+        fe_collection_p.push_back(FE_Q<dim, spacedim>((degree > 1) ? degree - 1 : 1));
       }
-
-    quadrature_collections = {quadrature_collection_v, quadrature_collection_p};
 
     // prepare hierarchy
     const unsigned int min_fe_index = prm.prm_adaptation.min_p_degree - 1;
@@ -111,19 +103,6 @@ namespace StokesMatrixFree
 
     fe_collection_v.set_hierarchy(next_index, previous_index);
     fe_collection_p.set_hierarchy(next_index, previous_index);
-
-    // prepare operators
-    a_block_operator =
-      std::make_unique<ABlockOperator<dim, LinearAlgebra, spacedim>>(mapping_collection,
-                                                                     quadrature_collection_v);
-
-    schur_block_operator =
-      std::make_unique<SchurBlockOperator<dim, LinearAlgebra, spacedim>>(mapping_collection,
-                                                                         quadrature_collection_p);
-
-    stokes_operator =
-      std::make_unique<StokesOperator<dim, LinearAlgebra, spacedim>>(mapping_collection,
-                                                                     quadrature_collections);
 
     // choose functions
     if (prm.grid_type == "kovasznay")
@@ -188,7 +167,7 @@ namespace StokesMatrixFree
           }
 
         const auto weighting_function =
-          [dof_handler = dof_handlers[0],
+          [dof_handler = dof_handlers[velocity_index],
            weights](const typename parallel::distributed::Triangulation<dim>::cell_iterator &cell_,
                     const typename parallel::distributed::Triangulation<dim>::CellStatus     status)
           -> unsigned int {
@@ -295,12 +274,14 @@ namespace StokesMatrixFree
     {
       TimerOutput::Scope(getTimer(), "reinit_vectors");
 
-      locally_relevant_solution.block(0).reinit(partitioning_v.get_owned_dofs(),
-                                                partitioning_v.get_relevant_dofs(),
-                                                mpi_communicator);
-      locally_relevant_solution.block(1).reinit(partitioning_p.get_owned_dofs(),
-                                                partitioning_p.get_relevant_dofs(),
-                                                mpi_communicator);
+      locally_relevant_solution.block(velocity_index)
+        .reinit(partitioning_v.get_owned_dofs(),
+                partitioning_v.get_relevant_dofs(),
+                mpi_communicator);
+      locally_relevant_solution.block(pressure_index)
+        .reinit(partitioning_p.get_owned_dofs(),
+                partitioning_p.get_relevant_dofs(),
+                mpi_communicator);
       locally_relevant_solution.collect_sizes();
     }
 
@@ -366,7 +347,7 @@ namespace StokesMatrixFree
 
     // We need to introduce a vector that does not contain all ghost elements.
     typename LinearAlgebra::BlockVector completely_distributed_solution;
-    stokes_operator->initialize_dof_vector(completely_distributed_solution);
+    stokes_operator.initialize_dof_vector(completely_distributed_solution);
 
     SolverControl solver_control_refined(system_rhs.size(),
                                          prm.solver_tolerance_factor * system_rhs.l2_norm());
@@ -374,9 +355,9 @@ namespace StokesMatrixFree
     if (prm.solver_type == "AMG")
       {
         solve_amg<dim, LinearAlgebra, spacedim>(solver_control_refined,
-                                                *stokes_operator,
-                                                *a_block_operator,
-                                                *schur_block_operator,
+                                                stokes_operator,
+                                                a_block_operator,
+                                                schur_block_operator,
                                                 completely_distributed_solution,
                                                 system_rhs);
       }
@@ -391,14 +372,14 @@ namespace StokesMatrixFree
                       dim,
                       LinearAlgebra,
                       spacedim>(solver_control_refined,
-                                *stokes_operator,
-                                *a_block_operator,
-                                *schur_block_operator,
+                                stokes_operator,
+                                a_block_operator,
+                                schur_block_operator,
                                 completely_distributed_solution,
                                 system_rhs,
                                 prm.prm_multigrid,
                                 mapping_collection,
-                                quadrature_collection_v,
+                                quadrature_collection,
                                 dof_handlers,
                                 filename_mg_level);
           }
@@ -408,14 +389,14 @@ namespace StokesMatrixFree
                       dim,
                       LinearAlgebra,
                       spacedim>(solver_control_refined,
-                                *stokes_operator,
-                                *a_block_operator,
-                                *schur_block_operator,
+                                stokes_operator,
+                                a_block_operator,
+                                schur_block_operator,
                                 completely_distributed_solution,
                                 system_rhs,
                                 prm.prm_multigrid,
                                 mapping_collection,
-                                quadrature_collection_v,
+                                quadrature_collection,
                                 dof_handlers,
                                 filename_mg_level);
           }
@@ -425,14 +406,14 @@ namespace StokesMatrixFree
                       dim,
                       LinearAlgebra,
                       spacedim>(solver_control_refined,
-                                *stokes_operator,
-                                *a_block_operator,
-                                *schur_block_operator,
+                                stokes_operator,
+                                a_block_operator,
+                                schur_block_operator,
                                 completely_distributed_solution,
                                 system_rhs,
                                 prm.prm_multigrid,
                                 mapping_collection,
-                                quadrature_collection_v,
+                                quadrature_collection,
                                 dof_handlers,
                                 filename_mg_level);
           }
@@ -448,8 +429,8 @@ namespace StokesMatrixFree
 
     Log::log_iterations(solver_control_refined);
 
-    constraints_v.distribute(completely_distributed_solution.block(0));
-    constraints_p.distribute(completely_distributed_solution.block(1));
+    constraints_v.distribute(completely_distributed_solution.block(velocity_index));
+    constraints_p.distribute(completely_distributed_solution.block(pressure_index));
 
     locally_relevant_solution = completely_distributed_solution;
     locally_relevant_solution.update_ghost_values();
@@ -488,7 +469,7 @@ namespace StokesMatrixFree
 
     // velocity
     VectorTools::integrate_difference(dof_handler_v,
-                                      locally_relevant_solution.block(0),
+                                      locally_relevant_solution.block(velocity_index),
                                       *solution_function_v,
                                       difference_per_cell,
                                       quadrature_collection_for_errors,
@@ -512,7 +493,7 @@ namespace StokesMatrixFree
 
     // pressure
     VectorTools::integrate_difference(dof_handler_p,
-                                      locally_relevant_solution.block(1),
+                                      locally_relevant_solution.block(pressure_index),
                                       *solution_function_p,
                                       difference_per_cell,
                                       quadrature_collection_for_errors,
@@ -589,7 +570,7 @@ namespace StokesMatrixFree
     std::vector<DataComponentInterpretation::DataComponentInterpretation>
       data_component_interpretation(dim, DataComponentInterpretation::component_is_part_of_vector);
     data_out.add_data_vector(dof_handler_v,
-                             locally_relevant_solution.block(0),
+                             locally_relevant_solution.block(velocity_index),
                              "velocity",
                              data_component_interpretation);
 
@@ -688,13 +669,21 @@ namespace StokesMatrixFree
                  ExcMessage("Active FE indices differ!"));
 #endif
 
-          a_block_operator->reinit(partitioning_v, dof_handler_v, constraints_v);
-          schur_block_operator->reinit(partitioning_p, dof_handler_p, constraints_p);
-          stokes_operator->reinit(
-            partitionings, dof_handlers, constraints, system_rhs, rhs_functions);
+          stokes_operator.reinit(partitionings,
+                                 mapping_collection,
+                                 dof_handlers,
+                                 constraints,
+                                 quadrature_collection,
+                                 system_rhs,
+                                 rhs_functions);
+
+          a_block_operator.reinit(partitioning_v, stokes_operator.get_matrix_free(), constraints_v);
+          schur_block_operator.reinit(partitioning_p,
+                                      stokes_operator.get_matrix_free(),
+                                      constraints_p);
 
           if (prm.log_nonzero_elements)
-            Log::log_nonzero_elements(stokes_operator->get_system_matrix());
+            Log::log_nonzero_elements(stokes_operator.get_system_matrix());
 
           solve();
 
