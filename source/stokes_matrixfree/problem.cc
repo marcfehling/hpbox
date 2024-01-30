@@ -421,18 +421,20 @@ namespace StokesMatrixFree
           }
         else if (prm.prm_multigrid.smoother_preconditioner_type == "Diagonal")
           {
-            solve_gmg<DiagonalMatrix<typename LinearAlgebra::Vector>, dim, LinearAlgebra, spacedim>(
-              solver_control_refined,
-              *stokes_operator,
-              *a_block_operator,
-              *schur_block_operator,
-              completely_distributed_solution,
-              system_rhs,
-              prm.prm_multigrid,
-              mapping_collection,
-              quadrature_collection_v,
-              dof_handlers,
-              filename_mg_level);
+            solve_gmg<DiagonalMatrixTimer<typename LinearAlgebra::Vector>,
+                      dim,
+                      LinearAlgebra,
+                      spacedim>(solver_control_refined,
+                                *stokes_operator,
+                                *a_block_operator,
+                                *schur_block_operator,
+                                completely_distributed_solution,
+                                system_rhs,
+                                prm.prm_multigrid,
+                                mapping_collection,
+                                quadrature_collection_v,
+                                dof_handlers,
+                                filename_mg_level);
           }
         else
           {

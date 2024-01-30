@@ -20,6 +20,7 @@
 #include <deal.II/matrix_free/tools.h>
 
 #include <multigrid/asm.h>
+#include <multigrid/diagonal_matrix_timer.h>
 #include <multigrid/extended_diagonal.h>
 #include <multigrid/mg_solver.h>
 #include <multigrid/parameter.h>
@@ -227,7 +228,7 @@ namespace Poisson
         // WIP: build smoother preconditioners here
         // necessary on all levels or just minlevel+1 to maxlevel?
 
-        if constexpr (std::is_same_v<SmootherPreconditionerType, DiagonalMatrix<VectorType>>)
+        if constexpr (std::is_same_v<SmootherPreconditionerType, DiagonalMatrixTimer<VectorType>>)
           {
             smoother_preconditioners[level] = std::make_shared<SmootherPreconditionerType>();
             operators[level]->compute_inverse_diagonal(

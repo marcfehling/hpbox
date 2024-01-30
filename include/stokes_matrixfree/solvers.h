@@ -28,6 +28,7 @@
 
 #include <linear_algebra.h>
 #include <multigrid/asm.h>
+#include <multigrid/diagonal_matrix_timer.h>
 #include <multigrid/extended_diagonal.h>
 #include <multigrid/mg_solver.h>
 #include <multigrid/parameter.h>
@@ -38,33 +39,6 @@
 
 namespace StokesMatrixFree
 {
-  template <int dim, typename LinearAlgebra, int spacedim = dim>
-  class InverseDiagonalMatrix : public dealii::Subscriptor
-  {
-  public:
-    using VectorType = typename LinearAlgebra::Vector;
-    using value_type = typename VectorType::value_type;
-
-    InverseDiagonalMatrix(const OperatorType<dim, LinearAlgebra, spacedim> &op)
-    {
-      op.compute_inverse_diagonal(inverse_diagonal.get_vector());
-    };
-
-    void
-    precondition_Jacobi(VectorType &dst, const VectorType &src, const value_type omega) const
-    {
-      dealii::TimerOutput::Scope t(getTimer(), "vmult_SchurBlockDiagonal");
-
-      inverse_diagonal.vmult(dst, src);
-      dst *= omega;
-    };
-
-  private:
-    dealii::DiagonalMatrix<VectorType> inverse_diagonal;
-  };
-
-
-
   template <typename LinearAlgebra,
             typename StokesMatrixType,
             typename ABlockMatrixType,
@@ -386,9 +360,10 @@ namespace StokesMatrixFree
         // WIP: build smoother preconditioners here
         // necessary on all levels or just minlevel+1 to maxlevel?
 
-        if constexpr (std::is_same_v<SmootherPreconditionerType, DiagonalMatrix<VectorType>>)
+        if constexpr (std::is_same_v<SmootherPreconditionerType, DiagonalMatrixTimer<VectorType>>)
           {
-            smoother_preconditioners[level] = std::make_shared<SmootherPreconditionerType>();
+            smoother_preconditioners[level] =
+              std::make_shared<SmootherPreconditionerType>("vmult_diagonal_ABlock");
             operators[level]->compute_inverse_diagonal(
               smoother_preconditioners[level]->get_vector());
           }
@@ -641,18 +616,18 @@ namespace StokesMatrixFree
     // Convert it to a preconditioner.
     PreconditionerType a_block_preconditioner(dof_handler, mg_a_block, transfer);
 
-    InverseDiagonalMatrix<dim, LinearAlgebra, spacedim> inv_diagonal(schur_block_operator);
-    PreconditionJacobi<InverseDiagonalMatrix<dim, LinearAlgebra, spacedim>>
-      schur_block_preconditioner;
+    DiagonalMatrixTimer<VectorType> inv_diagonal("vmult_diagonal_SchurBlock");
+    schur_block_operator.compute_inverse_diagonal(inv_diagonal.get_vector());
+
+    PreconditionJacobi<DiagonalMatrixTimer<VectorType>> schur_block_preconditioner;
     schur_block_preconditioner.initialize(inv_diagonal);
 
-    const BlockSchurPreconditioner<
-      LinearAlgebra,
-      StokesMatrixFree::StokesOperator<dim, LinearAlgebra, spacedim>,
-      OperatorType<dim, LinearAlgebra, spacedim>,
-      OperatorType<dim, LinearAlgebra, spacedim>,
-      PreconditionerType,
-      PreconditionJacobi<InverseDiagonalMatrix<dim, LinearAlgebra, spacedim>>>
+    const BlockSchurPreconditioner<LinearAlgebra,
+                                   StokesMatrixFree::StokesOperator<dim, LinearAlgebra, spacedim>,
+                                   OperatorType<dim, LinearAlgebra, spacedim>,
+                                   OperatorType<dim, LinearAlgebra, spacedim>,
+                                   PreconditionerType,
+                                   PreconditionJacobi<DiagonalMatrixTimer<VectorType>>>
       preconditioner(stokes_operator,
                      a_block_operator,
                      schur_block_operator,

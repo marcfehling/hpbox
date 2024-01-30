@@ -306,7 +306,7 @@ namespace Poisson
               }
             else if (prm.prm_multigrid.smoother_preconditioner_type == "Diagonal")
               {
-                solve_gmg<DiagonalMatrix<typename LinearAlgebra::Vector>,
+                solve_gmg<DiagonalMatrixTimer<typename LinearAlgebra::Vector>,
                           dim,
                           LinearAlgebra,
                           spacedim>(solver_control,
