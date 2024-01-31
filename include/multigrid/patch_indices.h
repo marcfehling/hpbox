@@ -59,13 +59,17 @@ prepare_patch_indices(const dealii::DoFHandler<dim, spacedim> &dof_handler,
           local_indices.resize(cell->get_fe().n_dofs_per_face());
           cell->face(f)->get_dof_indices(local_indices, cell->active_fe_index());
 
-          std::vector<dealii::types::global_dof_index> local_unconstrained_indices;
-          for (const auto i : local_indices)
-            if (constraints.is_constrained(i) == false)
-              local_unconstrained_indices.emplace_back(i);
+          for (unsigned int c = 0; c < cell->get_fe().n_components(); ++c)
+            {
+              std::vector<dealii::types::global_dof_index> local_unconstrained_indices;
+              for (unsigned int i = 0; i < local_indices.size(); ++i)
+                if (cell->get_fe().face_system_to_component_index(i).first == c)
+                  if (constraints.is_constrained(local_indices[i]) == false)
+                    local_unconstrained_indices.emplace_back(local_indices[i]);
 
-          if (local_unconstrained_indices.empty() == false)
-            patch_indices.push_back(std::move(local_unconstrained_indices));
+              if (local_unconstrained_indices.empty() == false)
+                patch_indices.push_back(std::move(local_unconstrained_indices));
+            }
         }
 
   return patch_indices;
