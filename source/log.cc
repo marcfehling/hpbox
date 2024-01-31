@@ -228,6 +228,9 @@ namespace Log
         getTable().set_scientific(summary.first + "_max", true);
         getTable().set_scientific(summary.first + "_avg", true);
       }
+
+    for (const auto &summary : getTimer().get_summary_data(TimerOutput::n_calls))
+      getTable().add_value(summary.first + "_ncalls", summary.second);
   }
 
 
