@@ -211,6 +211,8 @@ namespace StokesMatrixFree
 
     using VectorType = typename LinearAlgebra::Vector;
 
+    TimerOutput::Scope t_mg_setup_transfer(getTimer(), "mg_setup_transfer");
+
     // TODO: this is only temporary
     // only work on velocity dofhandlers for now
     const DoFHandler<dim, spacedim> &dof_handler = *(stokes_dof_handlers[0]);
@@ -484,6 +486,12 @@ namespace StokesMatrixFree
       operators[l]->initialize_dof_vector(vec);
     });
 
+    t_mg_setup_transfer.stop();
+
+
+
+    TimerOutput::Scope t_mg_solve(getTimer(), "mg_solve");
+
     //
     // setup coarse solver
     //
@@ -673,6 +681,8 @@ namespace StokesMatrixFree
         table.write_text(mg_level_stream);
       }
     // ----------
+
+    t_mg_solve.stop();
   }
 } // namespace StokesMatrixFree
 

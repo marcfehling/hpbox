@@ -86,6 +86,8 @@ namespace Poisson
 
     using VectorType = typename LinearAlgebra::Vector;
 
+    TimerOutput::Scope t_mg_setup_transfer(getTimer(), "mg_setup_transfer");
+
     // Create a DoFHandler and operator for each multigrid level defined
     // by p-coarsening, as well as, create transfer operators.
     MGLevelObject<DoFHandler<dim, spacedim>>                                   dof_handlers;
@@ -351,6 +353,12 @@ namespace Poisson
       operators[l]->initialize_dof_vector(vec);
     });
 
+    t_mg_setup_transfer.stop();
+
+
+
+    TimerOutput::Scope t_mg_solve(getTimer(), "mg_solve");
+
     // Proceed to solve the problem with multigrid.
     mg_solve(solver_control,
              dst,
@@ -362,6 +370,8 @@ namespace Poisson
              smoother_preconditioners,
              transfer,
              filename_mg_level);
+
+    t_mg_solve.stop();
   }
 } // namespace Poisson
 
