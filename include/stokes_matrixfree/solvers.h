@@ -211,7 +211,7 @@ namespace StokesMatrixFree
 
     using VectorType = typename LinearAlgebra::Vector;
 
-    TimerOutput::Scope t_mg_setup_transfer(getTimer(), "mg_setup_transfer");
+    TimerOutput::Scope t_mg_setup_levels(getTimer(), "mg_setup_levels");
 
     // TODO: this is only temporary
     // only work on velocity dofhandlers for now
@@ -221,7 +221,6 @@ namespace StokesMatrixFree
     // by p-coarsening, as well as, create transfer operators.
     MGLevelObject<DoFHandler<dim, spacedim>>                                   dof_handlers;
     MGLevelObject<std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>> operators;
-    MGLevelObject<MGTwoLevelTransfer<dim, VectorType>>                         transfers;
 
     std::vector<std::shared_ptr<const Triangulation<dim, spacedim>>> coarse_grid_triangulations;
     if (mg_data.transfer.perform_h_transfer)
@@ -269,7 +268,6 @@ namespace StokesMatrixFree
     // Allocate memory for all levels.
     dof_handlers.resize(minlevel, maxlevel);
     operators.resize(minlevel, maxlevel);
-    transfers.resize(minlevel, maxlevel);
 
     // Loop from max to min level and set up DoFHandler with coarser mesh...
     for (unsigned int l = 0; l < n_h_levels; ++l)
@@ -467,6 +465,15 @@ namespace StokesMatrixFree
           }
       }
 
+    t_mg_setup_levels.stop();
+
+
+
+    TimerOutput::Scope t_mg_reinit_transfer(getTimer(), "mg_reinit_transfer");
+
+    MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> transfers;
+    transfers.resize(minlevel, maxlevel);
+
     // Set up intergrid operators.
     for (unsigned int level = minlevel; level < minlevel_p; ++level)
       transfers[level + 1].reinit_geometric_transfer(dof_handlers[level + 1],
@@ -486,7 +493,7 @@ namespace StokesMatrixFree
       operators[l]->initialize_dof_vector(vec);
     });
 
-    t_mg_setup_transfer.stop();
+    t_mg_reinit_transfer.stop();
 
 
 
