@@ -228,6 +228,8 @@ namespace Poisson
         // WIP: build smoother preconditioners here
         // necessary on all levels or just minlevel+1 to maxlevel?
 
+        TimerOutput::Scope t_mg_setup_level_smoothers(getTimer(), "mg_setup_level_smoothers");
+
         if constexpr (std::is_same_v<SmootherPreconditionerType, DiagonalMatrixTimer<VectorType>>)
           {
             smoother_preconditioners[level] = std::make_shared<SmootherPreconditionerType>();
@@ -330,6 +332,8 @@ namespace Poisson
           {
             AssertThrow(false, ExcNotImplemented());
           }
+
+        t_mg_setup_level_smoothers.stop();
       }
 
     t_mg_setup_levels.stop();
