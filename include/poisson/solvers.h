@@ -267,10 +267,14 @@ namespace Poisson
         else if constexpr (std::is_same_v<SmootherPreconditionerType,
                                           PreconditionExtendedDiagonal<VectorType>>)
           {
+            TimerOutput::Scope t_1(getTimer(), "sm_patch_indices");
+
             const auto patch_indices = prepare_patch_indices(dof_handler, constraint);
 
             if (level == maxlevel)
               Log::log_patch_dofs(patch_indices, dof_handler);
+
+            t_1.stop();
 
             // full matrix
             // const unsigned int myid = dealii::Utilities::MPI::this_mpi_process(communicator);
@@ -280,6 +284,8 @@ namespace Poisson
             // relevant_dofs);
 
             // reduced matrix
+            TimerOutput::Scope t_2(getTimer(), "sm_constraints");
+
             AffineConstraints<double> constraints_reduced;
             constraints_reduced.reinit(partitioning.get_owned_dofs(),
                                        partitioning.get_relevant_dofs());
@@ -294,6 +300,10 @@ namespace Poisson
                                constraints_reduced,
                                all_indices_assemble);
 
+            t_2.stop();
+
+            TimerOutput::Scope t_3(getTimer(), "sm_sparsity");
+
             // TODO: only works for Trilinos so far
             typename LinearAlgebra::SparsityPattern reduced_sparsity_pattern;
             reduced_sparsity_pattern.reinit(partitioning.get_owned_dofs(),
@@ -306,6 +316,10 @@ namespace Poisson
                                   constraints_reduced);
             reduced_sparsity_pattern.compress();
 
+            t_3.stop();
+
+            TimerOutput::Scope t_4(getTimer(), "sm_assemble");
+
             typename LinearAlgebra::SparseMatrix reduced_sparse_matrix;
             reduced_sparse_matrix.reinit(reduced_sparsity_pattern);
             partially_assemble_poisson(dof_handler,
@@ -313,6 +327,10 @@ namespace Poisson
                                        q_collection,
                                        all_indices_assemble,
                                        reduced_sparse_matrix);
+
+            t_4.stop();
+
+            TimerOutput::Scope t_5(getTimer(), "sm_init_smoother");
 
             VectorType inverse_diagonal;
             operators[level]->compute_inverse_diagonal(inverse_diagonal);
@@ -327,6 +345,8 @@ namespace Poisson
                                                         reduced_sparsity_pattern,
                                                         inverse_diagonal,
                                                         all_indices_relevant);
+
+            t_5.stop();
           }
         else
           {

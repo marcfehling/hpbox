@@ -400,10 +400,14 @@ namespace StokesMatrixFree
         else if constexpr (std::is_same_v<SmootherPreconditionerType,
                                           PreconditionExtendedDiagonal<VectorType>>)
           {
+            TimerOutput::Scope t_1(getTimer(), "sm_patch_indices");
+
             const auto patch_indices = prepare_patch_indices(dof_handler, constraint);
 
             if (level == maxlevel)
               Log::log_patch_dofs(patch_indices, dof_handler);
+
+            t_1.stop();
 
             // full matrix
             // const unsigned int myid = dealii::Utilities::MPI::this_mpi_process(communicator);
@@ -413,6 +417,8 @@ namespace StokesMatrixFree
             // relevant_dofs);
 
             // reduced matrix
+            TimerOutput::Scope t_2(getTimer(), "sm_constraints");
+
             AffineConstraints<double> constraints_reduced;
             constraints_reduced.reinit(partitioning.get_owned_dofs(),
                                        partitioning.get_relevant_dofs());
@@ -427,6 +433,10 @@ namespace StokesMatrixFree
                                constraints_reduced,
                                all_indices_assemble);
 
+            t_2.stop();
+
+            TimerOutput::Scope t_3(getTimer(), "sm_sparsity");
+
             // TODO: only works for Trilinos so far
             typename LinearAlgebra::SparsityPattern reduced_sparsity_pattern;
             reduced_sparsity_pattern.reinit(partitioning.get_owned_dofs(),
@@ -439,16 +449,32 @@ namespace StokesMatrixFree
                                   constraints_reduced);
             reduced_sparsity_pattern.compress();
 
+            t_3.stop();
+
+            TimerOutput::Scope t_4(getTimer(), "sm_init_matrix");
+
             typename LinearAlgebra::SparseMatrix reduced_sparse_matrix;
             reduced_sparse_matrix.reinit(reduced_sparsity_pattern);
+
+            t_4.stop();
+
+            TimerOutput::Scope t_5(getTimer(), "sm_assemble");
+
             partially_assemble_ablock(dof_handler,
                                       constraints_reduced,
                                       q_collection_v,
                                       all_indices_assemble,
                                       reduced_sparse_matrix);
+            t_5.stop();
+
+            TimerOutput::Scope t_6(getTimer(), "sm_inverse_diagonal");
 
             VectorType inverse_diagonal;
             operators[level]->compute_inverse_diagonal(inverse_diagonal);
+
+            t_6.stop();
+
+            TimerOutput::Scope t_7(getTimer(), "sm_init_smoother");
 
             smoother_preconditioners[level] =
               std::make_shared<SmootherPreconditionerType>(std::move(patch_indices));
@@ -460,6 +486,8 @@ namespace StokesMatrixFree
                                                         reduced_sparsity_pattern,
                                                         inverse_diagonal,
                                                         all_indices_relevant);
+
+            t_7.stop();
           }
         else
           {

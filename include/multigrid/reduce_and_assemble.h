@@ -31,6 +31,8 @@
 
 #include <deal.II/matrix_free/fe_evaluation.h>
 
+#include <global.h>
+
 
 template <int dim, int spacedim>
 std::set<dealii::types::global_dof_index>
@@ -278,23 +280,33 @@ partially_assemble_ablock(const dealii::DoFHandler<dim, spacedim> &dof_handler,
       const std::vector<unsigned int>             &lexicographic =
         evaluator.get_shape_info().lexicographic_numbering;
 
+      dealii::TimerOutput::Scope t_3(getTimer(), "sm_assemble_contains");
       for (unsigned int i = 0; i < local_dof_indices.size(); ++i)
         if (all_indices_assemble.contains(local_dof_indices[lexicographic[i]]))
           {
             local_dof_indices_reduced.push_back(local_dof_indices[lexicographic[i]]);
             dof_indices.push_back(i);
           }
+      t_3.stop();
 
       if (dof_indices.empty())
-        continue;
+        {
+          dealii::TimerOutput::Scope t_1(getTimer(), "sm_assemble_evaluator_reinit");
+          dealii::TimerOutput::Scope t_2(getTimer(), "sm_assemble_weak");
+          continue;
+        }
 
       cell_matrix.reinit(dof_indices.size(), dof_indices.size());
+
+      dealii::TimerOutput::Scope t_1(getTimer(), "sm_assemble_evaluator_reinit");
       evaluator.reinit(cell);
+      t_1.stop();
 
       // TODO: move to parameter
       const double viscosity = 0.1;
 
       // loop over cell dofs
+      dealii::TimerOutput::Scope t_2(getTimer(), "sm_assemble_weak");
       constexpr unsigned int n_lanes = dealii::VectorizedArray<double>::size();
       for (unsigned int k = 0; k < dof_indices.size(); k += n_lanes)
         {
@@ -315,6 +327,7 @@ partially_assemble_ablock(const dealii::DoFHandler<dim, spacedim> &dof_handler,
             for (unsigned int i = 0; i < dof_indices.size(); ++i)
               cell_matrix(i, j) = dof_values[dof_indices[i]][j - k];
         }
+      t_2.stop();
 
       constraints_reduced.distribute_local_to_global(cell_matrix,
                                                      local_dof_indices_reduced,
