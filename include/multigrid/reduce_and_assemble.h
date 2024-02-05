@@ -17,6 +17,8 @@
 #define multigrid_reduce_and_assemble_h
 
 
+#include <deal.II/base/vectorization.h>
+
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/dofs/dof_tools.h>
 
@@ -28,6 +30,8 @@
 #include <deal.II/lac/affine_constraints.h>
 #include <deal.II/lac/full_matrix.h>
 #include <deal.II/lac/sparsity_pattern_base.h>
+
+#include <deal.II/matrix_free/fe_evaluation.h>
 
 
 template <int dim, int spacedim>
@@ -156,6 +160,124 @@ make_sparsity_pattern(const dealii::DoFHandler<dim, spacedim>         &dof_handl
                                               sparsity_pattern,
                                               /*keep_constrained_dofs=*/false);
     }
+}
+
+
+
+template <typename OperatorType, typename Number, typename SparseMatrixType>
+void
+partially_assemble(const OperatorType                              &my_operator,
+                   const dealii::AffineConstraints<Number>         &constraints,
+                   const std::set<dealii::types::global_dof_index> &all_indices_assemble,
+                   SparseMatrixType                                &sparse_matrix)
+{
+  const auto matrix_free = my_operator.get_matrix_free();
+
+  // TODO: make parameter
+  const unsigned int dof_index = 0;
+
+  const auto assemble_sparse_matrix = [&my_operator, &constraints](
+    const decltype(matrix_free)                 &data,
+    SparseMatrixType                            &dst,
+    const SparseMatrixType                      &src,
+    const std::pair<unsigned int, unsigned int> &range)
+  {
+    (void)src;
+
+    typename OperatorType::FECellIntegrator integrator (data, range, dof_index);
+
+    // assuming this is the same category
+    const unsigned int const dofs_per_cell = integrator.dofs_per_cell;
+
+    for (unsigned int cell = range.first; cell < range.second; ++cell)
+      {
+#ifdef DEBUG
+        // check whether all cells in range have the same active fe index
+        matrix_free.get_cell_active_fe_index(cell);
+#endif
+
+        //
+        // VERSION 1: RUNS ON CELL BATCHES AS A WHOLE
+        //
+        /*
+        // get locally owned dof indices on cell bath in local mpi enumeration
+        std::vector<unsigned int> local_indices;
+        matrix_free.get_dof_info().get_dof_indices_on_cell_batch(local_indices, cell);
+
+        // extract on which ones we will assemble the matrix
+        std::vector<unsigned int>                    local_indices_reduced;
+        std::vector<dealii::types::global_dof_index> global_indices_reduced;
+        for (const auto local_index : local_indices)
+          {
+            const auto global_index = matrix_free.get_dof_info().vector_partitioner->local_to_global(local_index);
+
+            if (all_indices_assemble.contains(global_index))
+              {
+                local_indices_reduced.push_back(local_index);
+                global_indices_reduced.push_back(global_index);
+              }
+          }
+        */
+        (void)all_indices_assemble;
+
+        static const unsigned int vectorization_length = dealii::VectorizedArray<Number>::size();
+        const unsigned int        n_filled_lanes = matrix_free.n_active_entries_per_cell_batch(cell);
+
+        // const auto dofs_per_cells  = fe_collection[active_fe_index].dofs_per_cells;
+
+        dealii::FullMatrix<Number> matrices[vectorization_length];
+        std::fill_n(matrices, vectorization_length, dealii::FullMatrix<Number>(dofs_per_cell, dofs_per_cell));
+
+        //
+        // VERSION 2: RUNS ON INDIVIDUAL CELLS?
+        //
+        // TODO: size of each matrix is different
+        // get information of each cell via
+        // auto cell_v = matrix_free.get_cell_iterator(cell, v)
+
+
+        // perform assemble of poisson matrix on patch dofs
+        integrator.reinit(cell);
+        for (unsigned int j = 0; j < dofs_per_cell; ++j)
+          {
+            // create standard basis
+            for (unsigned int i = 0; i < dofs_per_cell; ++i)
+              integrator.begin_dof_values()[i] = dealii::make_vectorized_array<Number>(0.);
+            integrator.begin_dof_values()[j] = dealii::make_vectorized_array<Number>(1.);
+
+            my_operator.do_cell_integral_local(integrator);
+
+            for (unsigned int i = 0; i < dofs_per_cell; ++i)
+              for(unsigned int v = 0; v < n_filled_lanes; ++v)
+                matrices[v](i, j) = integrator.begin_dof_values()[i][v];
+          }
+
+        // transfer from local to global matrix
+        for(unsigned int v = 0; v < n_filled_lanes; ++v)
+          {
+            auto cell_v = matrix_free.get_cell_iterator(cell, v);
+
+            std::vector<dealii::types::global_dof_index> dof_indices(dofs_per_cell);
+            cell_v->get_dof_indices(dof_indices);
+
+            // fix lexicographic ordering for CG elements
+            // TODO: Check that we are using Q elements here
+            // TODO: move this part to the section in which we are preparing the dofs?
+            auto temp = dof_indices;
+            for(unsigned int j = 0; j < dof_indices.size(); j++)
+              dof_indices[j] =
+                temp[matrix_free.get_shape_info(dof_index).lexicographic_numbering[j]];
+
+            constraints.distribute_local_to_global(matrices[v],
+                                                   dof_indices,
+                                                   dst);
+          }
+      }
+  };
+
+  matrix_free.cell_loop(&assemble_sparse_matrix, this, sparse_matrix, SparseMatrixType(), true);
+
+  sparse_matrix.compress(dealii::VectorOperation::values::add);
 }
 
 
