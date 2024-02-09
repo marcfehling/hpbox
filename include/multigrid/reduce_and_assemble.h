@@ -29,6 +29,8 @@
 #include <deal.II/lac/full_matrix.h>
 #include <deal.II/lac/sparsity_pattern_base.h>
 
+#include <deal.II/matrix_free/fe_evaluation.h>
+
 
 template <int dim, int spacedim>
 std::set<dealii::types::global_dof_index>
@@ -227,9 +229,9 @@ partially_assemble_poisson(const dealii::DoFHandler<dim, spacedim>         &dof_
 
 template <int dim, int spacedim, typename Number, typename SparseMatrixType>
 void
-partially_assemble_ablock(const dealii::DoFHandler<dim, spacedim>         &dof_handler,
-                          const dealii::AffineConstraints<Number>         &constraints_reduced,
-                          const dealii::hp::QCollection<dim>              &quadrature_collection,
+partially_assemble_ablock(const dealii::DoFHandler<dim, spacedim> &dof_handler,
+                          const dealii::AffineConstraints<Number> &constraints_reduced,
+                          const dealii::hp::QCollection<dim> &,
                           const std::set<dealii::types::global_dof_index> &all_indices_assemble,
                           SparseMatrixType                                &sparse_matrix)
 {
@@ -237,58 +239,66 @@ partially_assemble_ablock(const dealii::DoFHandler<dim, spacedim>         &dof_h
   // build local matrices, distribute to sparse matrix
   //
 
-  // TODO: take fe values from somewhere else?
-
-  dealii::hp::FEValues<dim, spacedim> hp_fe_values(dof_handler.get_fe_collection(),
-                                                   quadrature_collection,
-                                                   dealii::update_gradients |
-                                                     dealii::update_JxW_values);
+  const auto &fes = dof_handler.get_fe_collection();
+  std::vector<std::unique_ptr<dealii::FEEvaluation<dim, -1, 0, dim, double>>> evaluators(
+    fes.size());
+  for (unsigned int i = 0; i < fes.size(); ++i)
+    evaluators[i] = std::make_unique<dealii::FEEvaluation<dim, -1, 0, dim, double>>(
+      fes[i],
+      dealii::QGauss<1>(fes[i].degree + 1),
+      dealii::update_gradients | dealii::update_JxW_values);
 
   dealii::FullMatrix<double>                   cell_matrix;
-  std::vector<dealii::Tensor<2, dim>>          grad_phi_u;
   std::vector<dealii::types::global_dof_index> local_dof_indices;
 
   // loop over locally owned cells
   for (const auto &cell :
        dof_handler.active_cell_iterators() | dealii::IteratorFilters::LocallyOwnedCell())
     {
-      hp_fe_values.reinit(cell);
-
       local_dof_indices.resize(cell->get_fe().dofs_per_cell);
       cell->get_dof_indices(local_dof_indices);
 
       std::vector<dealii::types::global_dof_index> local_dof_indices_reduced;
       std::vector<unsigned int>                    dof_indices;
+      auto                                        &evaluator = *evaluators[cell->active_fe_index()];
+      const std::vector<unsigned int>             &lexicographic =
+        evaluator.get_shape_info().lexicographic_numbering;
 
       for (unsigned int i = 0; i < local_dof_indices.size(); ++i)
-        if (all_indices_assemble.contains(local_dof_indices[i]))
+        if (all_indices_assemble.contains(local_dof_indices[lexicographic[i]]))
           {
-            local_dof_indices_reduced.push_back(local_dof_indices[i]);
+            local_dof_indices_reduced.push_back(local_dof_indices[lexicographic[i]]);
             dof_indices.push_back(i);
           }
 
       if (dof_indices.empty())
         continue;
 
-      const auto &fe_values = hp_fe_values.get_present_fe_values();
-
       cell_matrix.reinit(dof_indices.size(), dof_indices.size());
-      grad_phi_u.resize(dof_indices.size());
+      evaluator.reinit(cell);
 
       // TODO: move to parameter
       const double viscosity = 0.1;
 
       // loop over cell dofs
-      const dealii::FEValuesExtractors::Vector velocities(0);
-      for (const auto q : fe_values.quadrature_point_indices())
+      constexpr unsigned int n_lanes = dealii::VectorizedArray<double>::size();
+      for (unsigned int k = 0; k < dof_indices.size(); k += n_lanes)
         {
-          for (unsigned int k = 0; k < dof_indices.size(); ++k)
-            grad_phi_u[k] = fe_values[velocities].gradient(dof_indices[k], q);
+          for (unsigned int i = 0; i < evaluator.dofs_per_cell; ++i)
+            evaluator.begin_dof_values()[i] = {};
+          for (unsigned int j = k; j < dof_indices.size() && j - k < n_lanes; ++j)
+            evaluator.begin_dof_values()[dof_indices[j]][j - k] = 1.0;
 
-          for (unsigned int i = 0; i < dof_indices.size(); ++i)
-            for (unsigned int j = 0; j < dof_indices.size(); ++j)
-              cell_matrix(i, j) +=
-                viscosity * scalar_product(grad_phi_u[i], grad_phi_u[j]) * fe_values.JxW(q);
+          evaluator.evaluate(dealii::EvaluationFlags::gradients);
+          for (unsigned int q = 0; q < evaluator.n_q_points; ++q)
+            evaluator.submit_gradient(dealii::make_vectorized_array(viscosity) *
+                                        evaluator.get_gradient(q),
+                                      q);
+          evaluator.integrate(dealii::EvaluationFlags::gradients);
+
+          for (unsigned int j = k; j < dof_indices.size() && j - k < n_lanes; ++j)
+            for (unsigned int i = 0; i < dof_indices.size(); ++i)
+              cell_matrix(i, j) = evaluator.begin_dof_values()[dof_indices[i]][j - k];
         }
 
       constraints_reduced.distribute_local_to_global(cell_matrix,
