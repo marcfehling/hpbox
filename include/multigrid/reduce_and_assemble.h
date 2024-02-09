@@ -284,10 +284,11 @@ partially_assemble_ablock(const dealii::DoFHandler<dim, spacedim> &dof_handler,
       constexpr unsigned int n_lanes = dealii::VectorizedArray<double>::size();
       for (unsigned int k = 0; k < dof_indices.size(); k += n_lanes)
         {
+          dealii::VectorizedArray<double> *dof_values = evaluator.begin_dof_values();
           for (unsigned int i = 0; i < evaluator.dofs_per_cell; ++i)
-            evaluator.begin_dof_values()[i] = {};
+            dof_values[i] = {};
           for (unsigned int j = k; j < dof_indices.size() && j - k < n_lanes; ++j)
-            evaluator.begin_dof_values()[dof_indices[j]][j - k] = 1.0;
+            dof_values[dof_indices[j]][j - k] = 1.0;
 
           evaluator.evaluate(dealii::EvaluationFlags::gradients);
           for (unsigned int q = 0; q < evaluator.n_q_points; ++q)
@@ -298,7 +299,7 @@ partially_assemble_ablock(const dealii::DoFHandler<dim, spacedim> &dof_handler,
 
           for (unsigned int j = k; j < dof_indices.size() && j - k < n_lanes; ++j)
             for (unsigned int i = 0; i < dof_indices.size(); ++i)
-              cell_matrix(i, j) = evaluator.begin_dof_values()[dof_indices[i]][j - k];
+              cell_matrix(i, j) = dof_values[dof_indices[i]][j - k];
         }
 
       constraints_reduced.distribute_local_to_global(cell_matrix,
