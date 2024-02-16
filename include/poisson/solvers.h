@@ -256,10 +256,10 @@ namespace Poisson
             DoFTools::make_sparsity_pattern(dof_handler, sparsity_pattern, constraint, false, myid);
             sparsity_pattern.compress();
 
-            smoother_preconditioners[level] =
-              std::make_shared<SmootherPreconditionerType>(std::move(patch_indices));
+            smoother_preconditioners[level] = std::make_shared<SmootherPreconditionerType>();
             smoother_preconditioners[level]->initialize(operators[level]->get_system_matrix(),
                                                         sparsity_pattern,
+                                                        patch_indices,
                                                         dof_handler);
           }
         else if constexpr (std::is_same_v<SmootherPreconditionerType,
@@ -315,14 +315,15 @@ namespace Poisson
             VectorType inverse_diagonal;
             operators[level]->compute_inverse_diagonal(inverse_diagonal);
 
-            smoother_preconditioners[level] =
-              std::make_shared<SmootherPreconditionerType>(std::move(patch_indices));
-            // smoother_preconditioners[level]->->initialize(operators[level]->get_system_matrix(),
-            //                                               dsp,
-            //                                               inverse_diagonal,
-            //                                               all_indices_relevant);
+            smoother_preconditioners[level] = std::make_shared<SmootherPreconditionerType>();
+            // smoother_preconditioners[level]->initialize(operators[level]->get_system_matrix(),
+            //                                             dsp,
+            //                                             patch_indices,
+            //                                             inverse_diagonal,
+            //                                             all_indices_relevant);
             smoother_preconditioners[level]->initialize(reduced_sparse_matrix,
                                                         reduced_sparsity_pattern,
+                                                        patch_indices,
                                                         inverse_diagonal,
                                                         all_indices_relevant);
           }

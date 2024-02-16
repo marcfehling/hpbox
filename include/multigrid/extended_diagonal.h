@@ -46,21 +46,15 @@ private:
   using Number = typename VectorType::value_type;
 
 public:
-  PreconditionExtendedDiagonal(
-    const std::vector<std::vector<types::global_dof_index>> &patch_indices)
-    : patch_indices(patch_indices)
-  {}
-
-  PreconditionExtendedDiagonal(std::vector<std::vector<types::global_dof_index>> &&patch_indices)
-    : patch_indices(std::move(patch_indices))
-  {}
+  PreconditionExtendedDiagonal() = default;
 
   template <typename GlobalSparseMatrixType, typename GlobalSparsityPattern>
   void
-  initialize(const GlobalSparseMatrixType            &global_sparse_matrix,
-             const GlobalSparsityPattern             &global_sparsity_pattern,
-             const VectorType                        &inverse_diagonal,
-             const std::set<types::global_dof_index> &all_indices_relevant)
+  initialize(const GlobalSparseMatrixType                            &global_sparse_matrix,
+             const GlobalSparsityPattern                             &global_sparsity_pattern,
+             const std::vector<std::vector<types::global_dof_index>> &patch_indices,
+             const VectorType                                        &inverse_diagonal,
+             const std::set<types::global_dof_index>                 &all_indices_relevant)
   {
     TimerOutput::Scope t(getTimer(), "initialize_extended_diagonal");
 
@@ -163,8 +157,6 @@ public:
           ghost_indices.push_back(i);
       }
 
-    // TODO: translate patch_indices to local_elements to optimize
-
     //
     // set embedded partitioner
     //
@@ -185,6 +177,26 @@ public:
 
     this->embedded_partitioner =
       internal::create_embedded_partitioner(partitioner, large_partitioner);
+
+    //
+    // with LA::distributed vector, we can use local elements for fast access
+    //
+    if constexpr (std::is_same_v<VectorType, LinearAlgebra::distributed::Vector<double>>)
+      {
+        patch_indices_local.reserve(patch_indices.size());
+        for (const auto &indices : patch_indices)
+          {
+            std::vector<unsigned int> indices_local;
+            indices_local.reserve(indices.size());
+            for (const auto i : indices)
+              indices_local.push_back(large_partitioner->global_to_local(i));
+            patch_indices_local.push_back(std::move(indices_local));
+          }
+      }
+    else
+      {
+        this->patch_indices_global = patch_indices;
+      }
   }
 
   void
@@ -201,30 +213,53 @@ public:
 
     Vector<Number> vector_src, vector_dst;
 
-    // ... 2) loop over patches
-    for (unsigned int p = 0; p < patch_matrices.size(); ++p)
+    if constexpr (std::is_same_v<VectorType, LinearAlgebra::distributed::Vector<double>>)
       {
-        // ... 2a) gather
-        const unsigned int dofs_per_cell = patch_indices[p].size();
+        AssertDimension(patch_matrices.size(), patch_indices_local.size());
 
-        vector_src.reinit(dofs_per_cell);
-        vector_dst.reinit(dofs_per_cell);
+        // ... 2) loop over patches
+        for (unsigned int p = 0; p < patch_matrices.size(); ++p)
+          {
+            // ... 2a) gather
+            const unsigned int dofs_per_cell = patch_indices_local[p].size();
 
-        // TODO: patch indices are *global*
-        //       use local indices for faster access like this:
-        // for (unsigned int i = 0; i < dofs_per_cell; ++i)
-        //   vector_src[i] = src.local_element(patch_indices[p][i]);
-        for (unsigned int i = 0; i < dofs_per_cell; ++i)
-          vector_src[i] = src[patch_indices[p][i]];
+            vector_src.reinit(dofs_per_cell);
+            vector_dst.reinit(dofs_per_cell);
 
-        // ... 2b) apply preconditioner
-        patch_matrices[p].vmult(vector_dst, vector_src);
+            for (unsigned int i = 0; i < dofs_per_cell; ++i)
+              vector_src[i] = src.local_element(patch_indices_local[p][i]);
 
-        // ... 2c) scatter
-        // for (unsigned int i = 0; i < dofs_per_cell; ++i)
-        //   dst.local_element(patch_indices[p][i]) += vector_dst[i];
-        for (unsigned int i = 0; i < dofs_per_cell; ++i)
-          dst[patch_indices[p][i]] += vector_dst[i];
+            // ... 2b) apply preconditioner
+            patch_matrices[p].vmult(vector_dst, vector_src);
+
+            // ... 2c) scatter
+            for (unsigned int i = 0; i < dofs_per_cell; ++i)
+              dst.local_element(patch_indices_local[p][i]) += vector_dst[i];
+          }
+      }
+    else
+      {
+        AssertDimension(patch_matrices.size(), patch_indices_global.size());
+
+        // ... 2) loop over patches
+        for (unsigned int p = 0; p < patch_matrices.size(); ++p)
+          {
+            // ... 2a) gather
+            const unsigned int dofs_per_cell = patch_indices_global[p].size();
+
+            vector_src.reinit(dofs_per_cell);
+            vector_dst.reinit(dofs_per_cell);
+
+            for (unsigned int i = 0; i < dofs_per_cell; ++i)
+              vector_src[i] = src[patch_indices_global[p][i]];
+
+            // ... 2b) apply preconditioner
+            patch_matrices[p].vmult(vector_dst, vector_src);
+
+            // ... 2c) scatter
+            for (unsigned int i = 0; i < dofs_per_cell; ++i)
+              dst[patch_indices_global[p][i]] += vector_dst[i];
+          }
       }
 
     // ... 3) compress
@@ -234,8 +269,10 @@ public:
 
 private:
   // ASM
-  const std::vector<std::vector<types::global_dof_index>> patch_indices;
-  std::vector<FullMatrix<Number>>                         patch_matrices;
+  std::vector<FullMatrix<Number>> patch_matrices;
+
+  std::vector<std::vector<types::global_dof_index>> patch_indices_global;
+  std::vector<std::vector<unsigned int>>            patch_indices_local;
 
   // inverse diagonal
   VectorType reduced_inverse_diagonal;

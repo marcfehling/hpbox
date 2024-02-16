@@ -49,28 +49,23 @@ private:
   using Number = typename VectorType::value_type;
 
 public:
-  PreconditionASM(const std::vector<std::vector<types::global_dof_index>> &patch_indices)
-    : indices(patch_indices)
-  {}
-
-  PreconditionASM(std::vector<std::vector<types::global_dof_index>> &&patch_indices)
-    : indices(std::move(patch_indices))
-  {}
+  PreconditionASM() = default;
 
   template <typename GlobalSparseMatrixType, typename GlobalSparsityPattern, int dim, int spacedim>
   void
-  initialize(const GlobalSparseMatrixType    &global_sparse_matrix,
-             const GlobalSparsityPattern     &global_sparsity_pattern,
-             const DoFHandler<dim, spacedim> &dof_handler)
+  initialize(const GlobalSparseMatrixType                            &global_sparse_matrix,
+             const GlobalSparsityPattern                             &global_sparsity_pattern,
+             const std::vector<std::vector<types::global_dof_index>> &patch_indices,
+             const DoFHandler<dim, spacedim>                         &dof_handler)
   {
     TimerOutput::Scope t(getTimer(), "initialize_asm");
+
+    this->indices = patch_indices;
 
     // treat unprocessed DoFs as blocks of size 1x1
 
     // TODO: I do not need a dof_handler but rather a partitioner here
     //       Move this part into the constructor
-
-    // ATTENTION: This function modifies indices. Do not call this twice!
 
     const IndexSet relevant = DoFTools::extract_locally_relevant_dofs(dof_handler);
     VectorType     unprocessed_indices(dof_handler.locally_owned_dofs(),
