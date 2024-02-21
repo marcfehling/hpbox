@@ -44,6 +44,11 @@ main(int argc, char *argv[])
       std::unique_ptr<ProblemBase> problem = Factory::create_application(
         prm.problem_type, prm.operator_type, prm.dimension, prm.linear_algebra, prm);
       problem->run();
+
+      dealii::Utilities::System::MemoryStats stats;
+      dealii::Utilities::System::get_memory_stats(stats);
+      const double max_vmpeak = dealii::Utilities::MPI::max(stats.VmPeak/1048576., MPI_COMM_WORLD);
+      getPCOut() << "Peak virtual memory usage (VmPeak) (GB): " << max_vmpeak << std::endl;
     }
   catch (std::exception &exc)
     {
