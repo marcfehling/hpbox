@@ -94,7 +94,8 @@ reduce_constraints(const dealii::AffineConstraints<Number>         &constraints_
 
         if (constraint_entries != nullptr)
           for (const auto &entry : *constraint_entries)
-            if (all_indices_relevant.contains(entry.first))
+            // TODO C++20: use std::set::contains instead
+            if (all_indices_relevant.find(entry.first) != all_indices_relevant.end())
               constraint_entries_reduced.push_back(entry);
 
         if (constraint_entries_reduced.empty() == false)
@@ -151,7 +152,8 @@ make_sparsity_pattern(const dealii::DoFHandler<dim, spacedim>         &dof_handl
 
       local_dof_indices_reduced.clear();
       for (const auto i : local_dof_indices)
-        if (all_indices_assemble.contains(i))
+        // TODO C++20: use std::set::contains instead
+        if (all_indices_assemble.find(i) != all_indices_assemble.end())
           local_dof_indices_reduced.push_back(i);
 
       constraints.add_entries_local_to_global(local_dof_indices_reduced,
@@ -199,7 +201,9 @@ partially_assemble_poisson(const dealii::DoFHandler<dim, spacedim> &dof_handler,
         evaluator.get_shape_info().lexicographic_numbering;
 
       for (unsigned int i = 0; i < local_dof_indices.size(); ++i)
-        if (all_indices_assemble.contains(local_dof_indices[lexicographic[i]]))
+        // TODO C++20: use std::set::contains instead
+        if (all_indices_assemble.find(local_dof_indices[lexicographic[i]]) !=
+            all_indices_assemble.end())
           {
             local_dof_indices_reduced.push_back(local_dof_indices[lexicographic[i]]);
             dof_indices.push_back(i);
@@ -279,7 +283,9 @@ partially_assemble_ablock(const dealii::DoFHandler<dim, spacedim> &dof_handler,
         evaluator.get_shape_info().lexicographic_numbering;
 
       for (unsigned int i = 0; i < local_dof_indices.size(); ++i)
-        if (all_indices_assemble.contains(local_dof_indices[lexicographic[i]]))
+        // TODO C++20: use std::set::contains instead
+        if (all_indices_assemble.find(local_dof_indices[lexicographic[i]]) !=
+            all_indices_assemble.end())
           {
             local_dof_indices_reduced.push_back(local_dof_indices[lexicographic[i]]);
             dof_indices.push_back(i);
