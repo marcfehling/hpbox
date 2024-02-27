@@ -671,13 +671,45 @@ namespace StokesMatrixFree
           getTable().add_value("dofs_v", dof_handler_v.n_dofs());
           getTable().add_value("dofs_p", dof_handler_p.n_dofs());
 
-#ifdef DEBUG
+// #ifdef DEBUG
           // check if both dofhandlers have same fe indices
           const std::vector<types::fe_index> fe_indices_v = dof_handler_v.get_active_fe_indices();
           const std::vector<types::fe_index> fe_indices_p = dof_handler_p.get_active_fe_indices();
-          Assert(std::equal(fe_indices_v.begin(), fe_indices_v.end(), fe_indices_p.begin()),
-                 ExcMessage("Active FE indices differ!"));
-#endif
+          AssertThrow(std::equal(fe_indices_v.begin(), fe_indices_v.end(), fe_indices_p.begin()),
+                      ExcMessage("Active FE indices differ!"));
+// #endif
+
+          // ---------- Sanity check limit_p_level_difference ----------
+          for (const auto &cell : dof_handler_v.active_cell_iterators() | IteratorFilters::LocallyOwnedCell())
+            {
+              const auto cell_fe_index = cell->active_fe_index();
+
+              for (unsigned int f = 0; f < cell->n_faces(); ++f)
+                if (cell->face(f)->at_boundary() == false)
+                  {
+                    if (cell->face(f)->has_children())
+                      {
+                        for (unsigned int sf = 0;
+                             sf < cell->face(f)->n_children();
+                             ++sf)
+                          {
+                            const auto neighbor_subface_fe_index = cell->neighbor_child_on_subface(f, sf)->active_fe_index();
+
+                            AssertThrow(std::abs(cell_fe_index - neighbor_subface_fe_index) <= 1,
+                                        ExcMessage("Sanity check fails."));
+                          }
+                      }
+                    else
+                      {
+                        const auto neighbor_fe_index = cell->neighbor(f)->active_fe_index();
+
+                        AssertThrow(std::abs(cell_fe_index - neighbor_fe_index) <= 1,
+                                    ExcMessage("Sanity check fails."));
+                      }
+                  }
+
+            }
+          // --------------------
 
           a_block_operator->reinit(partitioning_v, dof_handler_v, constraints_v);
           schur_block_operator->reinit(partitioning_p, dof_handler_p, constraints_p);
