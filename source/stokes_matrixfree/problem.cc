@@ -680,6 +680,7 @@ namespace StokesMatrixFree
 // #endif
 
           // ---------- Sanity check limit_p_level_difference ----------
+          // ---------- check for ACTIVE fe indices
           for (const auto &cell : dof_handler_v.active_cell_iterators() | IteratorFilters::LocallyOwnedCell())
             {
               const auto cell_fe_index = cell->active_fe_index();
@@ -689,22 +690,30 @@ namespace StokesMatrixFree
                   {
                     if (cell->face(f)->has_children())
                       {
-                        for (unsigned int sf = 0;
-                             sf < cell->face(f)->n_children();
-                             ++sf)
+                        for (unsigned int sf = 0; sf < cell->face(f)->n_children(); ++sf)
                           {
                             const auto neighbor_subface_fe_index = cell->neighbor_child_on_subface(f, sf)->active_fe_index();
 
-                            AssertThrow(std::abs(cell_fe_index - neighbor_subface_fe_index) <= 1,
-                                        ExcMessage("Sanity check fails."));
+                            if (std::abs(cell_fe_index - neighbor_subface_fe_index) > 1)
+                              {
+                                std::cout << "cell_fe_index: " << cell_fe_index << std::endl;
+                                std::cout << "neighbor_subface_fe_index: " << neighbor_subface_fe_index << std::endl;
+                                std::cout << "diff: " << std::abs(cell_fe_index - neighbor_subface_fe_index) << std::endl;
+                                AssertThrow(false, ExcMessage("Sanity check fails: subface, stokes."));
+                              }
                           }
                       }
                     else
                       {
                         const auto neighbor_fe_index = cell->neighbor(f)->active_fe_index();
 
-                        AssertThrow(std::abs(cell_fe_index - neighbor_fe_index) <= 1,
-                                    ExcMessage("Sanity check fails."));
+                        if (std::abs(cell_fe_index - neighbor_fe_index) > 1)
+                          {
+                            std::cout << "cell_fe_index: " << cell_fe_index << std::endl;
+                            std::cout << "neighbor_fe_index: " << neighbor_fe_index << std::endl;
+                            std::cout << "diff: " << std::abs(cell_fe_index - neighbor_fe_index) << std::endl;
+                            AssertThrow(false, ExcMessage("Sanity check fails: face, stokes."));
+                          }
                       }
                   }
 
