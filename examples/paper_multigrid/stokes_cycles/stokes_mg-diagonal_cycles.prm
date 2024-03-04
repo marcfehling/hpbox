@@ -1,0 +1,37 @@
+subsection adaptation
+  set max degree                           = 10
+  set max difference of polynomial degrees = 1
+  set max level                            = 10
+  set min degree                           = 3
+  set min level                            = 3
+  set n cycles                             = 8
+  set p-coarsen fraction                   = 0.5
+  set p-refine fraction                    = 0.5
+  set total coarsen fraction               = 0.01
+  set total refine fraction                = 0.1
+  set weighting exponent                   = 1.0
+  set weighting factor                     = 1.0
+end
+subsection input output
+  set checkpoint each n steps = 0
+  set file stem               = stokes_mg-diagonal_cycles
+  set log deallog             = false
+  set log nonzero elements    = false
+  set output each n steps     = 0
+  set resume from filename    = 
+end
+subsection multigrid
+  set estimate eigenvalues         = true
+  set log levels                   = false
+  set smoother preconditioner type = Diagonal
+end
+subsection problem
+  set adaptation type         = hp Legendre
+  set dimension               = 3
+  set grid type               = y-pipe
+  set linear algebra          = dealii & Trilinos
+  set operator type           = MatrixFree
+  set problem type            = Stokes
+  set solver tolerance factor = 1e-8
+  set solver type             = GMG
+end
