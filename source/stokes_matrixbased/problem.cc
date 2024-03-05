@@ -286,8 +286,6 @@ namespace StokesMatrixBased
 #endif
       constraints.close();
     }
-
-    Log::log_hp_diagnostics(triangulation, dof_handler, constraints);
   }
 
 
@@ -549,6 +547,8 @@ namespace StokesMatrixBased
           Log::log_cycle(cycle, prm);
 
           setup_system();
+
+          Log::log_hp_diagnostics(triangulation, dof_handler, constraints);
 
           a_block_operator->reinit(partitioning, dof_handler, constraints);
           schur_block_operator->reinit(partitioning, dof_handler, constraints);

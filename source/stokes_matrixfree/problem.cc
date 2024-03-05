@@ -351,9 +351,6 @@ namespace StokesMatrixFree
         constraints_p.close();
       }
     }
-
-    // TODO: check consistency
-    Log::log_hp_diagnostics(triangulation, dof_handlers, constraints);
   }
 
 
@@ -679,6 +676,10 @@ namespace StokesMatrixFree
           Log::log_cycle(cycle, prm);
 
           setup_system();
+
+          Log::log_hp_diagnostics(triangulation, dof_handlers, constraints);
+          getTable().add_value("dofs_v", dof_handler_v.n_dofs());
+          getTable().add_value("dofs_p", dof_handler_p.n_dofs());
 
 #ifdef DEBUG
           // check if both dofhandlers have same fe indices
