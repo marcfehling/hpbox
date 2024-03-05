@@ -1,5 +1,5 @@
 subsection adaptation
-  set max degree                           = 10
+  set max degree                           = 8
   set max difference of polynomial degrees = 1
   set max level                            = 10
   set min degree                           = 3
