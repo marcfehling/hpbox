@@ -10,7 +10,7 @@ subsection adaptation
   set total coarsen fraction               = 0.03
   set total refine fraction                = 0.3
   set weighting exponent                   = 3.9
-  set weighting factor                     = 1.0
+  set weighting factor                     = 4.3972e-01
 end
 subsection input output
   set checkpoint each n steps = 10
