@@ -30,10 +30,6 @@
 #include <poisson/problem.h>
 #include <poisson/solvers.h>
 
-#include <ctime>
-#include <iomanip>
-#include <sstream>
-
 using namespace dealii;
 
 
@@ -80,14 +76,8 @@ namespace Poisson
     TimerOutput::Scope t(getTimer(), "initialize_problem");
 
     // prepare name for logfile
-    {
-      time_t             now = time(nullptr);
-      tm                *ltm = localtime(&now);
-      std::ostringstream oss;
-      oss << prm.file_stem << "-" << std::put_time(ltm, "%Y%m%d-%H%M%S");
-      filename_stem = oss.str();
-      filename_log  = filename_stem + ".log";
-    }
+    filename_stem = prm.file_stem + "-" + prm.logfile_suffix;
+    filename_log  = filename_stem + ".log";
 
     // prepare collections
     mapping_collection.push_back(MappingQ1<dim, spacedim>());

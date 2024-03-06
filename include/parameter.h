@@ -63,6 +63,15 @@ struct Parameter : public dealii::ParameterAcceptor
     file_stem = "my_problem";
     add_parameter("file stem", file_stem);
 
+    // use timestamp as suffix to distinguish logfiles
+    {
+      time_t             now = time(nullptr);
+      tm                *ltm = localtime(&now);
+      std::ostringstream oss;
+      oss << std::put_time(ltm, "%Y%m%d-%H%M%S");
+      logfile_suffix = oss.str();
+    }
+
     output_frequency = 1;
     add_parameter("output each n steps", output_frequency);
 
@@ -90,6 +99,7 @@ struct Parameter : public dealii::ParameterAcceptor
   double      solver_tolerance_factor;
 
   std::string  file_stem;
+  std::string  logfile_suffix;
   unsigned int output_frequency;
   std::string  resume_filename;
   unsigned int checkpoint_frequency;

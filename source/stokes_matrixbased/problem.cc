@@ -35,10 +35,6 @@
 #include <stokes_matrixbased/problem.h>
 #include <stokes_matrixbased/solvers.h>
 
-// #include <ctime>
-// #include <iomanip>
-// #include <sstream>
-
 using namespace dealii;
 
 
@@ -60,13 +56,7 @@ namespace StokesMatrixBased
     TimerOutput::Scope t(getTimer(), "initialize_problem");
 
     // prepare name for logfile
-    {
-      time_t             now = time(nullptr);
-      tm                *ltm = localtime(&now);
-      std::ostringstream oss;
-      oss << prm.file_stem << "-" << std::put_time(ltm, "%Y%m%d-%H%M%S") << ".log";
-      filename_log = oss.str();
-    }
+    filename_log = prm.file_stem + "-" + prm.logfile_suffix + ".log";
 
     // prepare collections
     // TODO: different mapping for curved cells?

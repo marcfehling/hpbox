@@ -34,6 +34,9 @@ main(int argc, char *argv[])
       const std::string output_filename = (argc > 1) ? "" : "poisson.prm";
       dealii::ParameterAcceptor::initialize(filename, output_filename);
 
+      if (argc > 2)
+        prm.logfile_suffix = argv[2];
+
       if (prm.log_deallog && getPCOut().is_active())
         dealii::deallog.attach(getPCOut().get_stream());
 
