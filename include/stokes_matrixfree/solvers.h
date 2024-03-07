@@ -664,31 +664,54 @@ namespace StokesMatrixFree
 
     // ----------
     // dump to Table and then file system
-    if ((mg_data.log_levels == true) &&
-        (Utilities::MPI::this_mpi_process(dof_handler.get_communicator()) == 0))
+    if (mg_data.log_levels == true)
       {
-        dealii::ConvergenceTable table;
+        std::vector<std::vector<Utilities::MPI::MinMaxAvg>> min_max_avg(all_mg_timers.size());
         for (unsigned int level = 0; level < all_mg_timers.size(); ++level)
+          for (unsigned int i = 0; i < 7; ++i)
+            min_max_avg[level][i] = Utilities::MPI::min_max_avg(all_mg_timers[level][i].first,
+                                                                dof_handler.get_communicator());
+
+        if (Utilities::MPI::this_mpi_process(dof_handler.get_communicator()) == 0)
           {
-            table.add_value("level", level);
-            table.add_value("active_cells",
-                            dof_handlers[level].get_triangulation().n_global_active_cells());
-            table.add_value("dofs", dof_handlers[level].n_dofs());
-            table.add_value("pre_smoother_step", all_mg_timers[level][0].first);
-            table.add_value("residual_step", all_mg_timers[level][1].first);
-            table.add_value("restriction", all_mg_timers[level][2].first);
-            table.add_value("coarse_solve", all_mg_timers[level][3].first);
-            table.add_value("prolongation", all_mg_timers[level][4].first);
-            table.add_value("edge_prolongation", all_mg_timers[level][5].first);
-            table.add_value("post_smoother_step", all_mg_timers[level][6].first);
-            if (mg_data.estimate_eigenvalues == true)
+            dealii::ConvergenceTable table;
+            for (unsigned int level = 0; level < all_mg_timers.size(); ++level)
               {
-                table.add_value("min_eigenvalue", min_eigenvalues[level]);
-                table.add_value("max_eigenvalue", max_eigenvalues[level]);
+                table.add_value("level", level);
+                table.add_value("active_cells",
+                                dof_handlers[level].get_triangulation().n_global_active_cells());
+                table.add_value("dofs", dof_handlers[level].n_dofs());
+                table.add_value("pre_smoother_step_min", min_max_avg[level][0].min);
+                table.add_value("pre_smoother_step_max", min_max_avg[level][0].max);
+                table.add_value("pre_smoother_step_avg", min_max_avg[level][0].avg);
+                table.add_value("residual_step_min", min_max_avg[level][1].min);
+                table.add_value("residual_step_max", min_max_avg[level][1].max);
+                table.add_value("residual_step_avg", min_max_avg[level][1].avg);
+                table.add_value("restriction_min", min_max_avg[level][2].min);
+                table.add_value("restriction_max", min_max_avg[level][2].max);
+                table.add_value("restriction_avg", min_max_avg[level][2].avg);
+                table.add_value("coarse_solve_min", min_max_avg[level][3].min);
+                table.add_value("coarse_solve_max", min_max_avg[level][3].max);
+                table.add_value("coarse_solve_avg", min_max_avg[level][3].avg);
+                table.add_value("prolongation_min", min_max_avg[level][4].min);
+                table.add_value("prolongation_max", min_max_avg[level][4].max);
+                table.add_value("prolongation_avg", min_max_avg[level][4].avg);
+                table.add_value("edge_prolongation_min", min_max_avg[level][5].min);
+                table.add_value("edge_prolongation_max", min_max_avg[level][5].max);
+                table.add_value("edge_prolongation_avg", min_max_avg[level][5].avg);
+                table.add_value("post_smoother_step_min", min_max_avg[level][6].min);
+                table.add_value("post_smoother_step_max", min_max_avg[level][6].max);
+                table.add_value("post_smoother_step_avg", min_max_avg[level][6].avg);
+                if (mg_data.estimate_eigenvalues == true)
+                  {
+                    table.add_value("min_eigenvalue", min_eigenvalues[level]);
+                    table.add_value("max_eigenvalue", max_eigenvalues[level]);
+                  }
               }
+
+            std::ofstream mg_level_stream(filename_mg_level);
+            table.write_text(mg_level_stream);
           }
-        std::ofstream mg_level_stream(filename_mg_level);
-        table.write_text(mg_level_stream);
       }
     // ----------
 
