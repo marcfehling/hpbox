@@ -376,7 +376,8 @@ namespace Poisson
              operators,
              smoother_preconditioners,
              transfer,
-             filename_mg_level);
+             filename_mg_level,
+             dof_handlers);
 
     t_mg_solve.stop();
   }

@@ -671,6 +671,9 @@ namespace StokesMatrixFree
         for (unsigned int level = 0; level < all_mg_timers.size(); ++level)
           {
             table.add_value("level", level);
+            table.add_value("active_cells",
+                            dof_handlers[level].get_triangulation().n_global_active_cells());
+            table.add_value("dofs", dof_handlers[level].n_dofs());
             table.add_value("pre_smoother_step", all_mg_timers[level][0].first);
             table.add_value("residual_step", all_mg_timers[level][1].first);
             table.add_value("restriction", all_mg_timers[level][2].first);
