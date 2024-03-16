@@ -1,0 +1,29 @@
+#!/bin/bash
+#SBATCH --job-name="weights_init"
+#SBATCH --output="weights_init.%j.%N.out"
+#SBATCH --partition=compute
+#SBATCH --nodes=2
+#SBATCH --ntasks-per-node=128
+#SBATCH --mem=249208M
+#SBATCH --account=<your_project>
+#SBATCH --export=ALL
+#SBATCH --time=02:00:00
+
+
+
+module purge
+module load DefaultModules
+module load aocc/3.2.0 amdblis/3.1 openmpi/4.1.3 cmake/3.21.4
+
+
+
+hprun=/path/to/hprun
+
+
+
+for p in poisson stokes; do
+  echo "-------"
+  echo "${p}"
+  echo "-------"
+  mpirun -np ${SLURM_NTASKS} ${hprun} ${p}_weights/${p}_mg-asm_weights.prm
+done
