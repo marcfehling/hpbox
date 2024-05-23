@@ -668,9 +668,12 @@ namespace StokesMatrixFree
       {
         std::vector<std::vector<Utilities::MPI::MinMaxAvg>> min_max_avg(all_mg_timers.size());
         for (unsigned int level = 0; level < all_mg_timers.size(); ++level)
-          for (unsigned int i = 0; i < 7; ++i)
-            min_max_avg[level][i] = Utilities::MPI::min_max_avg(all_mg_timers[level][i].first,
-                                                                dof_handler.get_communicator());
+          {
+            min_max_avg[level].resize(7);
+            for (unsigned int i = 0; i < 7; ++i)
+              min_max_avg[level][i] = Utilities::MPI::min_max_avg(all_mg_timers[level][i].first,
+                                                                  dof_handler.get_communicator());
+          }
 
         if (Utilities::MPI::this_mpi_process(dof_handler.get_communicator()) == 0)
           {
