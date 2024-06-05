@@ -299,6 +299,21 @@ mg_solve(
                   table.add_value("min_eigenvalue", min_eigenvalues[level]);
                   table.add_value("max_eigenvalue", max_eigenvalues[level]);
                 }
+              // TODO: Debug
+              if (true) // level == min_level)
+                {
+                  table.add_value("l1_norm", mg_matrices[level]->get_system_matrix().l1_norm());
+                  table.add_value("linfty_norm",
+                                  mg_matrices[level]->get_system_matrix().linfty_norm());
+                  table.add_value("frobenius_norm",
+                                  mg_matrices[level]->get_system_matrix().frobenius_norm());
+                }
+              else
+                {
+                  table.add_value("l1_norm", 0.);
+                  table.add_value("linfty_norm", 0.);
+                  table.add_value("frobenius_norm", 0.);
+                }
             }
 
           std::ofstream mg_level_stream(filename_mg_level);
