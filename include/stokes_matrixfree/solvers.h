@@ -710,6 +710,7 @@ namespace StokesMatrixFree
                     table.add_value("min_eigenvalue", min_eigenvalues[level]);
                     table.add_value("max_eigenvalue", max_eigenvalues[level]);
                   }
+                // ----------
                 // TODO: Debug
                 if (true) // level == min_level)
                   {
@@ -725,6 +726,23 @@ namespace StokesMatrixFree
                     table.add_value("linfty_norm", 0.);
                     table.add_value("frobenius_norm", 0.);
                   }
+                {
+                  const std::vector<IndexSet> locally_owned_dofs_per_processor =
+                    Utilities::MPI::all_gather(dof_handlers[level].get_communicator(),
+                                               dof_handlers[level].locally_owned_dofs());
+
+                  IndexSet locally_active_dofs;
+                  DoFTools::extract_locally_active_dofs(dof_handlers[level], locally_active_dofs);
+
+                  const bool constraints_consistent = constraints[level].is_consistent_in_parallel(
+                    locally_owned_dofs_per_processor,
+                    locally_active_dofs,
+                    dof_handlers[level].get_communicator(),
+                    /*verbose=*/true);
+
+                  table.add_value("constraints_consistent", constraints_consistent);
+                }
+                // ----------
               }
 
             std::ofstream mg_level_stream(filename_mg_level);

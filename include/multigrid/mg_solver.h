@@ -69,7 +69,8 @@ mg_solve(
   const MGLevelObject<std::shared_ptr<SmootherPreconditionerType>> &mg_smoother_preconditioners,
   const MGTransferType                                             &mg_transfer,
   const std::string                                                &filename_mg_level,
-  const MGLevelObject<DoFHandler<dim, spacedim>>                   &mg_dof_handlers)
+  const MGLevelObject<DoFHandler<dim, spacedim>>                   &mg_dof_handlers,
+  const MGLevelObject<AffineConstraints<typename VectorType::value_type>> &mg_constraints)
 {
   AssertThrow(mg_data.smoother.type == "chebyshev", ExcNotImplemented());
 
@@ -299,6 +300,7 @@ mg_solve(
                   table.add_value("min_eigenvalue", min_eigenvalues[level]);
                   table.add_value("max_eigenvalue", max_eigenvalues[level]);
                 }
+              // ----------
               // TODO: Debug
               if (true) // level == min_level)
                 {
@@ -314,6 +316,23 @@ mg_solve(
                   table.add_value("linfty_norm", 0.);
                   table.add_value("frobenius_norm", 0.);
                 }
+              {
+                const std::vector<IndexSet> locally_owned_dofs_per_processor =
+                  Utilities::MPI::all_gather(mg_dof_handlers[level].get_communicator(),
+                                             mg_dof_handlers[level].locally_owned_dofs());
+
+                IndexSet locally_active_dofs;
+                DoFTools::extract_locally_active_dofs(mg_dof_handlers[level], locally_active_dofs);
+
+                const bool constraints_consistent = mg_constraints[level].is_consistent_in_parallel(
+                  locally_owned_dofs_per_processor,
+                  locally_active_dofs,
+                  mg_dof_handlers[level].get_communicator(),
+                  /*verbose=*/true);
+
+                table.add_value("constraints_consistent", constraints_consistent);
+              }
+              // ----------
             }
 
           std::ofstream mg_level_stream(filename_mg_level);
