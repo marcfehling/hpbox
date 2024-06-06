@@ -675,6 +675,42 @@ namespace StokesMatrixFree
                                                                   dof_handler.get_communicator());
           }
 
+        // ----------
+        // TODO: Debug
+        std::vector<double> l1_norms(max_level - min_level + 1);
+        std::vector<double> linfty_norms(max_level - min_level + 1);
+        std::vector<double> frobenius_norms(max_level - min_level + 1);
+        std::vector<bool>   constraints_consistent(max_level - min_level + 1);
+        for (unsigned int level = min_level; level <= max_level; level++)
+          {
+            if (true) // level == min_level)
+              {
+                l1_norms[level]        = operators[level]->get_system_matrix().l1_norm();
+                linfty_norms[level]    = operators[level]->get_system_matrix().linfty_norm();
+                frobenius_norms[level] = operators[level]->get_system_matrix().frobenius_norm();
+              }
+            else
+              {
+                l1_norms[level]        = 0.;
+                linfty_norms[level]    = 0.;
+                frobenius_norms[level] = 0.;
+              }
+
+            const std::vector<IndexSet> locally_owned_dofs_per_processor =
+              Utilities::MPI::all_gather(dof_handlers[level].get_communicator(),
+                                         dof_handlers[level].locally_owned_dofs());
+
+            IndexSet locally_active_dofs;
+            DoFTools::extract_locally_active_dofs(dof_handlers[level], locally_active_dofs);
+
+            constraints_consistent[level] =
+              constraints[level].is_consistent_in_parallel(locally_owned_dofs_per_processor,
+                                                           locally_active_dofs,
+                                                           dof_handlers[level].get_communicator(),
+                                                           /*verbose=*/true);
+          }
+        // ----------
+
         if (Utilities::MPI::this_mpi_process(dof_handler.get_communicator()) == 0)
           {
             dealii::ConvergenceTable table;
@@ -712,36 +748,10 @@ namespace StokesMatrixFree
                   }
                 // ----------
                 // TODO: Debug
-                if (true) // level == min_level)
-                  {
-                    table.add_value("l1_norm", operators[level]->get_system_matrix().l1_norm());
-                    table.add_value("linfty_norm",
-                                    operators[level]->get_system_matrix().linfty_norm());
-                    table.add_value("frobenius_norm",
-                                    operators[level]->get_system_matrix().frobenius_norm());
-                  }
-                else
-                  {
-                    table.add_value("l1_norm", 0.);
-                    table.add_value("linfty_norm", 0.);
-                    table.add_value("frobenius_norm", 0.);
-                  }
-                {
-                  const std::vector<IndexSet> locally_owned_dofs_per_processor =
-                    Utilities::MPI::all_gather(dof_handlers[level].get_communicator(),
-                                               dof_handlers[level].locally_owned_dofs());
-
-                  IndexSet locally_active_dofs;
-                  DoFTools::extract_locally_active_dofs(dof_handlers[level], locally_active_dofs);
-
-                  const bool constraints_consistent = constraints[level].is_consistent_in_parallel(
-                    locally_owned_dofs_per_processor,
-                    locally_active_dofs,
-                    dof_handlers[level].get_communicator(),
-                    /*verbose=*/true);
-
-                  table.add_value("constraints_consistent", constraints_consistent);
-                }
+                table.add_value("l1_norm", l1_norms[level]);
+                table.add_value("linfty_norm", linfty_norms[level]);
+                table.add_value("frobenius_norm", frobenius_norms[level]);
+                table.add_value("constraints_consistent", constraints_consistent[level]);
                 // ----------
               }
 
