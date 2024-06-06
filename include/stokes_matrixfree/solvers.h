@@ -707,7 +707,7 @@ namespace StokesMatrixFree
               constraints[level].is_consistent_in_parallel(locally_owned_dofs_per_processor,
                                                            locally_active_dofs,
                                                            dof_handlers[level].get_communicator(),
-                                                           /*verbose=*/true);
+                                                           /*verbose=*/false);
           }
         // ----------
 
@@ -734,7 +734,7 @@ namespace StokesMatrixFree
                 // table.add_value("coarse_solve_avg", min_max_avg[level][3].avg);
                 // table.add_value("prolongation_min", min_max_avg[level][4].min);
                 // table.add_value("prolongation_max", min_max_avg[level][4].max);
-                // ta ble.add_value("prolongation_avg", min_max_avg[level][4].avg);
+                // table.add_value("prolongation_avg", min_max_avg[level][4].avg);
                 // table.add_value("edge_prolongation_min", min_max_avg[level][5].min);
                 // table.add_value("edge_prolongation_max", min_max_avg[level][5].max);
                 // table.add_value("edge_prolongation_avg", min_max_avg[level][5].avg);

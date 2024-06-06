@@ -297,7 +297,7 @@ mg_solve(
             locally_owned_dofs_per_processor,
             locally_active_dofs,
             mg_dof_handlers[level].get_communicator(),
-            /*verbose=*/true);
+            /*verbose=*/false);
         }
       // ----------
 
