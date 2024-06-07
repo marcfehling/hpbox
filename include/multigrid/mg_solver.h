@@ -273,27 +273,27 @@ mg_solve(
               table.add_value("active_cells",
                               mg_dof_handlers[level].get_triangulation().n_global_active_cells());
               table.add_value("dofs", mg_dof_handlers[level].n_dofs());
-              table.add_value("pre_smoother_step_min", min_max_avg[level][0].min);
-              table.add_value("pre_smoother_step_max", min_max_avg[level][0].max);
-              table.add_value("pre_smoother_step_avg", min_max_avg[level][0].avg);
-              table.add_value("residual_step_min", min_max_avg[level][1].min);
-              table.add_value("residual_step_max", min_max_avg[level][1].max);
-              table.add_value("residual_step_avg", min_max_avg[level][1].avg);
-              table.add_value("restriction_min", min_max_avg[level][2].min);
-              table.add_value("restriction_max", min_max_avg[level][2].max);
-              table.add_value("restriction_avg", min_max_avg[level][2].avg);
-              table.add_value("coarse_solve_min", min_max_avg[level][3].min);
-              table.add_value("coarse_solve_max", min_max_avg[level][3].max);
-              table.add_value("coarse_solve_avg", min_max_avg[level][3].avg);
-              table.add_value("prolongation_min", min_max_avg[level][4].min);
-              table.add_value("prolongation_max", min_max_avg[level][4].max);
-              table.add_value("prolongation_avg", min_max_avg[level][4].avg);
-              table.add_value("edge_prolongation_min", min_max_avg[level][5].min);
-              table.add_value("edge_prolongation_max", min_max_avg[level][5].max);
-              table.add_value("edge_prolongation_avg", min_max_avg[level][5].avg);
-              table.add_value("post_smoother_step_min", min_max_avg[level][6].min);
-              table.add_value("post_smoother_step_max", min_max_avg[level][6].max);
-              table.add_value("post_smoother_step_avg", min_max_avg[level][6].avg);
+              // table.add_value("pre_smoother_step_min", min_max_avg[level][0].min);
+              // table.add_value("pre_smoother_step_max", min_max_avg[level][0].max);
+              // table.add_value("pre_smoother_step_avg", min_max_avg[level][0].avg);
+              // table.add_value("residual_step_min", min_max_avg[level][1].min);
+              // table.add_value("residual_step_max", min_max_avg[level][1].max);
+              // table.add_value("residual_step_avg", min_max_avg[level][1].avg);
+              // table.add_value("restriction_min", min_max_avg[level][2].min);
+              // table.add_value("restriction_max", min_max_avg[level][2].max);
+              // table.add_value("restriction_avg", min_max_avg[level][2].avg);
+              // table.add_value("coarse_solve_min", min_max_avg[level][3].min);
+              // table.add_value("coarse_solve_max", min_max_avg[level][3].max);
+              // table.add_value("coarse_solve_avg", min_max_avg[level][3].avg);
+              // table.add_value("prolongation_min", min_max_avg[level][4].min);
+              // table.add_value("prolongation_max", min_max_avg[level][4].max);
+              // table.add_value("prolongation_avg", min_max_avg[level][4].avg);
+              // table.add_value("edge_prolongation_min", min_max_avg[level][5].min);
+              // table.add_value("edge_prolongation_max", min_max_avg[level][5].max);
+              // table.add_value("edge_prolongation_avg", min_max_avg[level][5].avg);
+              // table.add_value("post_smoother_step_min", min_max_avg[level][6].min);
+              // table.add_value("post_smoother_step_max", min_max_avg[level][6].max);
+              // table.add_value("post_smoother_step_avg", min_max_avg[level][6].avg);
               if (mg_data.estimate_eigenvalues == true)
                 {
                   table.add_value("min_eigenvalue", min_eigenvalues[level]);
