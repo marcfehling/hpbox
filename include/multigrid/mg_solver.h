@@ -267,10 +267,21 @@ mg_solve(
 
       // ----------
       // TODO: Debug
+      const auto get_max_active_fe_degree = [&](const auto &dof_handler) {
+          unsigned int max = 0;
+
+          for (auto &cell : dof_handler.active_cell_iterators())
+            if (cell->is_locally_owned())
+              max = std::max(max, dof_handler.get_fe(cell->active_fe_index()).degree);
+
+          return Utilities::MPI::max(max, MPI_COMM_WORLD);
+        };
+
       std::vector<double> l1_norms(max_level - min_level + 1);
       std::vector<double> linfty_norms(max_level - min_level + 1);
       std::vector<double> frobenius_norms(max_level - min_level + 1);
       std::vector<bool>   constraints_consistent(max_level - min_level + 1);
+      std::vector<unsigned int> max_fe_degrees(max_level - min_level + 1);
       for (unsigned int level = min_level; level <= max_level; level++)
         {
           if (true) // level == min_level)
@@ -298,6 +309,8 @@ mg_solve(
             locally_active_dofs,
             mg_dof_handlers[level].get_communicator(),
             /*verbose=*/false);
+
+          max_fe_degrees[level] = get_max_active_fe_degree(mg_dof_handlers[level]);
         }
       // ----------
 
@@ -342,6 +355,7 @@ mg_solve(
               table.add_value("linfty_norm", linfty_norms[level]);
               table.add_value("frobenius_norm", frobenius_norms[level]);
               table.add_value("constraints_consistent", constraints_consistent[level]);
+              table.add_value("max_fe_degree", max_fe_degrees[level]);
               // ----------
             }
 
