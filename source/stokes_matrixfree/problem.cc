@@ -384,6 +384,36 @@ namespace StokesMatrixFree
             std::cout << "INCONSISTENCIES DETECTED on p on process "
                       << Utilities::MPI::this_mpi_process(mpi_communicator) << std::endl;
 
+          // constraints_p.print(std::cout);
+
+          std::set<types::global_dof_index> problematic_dofs;
+
+          // get all constraints for line 175
+          const auto line_175 = constraints_p.get_constraint_entries(175);
+          if (line_175 != nullptr)
+            for (const auto &entry : *line_175)
+              {
+                problematic_dofs.insert(entry.first);
+                // std::cout << entry.first << " " << entry.second << std::endl;
+                // std::cout << partitioning_p.get_owned_dofs().is_element(entry.first) << std::endl;
+              }
+
+          // get all active dofs that are constrained against line 175
+          for (const auto i : locally_active_dofs)
+            if (constraints_p.is_constrained(i))
+              {
+                const auto constraint_entries = constraints_p.get_constraint_entries(i);
+
+                if (constraint_entries != nullptr)
+                  for (const auto &entry : *constraint_entries)
+                    if (*problematic_dofs.find(entry.first) == 175)
+                      problematic_dofs.insert(i);
+              }
+
+          // TODO: print all entries of problematic_dofs to verify
+
+          // TODO: translate problematic dofs into Vector and then write it to vtk
+
           // attempt to fix
           constraints_p.make_consistent_in_parallel(partitioning_p.get_owned_dofs(),
                                                     partitioning_p.get_relevant_dofs(),
