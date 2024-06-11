@@ -329,6 +329,32 @@ namespace StokesMatrixFree
             Assert(false, ExcNotImplemented());
           }
 
+        {
+          // We have not dealt with chains of constraints on ghost cells yet.
+          // Thus, we are content with verifying their consistency for now.
+
+          std::vector<IndexSet> locally_owned_dofs_per_processor =
+            Utilities::MPI::all_gather(mpi_communicator,
+                                       partitioning_v.get_owned_dofs());
+
+          IndexSet locally_active_dofs;
+          DoFTools::extract_locally_active_dofs(dof_handler_v, locally_active_dofs);
+
+          const bool consistent =
+            constraints_v.is_consistent_in_parallel(locally_owned_dofs_per_processor,
+                                                    locally_active_dofs,
+                                                    mpi_communicator,
+                                                    /*verbose=*/false);
+          if (consistent == false)
+            std::cout << "INCONSISTENCIES DETECTED on v on process "
+                      << Utilities::MPI::this_mpi_process(mpi_communicator) << std::endl;
+
+          // attempt to fix
+          // constraints_v.make_consistent_in_parallel(partitioning_v.get_owned_dofs(),
+          //                                           partitioning_v.get_relevant_dofs(),
+          //                                           mpi_communicator);
+        }
+
         constraints_v.close();
       }
 
@@ -337,6 +363,32 @@ namespace StokesMatrixFree
         constraints_p.reinit(partitioning_p.get_relevant_dofs());
 
         DoFTools::make_hanging_node_constraints(dof_handler_p, constraints_p);
+
+        {
+          // We have not dealt with chains of constraints on ghost cells yet.
+          // Thus, we are content with verifying their consistency for now.
+
+          std::vector<IndexSet> locally_owned_dofs_per_processor =
+            Utilities::MPI::all_gather(mpi_communicator,
+                                       partitioning_p.get_owned_dofs());
+
+          IndexSet locally_active_dofs;
+          DoFTools::extract_locally_active_dofs(dof_handler_p, locally_active_dofs);
+
+          const bool consistent =
+            constraints_p.is_consistent_in_parallel(locally_owned_dofs_per_processor,
+                                                    locally_active_dofs,
+                                                    mpi_communicator,
+                                                    /*verbose=*/false);
+          if (consistent == false)
+            std::cout << "INCONSISTENCIES DETECTED on p on process "
+                      << Utilities::MPI::this_mpi_process(mpi_communicator) << std::endl;
+
+          // attempt to fix
+          constraints_p.make_consistent_in_parallel(partitioning_p.get_owned_dofs(),
+                                                    partitioning_p.get_relevant_dofs(),
+                                                    mpi_communicator);
+        }
 
         constraints_p.close();
       }
