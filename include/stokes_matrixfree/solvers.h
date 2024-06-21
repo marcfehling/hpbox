@@ -350,7 +350,11 @@ namespace StokesMatrixFree
                                                  {{0, &zero}, {3, &zero}},
                                                  constraint);
 
+        constraint.make_consistent_in_parallel(partitioning.get_owned_dofs(),
+                                               partitioning.get_relevant_dofs(),
+                                               dof_handler.get_communicator());
         constraint.close();
+        partitioning.get_relevant_dofs() = constraint.get_local_lines();
 
         // ... operator (just like on the finest level)
         operators[level] = a_block_operator.replicate();

@@ -283,18 +283,6 @@ namespace StokesMatrixFree
     }
 
     {
-      TimerOutput::Scope(getTimer(), "reinit_vectors");
-
-      locally_relevant_solution.block(0).reinit(partitioning_v.get_owned_dofs(),
-                                                partitioning_v.get_relevant_dofs(),
-                                                mpi_communicator);
-      locally_relevant_solution.block(1).reinit(partitioning_p.get_owned_dofs(),
-                                                partitioning_p.get_relevant_dofs(),
-                                                mpi_communicator);
-      locally_relevant_solution.collect_sizes();
-    }
-
-    {
       TimerOutput::Scope t(getTimer(), "make_constraints");
 
       {
@@ -329,33 +317,11 @@ namespace StokesMatrixFree
             Assert(false, ExcNotImplemented());
           }
 
-        {
-          // We have not dealt with chains of constraints on ghost cells yet.
-          // Thus, we are content with verifying their consistency for now.
-
-          std::vector<IndexSet> locally_owned_dofs_per_processor =
-            Utilities::MPI::all_gather(mpi_communicator,
-                                       partitioning_v.get_owned_dofs());
-
-          IndexSet locally_active_dofs;
-          DoFTools::extract_locally_active_dofs(dof_handler_v, locally_active_dofs);
-
-          const bool consistent =
-            constraints_v.is_consistent_in_parallel(locally_owned_dofs_per_processor,
-                                                    locally_active_dofs,
-                                                    mpi_communicator,
-                                                    /*verbose=*/false);
-          if (consistent == false)
-            std::cout << "INCONSISTENCIES DETECTED on v on process "
-                      << Utilities::MPI::this_mpi_process(mpi_communicator) << std::endl;
-
-          // attempt to fix
-          // constraints_v.make_consistent_in_parallel(partitioning_v.get_owned_dofs(),
-          //                                           partitioning_v.get_relevant_dofs(),
-          //                                           mpi_communicator);
-        }
-
+        constraints_v.make_consistent_in_parallel(partitioning_v.get_owned_dofs(),
+                                                  partitioning_v.get_relevant_dofs(),
+                                                  mpi_communicator);
         constraints_v.close();
+        partitioning_v.get_relevant_dofs() = constraints_v.get_local_lines();
       }
 
       {
@@ -364,67 +330,24 @@ namespace StokesMatrixFree
 
         DoFTools::make_hanging_node_constraints(dof_handler_p, constraints_p);
 
-        {
-          // We have not dealt with chains of constraints on ghost cells yet.
-          // Thus, we are content with verifying their consistency for now.
-
-          std::vector<IndexSet> locally_owned_dofs_per_processor =
-            Utilities::MPI::all_gather(mpi_communicator,
-                                       partitioning_p.get_owned_dofs());
-
-          IndexSet locally_active_dofs;
-          DoFTools::extract_locally_active_dofs(dof_handler_p, locally_active_dofs);
-
-          const bool consistent =
-            constraints_p.is_consistent_in_parallel(locally_owned_dofs_per_processor,
-                                                    locally_active_dofs,
-                                                    mpi_communicator,
-                                                    /*verbose=*/false);
-          if (consistent == false)
-            std::cout << "INCONSISTENCIES DETECTED on p on process "
-                      << Utilities::MPI::this_mpi_process(mpi_communicator) << std::endl;
-
-          // // get all constraints for line 73
-          // if (locally_active_dofs.is_element(73))
-          //   std::cout << "73 constrained?:" << constraints_p.is_constrained(73) << std::endl;
-
-          // // get all constraints for line 2804
-          // if (locally_active_dofs.is_element(2804))
-          //   std::cout << "2804 constrained?:" << constraints_p.is_constrained(2804) << std::endl;
-
-          // get all active dofs that are constrained against line 73 and 2804
-          for (const auto i : locally_active_dofs)
-            if (constraints_p.is_constrained(i))
-              {
-                const auto constraint_entries = constraints_p.get_constraint_entries(i);
-
-                if (constraint_entries != nullptr)
-                  for (const auto &entry : *constraint_entries)
-                    if (entry.first == 73)
-                      problematic_dofs_73.insert(i);
-                    else if (entry.first == 2804)
-                      problematic_dofs_2804.insert(i);
-              }
-
-          std::cout << "constrained against 73:";
-          for (const auto i : problematic_dofs_73)
-            std::cout << " " << i;
-          std::cout << std::endl;
-          std::cout << "constrained against 2804:";
-          for (const auto i : problematic_dofs_2804)
-            std::cout << " " << i;
-          std::cout << std::endl;
-
-          // attempt to fix
-          constraints_p.make_consistent_in_parallel(partitioning_p.get_owned_dofs(),
-                                                    partitioning_p.get_relevant_dofs(),
-                                                    mpi_communicator);
-
-          // the dofs become problematic AFTER make_consistent_in_parallel is called
-        }
-
+        constraints_p.make_consistent_in_parallel(partitioning_p.get_owned_dofs(),
+                                                  partitioning_p.get_relevant_dofs(),
+                                                  mpi_communicator);
         constraints_p.close();
+        partitioning_p.get_relevant_dofs() = constraints_p.get_local_lines();
       }
+    }
+
+    {
+      TimerOutput::Scope(getTimer(), "reinit_vectors");
+
+      locally_relevant_solution.block(0).reinit(partitioning_v.get_owned_dofs(),
+                                                partitioning_v.get_relevant_dofs(),
+                                                mpi_communicator);
+      locally_relevant_solution.block(1).reinit(partitioning_p.get_owned_dofs(),
+                                                partitioning_p.get_relevant_dofs(),
+                                                mpi_communicator);
+      locally_relevant_solution.collect_sizes();
     }
   }
 
@@ -652,45 +575,6 @@ namespace StokesMatrixFree
     data_out.add_data_vector(fe_degrees_p, "fe_degree_p");
     data_out.add_data_vector(fe_degrees_v, "fe_degree_v");
     data_out.add_data_vector(subdomain, "subdomain");
-
-    // ----------
-    // TODO: Debug
-    Vector<float> mark_cells_73(triangulation.n_active_cells());
-    Vector<float> mark_cells_2804(triangulation.n_active_cells());
-    std::vector<types::global_dof_index> dof_indices;
-    for (const auto &cell : dof_handler_p.active_cell_iterators())
-      if (cell->is_locally_owned())
-      {
-        dof_indices.resize(cell->get_fe().n_dofs_per_cell());
-        cell->get_dof_indices(dof_indices);
-        bool mark_73 = false;
-        bool mark_2804 = false;
-        bool mark_73_constrained = false;
-        bool mark_2804_constrained = false;
-        for (const auto i : dof_indices)
-          {
-            if (i == 73)
-              mark_73 = true;
-            if (i == 2804)
-              mark_2804 = true;
-            if (problematic_dofs_73.find(i) != problematic_dofs_73.end())
-              mark_73_constrained = true;
-            if (problematic_dofs_2804.find(i) != problematic_dofs_2804.end())
-              mark_2804_constrained = true;
-          }
-
-        if (mark_73 == true)
-          mark_cells_73(cell->active_cell_index()) = 2.;
-        if (mark_2804 == true)
-          mark_cells_2804(cell->active_cell_index()) = 2.;
-        if (mark_73_constrained == true)
-          mark_cells_73(cell->active_cell_index()) = 1.;
-        if (mark_2804_constrained == true)
-          mark_cells_2804(cell->active_cell_index()) = 1.;
-      }
-    data_out.add_data_vector(mark_cells_73, "mark_cells_73");
-    data_out.add_data_vector(mark_cells_2804, "mark_cells_2804");
-    // ----------
 
     if (adaptation_strategy_p->get_error_estimates().size() > 0)
       data_out.add_data_vector(adaptation_strategy_p->get_error_estimates(), "error");

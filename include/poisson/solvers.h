@@ -216,7 +216,11 @@ namespace Poisson
         DoFTools::make_hanging_node_constraints(dof_handler, constraint);
         VectorTools::interpolate_boundary_values(
           mapping_collection, dof_handler, 0, Functions::ZeroFunction<dim>(), constraint);
+        constraint.make_consistent_in_parallel(partitioning.get_owned_dofs(),
+                                               partitioning.get_relevant_dofs(),
+                                               dof_handler.get_communicator());
         constraint.close();
+        partitioning.get_relevant_dofs() = constraint.get_local_lines();
 
         // ... operator (just like on the finest level)
         operators[level] = poisson_operator.replicate();

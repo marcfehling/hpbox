@@ -120,9 +120,6 @@ namespace StokesMatrixFree
     typename LinearAlgebra::BlockVector locally_relevant_solution;
     typename LinearAlgebra::BlockVector system_rhs;
 
-    std::set<dealii::types::global_dof_index> problematic_dofs_73;
-    std::set<dealii::types::global_dof_index> problematic_dofs_2804;
-
     unsigned int cycle;
   };
 } // namespace StokesMatrixFree

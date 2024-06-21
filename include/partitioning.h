@@ -42,6 +42,8 @@ public:
   get_owned_dofs() const;
   const dealii::IndexSet &
   get_relevant_dofs() const;
+  dealii::IndexSet &
+  get_relevant_dofs();
 
   unsigned int
   get_n_blocks() const;
@@ -100,6 +102,12 @@ Partitioning::get_owned_dofs() const
 
 inline const dealii::IndexSet &
 Partitioning::get_relevant_dofs() const
+{
+  return relevant_dofs;
+}
+
+inline dealii::IndexSet &
+Partitioning::get_relevant_dofs()
 {
   return relevant_dofs;
 }
