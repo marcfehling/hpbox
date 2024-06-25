@@ -199,7 +199,7 @@ namespace StokesMatrixBased
       TimerOutput::Scope t(getTimer(), "make_constraints");
 
       constraints.clear();
-      constraints.reinit(partitioning.get_relevant_dofs());
+      constraints.reinit(partitioning.get_owned_dofs(), partitioning.get_relevant_dofs());
 
       DoFTools::make_hanging_node_constraints(dof_handler, constraints);
 

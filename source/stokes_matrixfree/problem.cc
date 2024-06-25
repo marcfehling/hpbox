@@ -287,7 +287,7 @@ namespace StokesMatrixFree
 
       {
         constraints_v.clear();
-        constraints_v.reinit(partitioning_v.get_relevant_dofs());
+        constraints_v.reinit(partitioning_v.get_owned_dofs(), partitioning_v.get_relevant_dofs());
 
         DoFTools::make_hanging_node_constraints(dof_handler_v, constraints_v);
 
@@ -326,7 +326,7 @@ namespace StokesMatrixFree
 
       {
         constraints_p.clear();
-        constraints_p.reinit(partitioning_p.get_relevant_dofs());
+        constraints_p.reinit(partitioning_p.get_owned_dofs(), partitioning_p.get_relevant_dofs());
 
         DoFTools::make_hanging_node_constraints(dof_handler_p, constraints_p);
 
