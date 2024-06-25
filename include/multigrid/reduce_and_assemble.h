@@ -32,11 +32,9 @@
 #include <deal.II/matrix_free/fe_evaluation.h>
 
 
-template <int dim, int spacedim>
-std::set<dealii::types::global_dof_index>
+inline std::set<dealii::types::global_dof_index>
 extract_relevant(const std::vector<std::vector<dealii::types::global_dof_index>> &patch_indices,
-                 const Partitioning                                              &partitioning,
-                 const dealii::DoFHandler<dim, spacedim>                         &dof_handler)
+                 const Partitioning                                              &partitioning)
 {
   std::set<dealii::types::global_dof_index> all_indices_relevant;
 
@@ -46,7 +44,7 @@ extract_relevant(const std::vector<std::vector<dealii::types::global_dof_index>>
   dealii::LinearAlgebra::distributed::Vector<float> count_patch_dofs(
     partitioning.get_owned_dofs(),
     partitioning.get_relevant_dofs(),
-    dof_handler.get_communicator());
+    partitioning.get_communicator());
 
   for (const auto &indices : patch_indices)
     for (const auto i : indices)

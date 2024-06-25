@@ -38,6 +38,8 @@ public:
   reinit(const dealii::DoFHandler<dim, spacedim> &dof_handler,
          const std::vector<unsigned int>         &target_block = {});
 
+  MPI_Comm
+  get_communicator() const;
   const dealii::IndexSet &
   get_owned_dofs() const;
   const dealii::IndexSet &
@@ -53,6 +55,7 @@ public:
   get_relevant_dofs_per_block() const;
 
 private:
+  MPI_Comm         communicator;
   dealii::IndexSet owned_dofs;
   dealii::IndexSet relevant_dofs;
 
@@ -66,6 +69,7 @@ void
 Partitioning::reinit(const dealii::DoFHandler<dim, spacedim> &dof_handler,
                      const std::vector<unsigned int>         &target_block)
 {
+  communicator  = dof_handler.get_communicator();
   owned_dofs    = dof_handler.locally_owned_dofs();
   relevant_dofs = dealii::DoFTools::extract_locally_relevant_dofs(dof_handler);
 
@@ -92,6 +96,12 @@ Partitioning::reinit(const dealii::DoFHandler<dim, spacedim> &dof_handler,
           relevant_dofs_per_block[b] = this->relevant_dofs.get_view(block_start, block_end);
         }
     }
+}
+
+inline MPI_Comm
+Partitioning::get_communicator() const
+{
+  return communicator;
 }
 
 inline const dealii::IndexSet &

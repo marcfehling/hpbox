@@ -218,7 +218,7 @@ namespace Poisson
           mapping_collection, dof_handler, 0, Functions::ZeroFunction<dim>(), constraint);
         constraint.make_consistent_in_parallel(partitioning.get_owned_dofs(),
                                                partitioning.get_relevant_dofs(),
-                                               dof_handler.get_communicator());
+                                               partitioning.get_communicator());
         constraint.close();
         partitioning.get_relevant_dofs() = constraint.get_local_lines();
 
@@ -251,12 +251,12 @@ namespace Poisson
             // but they are no longer available here
             // so for the sake of trying ASM out, I'll just create another one here
             const unsigned int myid =
-              dealii::Utilities::MPI::this_mpi_process(dof_handler.get_communicator());
+              dealii::Utilities::MPI::this_mpi_process(partitioning.get_communicator());
             typename LinearAlgebra::SparsityPattern sparsity_pattern;
             sparsity_pattern.reinit(partitioning.get_owned_dofs(),
                                     partitioning.get_owned_dofs(),
                                     partitioning.get_relevant_dofs(),
-                                    dof_handler.get_communicator());
+                                    partitioning.get_communicator());
             DoFTools::make_sparsity_pattern(dof_handler, sparsity_pattern, constraint, false, myid);
             sparsity_pattern.compress();
 
@@ -264,7 +264,7 @@ namespace Poisson
               std::make_shared<SmootherPreconditionerType>(std::move(patch_indices));
             smoother_preconditioners[level]->initialize(operators[level]->get_system_matrix(),
                                                         sparsity_pattern,
-                                                        dof_handler);
+                                                        partitioning);
           }
         else if constexpr (std::is_same_v<SmootherPreconditionerType,
                                           PreconditionExtendedDiagonal<VectorType>>)
@@ -287,7 +287,7 @@ namespace Poisson
                                        partitioning.get_relevant_dofs());
 
             const auto all_indices_relevant =
-              extract_relevant(patch_indices, partitioning, dof_handler);
+              extract_relevant(patch_indices, partitioning);
 
             std::set<types::global_dof_index> all_indices_assemble;
             reduce_constraints(constraint,
@@ -301,7 +301,7 @@ namespace Poisson
             reduced_sparsity_pattern.reinit(partitioning.get_owned_dofs(),
                                             partitioning.get_owned_dofs(),
                                             partitioning.get_relevant_dofs(),
-                                            dof_handler.get_communicator());
+                                            partitioning.get_communicator());
             make_sparsity_pattern(dof_handler,
                                   all_indices_assemble,
                                   reduced_sparsity_pattern,
