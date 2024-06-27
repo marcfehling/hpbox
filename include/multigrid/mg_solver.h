@@ -301,8 +301,7 @@ mg_solve(
             Utilities::MPI::all_gather(mg_dof_handlers[level].get_communicator(),
                                        mg_dof_handlers[level].locally_owned_dofs());
 
-          IndexSet locally_active_dofs;
-          DoFTools::extract_locally_active_dofs(mg_dof_handlers[level], locally_active_dofs);
+          IndexSet locally_active_dofs = DoFTools::extract_locally_active_dofs(mg_dof_handlers[level]);
 
           constraints_consistent[level] = mg_constraints[level].is_consistent_in_parallel(
             locally_owned_dofs_per_processor,

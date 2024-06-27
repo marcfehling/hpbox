@@ -351,7 +351,7 @@ namespace StokesMatrixFree
                                                  constraint);
 
         constraint.make_consistent_in_parallel(partitioning.get_owned_dofs(),
-                                               partitioning.get_relevant_dofs(),
+                                               partitioning.get_active_dofs(),
                                                partitioning.get_communicator());
         constraint.close();
         partitioning.get_relevant_dofs() = constraint.get_local_lines();
@@ -424,7 +424,7 @@ namespace StokesMatrixFree
 
             std::set<types::global_dof_index> all_indices_assemble;
             reduce_constraints(constraint,
-                               DoFTools::extract_locally_active_dofs(dof_handler),
+                               partitioning.get_active_dofs(),
                                all_indices_relevant,
                                constraints_reduced,
                                all_indices_assemble);
@@ -705,8 +705,7 @@ namespace StokesMatrixFree
               Utilities::MPI::all_gather(dof_handlers[level].get_communicator(),
                                          dof_handlers[level].locally_owned_dofs());
 
-            IndexSet locally_active_dofs;
-            DoFTools::extract_locally_active_dofs(dof_handlers[level], locally_active_dofs);
+            IndexSet locally_active_dofs = DoFTools::extract_locally_active_dofs(dof_handlers[level]);
 
             constraints_consistent[level] =
               constraints[level].is_consistent_in_parallel(locally_owned_dofs_per_processor,

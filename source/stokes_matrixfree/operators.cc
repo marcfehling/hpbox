@@ -477,7 +477,7 @@ namespace StokesMatrixFree
       constraints_v_without_dbc.reinit(partitionings[0]->get_relevant_dofs());
       DoFTools::make_hanging_node_constraints(*dof_handlers[0], constraints_v_without_dbc);
       constraints_v_without_dbc.make_consistent_in_parallel(partitionings[0]->get_owned_dofs(),
-                                                            partitionings[0]->get_relevant_dofs(),
+                                                            partitionings[0]->get_active_dofs(),
                                                             dof_handlers[0]->get_communicator());
       constraints_v_without_dbc.close();
 
@@ -485,7 +485,7 @@ namespace StokesMatrixFree
       constraints_p_without_dbc.reinit(partitionings[1]->get_relevant_dofs());
       DoFTools::make_hanging_node_constraints(*dof_handlers[1], constraints_p_without_dbc);
       constraints_p_without_dbc.make_consistent_in_parallel(partitionings[1]->get_owned_dofs(),
-                                                            partitionings[1]->get_relevant_dofs(),
+                                                            partitionings[1]->get_active_dofs(),
                                                             dof_handlers[1]->get_communicator());
       constraints_p_without_dbc.close();
 

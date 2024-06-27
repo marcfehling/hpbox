@@ -318,7 +318,7 @@ namespace StokesMatrixFree
           }
 
         constraints_v.make_consistent_in_parallel(partitioning_v.get_owned_dofs(),
-                                                  partitioning_v.get_relevant_dofs(),
+                                                  partitioning_v.get_active_dofs(),
                                                   mpi_communicator);
         constraints_v.close();
         partitioning_v.get_relevant_dofs() = constraints_v.get_local_lines();
@@ -331,7 +331,7 @@ namespace StokesMatrixFree
         DoFTools::make_hanging_node_constraints(dof_handler_p, constraints_p);
 
         constraints_p.make_consistent_in_parallel(partitioning_p.get_owned_dofs(),
-                                                  partitioning_p.get_relevant_dofs(),
+                                                  partitioning_p.get_active_dofs(),
                                                   mpi_communicator);
         constraints_p.close();
         partitioning_p.get_relevant_dofs() = constraints_p.get_local_lines();

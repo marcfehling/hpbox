@@ -217,7 +217,7 @@ namespace Poisson
         VectorTools::interpolate_boundary_values(
           mapping_collection, dof_handler, 0, Functions::ZeroFunction<dim>(), constraint);
         constraint.make_consistent_in_parallel(partitioning.get_owned_dofs(),
-                                               partitioning.get_relevant_dofs(),
+                                               partitioning.get_active_dofs(),
                                                partitioning.get_communicator());
         constraint.close();
         partitioning.get_relevant_dofs() = constraint.get_local_lines();
@@ -291,7 +291,7 @@ namespace Poisson
 
             std::set<types::global_dof_index> all_indices_assemble;
             reduce_constraints(constraint,
-                               DoFTools::extract_locally_active_dofs(dof_handler),
+                               partitioning.get_active_dofs(),
                                all_indices_relevant,
                                constraints_reduced,
                                all_indices_assemble);

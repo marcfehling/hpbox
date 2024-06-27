@@ -209,7 +209,7 @@ namespace Poisson
         }
 
       constraints.make_consistent_in_parallel(partitioning.get_owned_dofs(),
-                                              partitioning.get_relevant_dofs(),
+                                              partitioning.get_active_dofs(),
                                               mpi_communicator);
       constraints.close();
       partitioning.get_relevant_dofs() = constraints.get_local_lines();
