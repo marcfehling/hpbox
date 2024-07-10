@@ -57,25 +57,23 @@ public:
     : indices(std::move(patch_indices))
   {}
 
-  template <typename GlobalSparseMatrixType, typename GlobalSparsityPattern, int dim, int spacedim>
+  template <typename GlobalSparseMatrixType, typename GlobalSparsityPattern>
   void
-  initialize(const GlobalSparseMatrixType    &global_sparse_matrix,
-             const GlobalSparsityPattern     &global_sparsity_pattern,
-             const DoFHandler<dim, spacedim> &dof_handler)
+  initialize(const GlobalSparseMatrixType &global_sparse_matrix,
+             const GlobalSparsityPattern  &global_sparsity_pattern,
+             const Partitioning           &partitioning)
   {
     TimerOutput::Scope t(getTimer(), "initialize_asm");
 
     // treat unprocessed DoFs as blocks of size 1x1
 
-    // TODO: I do not need a dof_handler but rather a partitioner here
-    //       Move this part into the constructor
+    // TODO: Move this part into the constructor
 
     // ATTENTION: This function modifies indices. Do not call this twice!
 
-    const IndexSet relevant = DoFTools::extract_locally_relevant_dofs(dof_handler);
-    VectorType     unprocessed_indices(dof_handler.locally_owned_dofs(),
-                                   relevant,
-                                   dof_handler.get_communicator());
+    VectorType unprocessed_indices(partitioning.get_owned_dofs(),
+                                   partitioning.get_relevant_dofs(),
+                                   partitioning.get_communicator());
 
     // 'indices' contains global indices on locally owned cells
     for (const auto &indices_i : indices)
@@ -107,7 +105,9 @@ public:
     Vector<Number> vector_weights;
     if (weighting_type != WeightingType::none)
       {
-        weights.reinit(dof_handler.locally_owned_dofs(), relevant, dof_handler.get_communicator());
+        weights.reinit(partitioning.get_owned_dofs(),
+                       partitioning.get_relevant_dofs(),
+                       partitioning.get_communicator());
 
         for (unsigned int c = 0; c < indices.size(); ++c)
           {
