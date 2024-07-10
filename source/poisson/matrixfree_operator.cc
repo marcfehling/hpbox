@@ -94,10 +94,11 @@ namespace PoissonMatrixFree
     this->initialize_dof_vector(system_rhs);
     {
       AffineConstraints<value_type> constraints_without_dbc;
-
       constraints_without_dbc.reinit(partitioning.get_relevant_dofs());
-
       DoFTools::make_hanging_node_constraints(dof_handler, constraints_without_dbc);
+      constraints_without_dbc.make_consistent_in_parallel(partitioning.get_owned_dofs(),
+                                                          partitioning.get_active_dofs(),
+                                                          partitioning.get_communicator());
       constraints_without_dbc.close();
 
       VectorType b, x;

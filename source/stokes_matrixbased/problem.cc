@@ -196,31 +196,10 @@ namespace StokesMatrixBased
     }
 
     {
-      TimerOutput::Scope(getTimer(), "reinit_vectors");
-
-      locally_relevant_solution.reinit(partitioning.get_owned_dofs_per_block(),
-                                       partitioning.get_relevant_dofs_per_block(),
-                                       mpi_communicator);
-
-      // TODO: remove
-      if constexpr (std::is_same_v<typename LinearAlgebra::BlockVector,
-                                   dealii::LinearAlgebra::distributed::BlockVector<double>>)
-        {
-          system_rhs.reinit(partitioning.get_owned_dofs_per_block(),
-                            partitioning.get_relevant_dofs_per_block(),
-                            mpi_communicator);
-        }
-      else
-        {
-          system_rhs.reinit(partitioning.get_owned_dofs_per_block(), mpi_communicator);
-        }
-    }
-
-    {
       TimerOutput::Scope t(getTimer(), "make_constraints");
 
       constraints.clear();
-      constraints.reinit(partitioning.get_relevant_dofs());
+      constraints.reinit(partitioning.get_owned_dofs(), partitioning.get_relevant_dofs());
 
       DoFTools::make_hanging_node_constraints(dof_handler, constraints);
 
@@ -253,28 +232,32 @@ namespace StokesMatrixBased
           Assert(false, ExcNotImplemented());
         }
 
-#if false
-      // Disable consistency check for now.
-      //   see also: https://github.com/dealii/dealii/issues/6255
-#  ifdef DEBUG
-      // We have not dealt with chains of constraints on ghost cells yet.
-      // Thus, we are content with verifying their consistency for now.
-      std::vector<IndexSet> locally_owned_dofs_per_processor =
-        Utilities::MPI::all_gather(mpi_communicator,
-                                   dof_handler.locally_owned_dofs());
-
-      IndexSet locally_active_dofs;
-      DoFTools::extract_locally_active_dofs(dof_handler, locally_active_dofs);
-
-      AssertThrow(
-        constraints.is_consistent_in_parallel(locally_owned_dofs_per_processor,
-                                              locally_active_dofs,
-                                              mpi_communicator,
-                                              /*verbose=*/true),
-        ExcMessage("AffineConstraints object contains inconsistencies!"));
-#  endif
-#endif
+      constraints.make_consistent_in_parallel(partitioning.get_owned_dofs(),
+                                              partitioning.get_active_dofs(),
+                                              mpi_communicator);
       constraints.close();
+      partitioning.get_relevant_dofs() = constraints.get_local_lines();
+    }
+
+    {
+      TimerOutput::Scope(getTimer(), "reinit_vectors");
+
+      locally_relevant_solution.reinit(partitioning.get_owned_dofs_per_block(),
+                                       partitioning.get_relevant_dofs_per_block(),
+                                       mpi_communicator);
+
+      // TODO: remove
+      if constexpr (std::is_same_v<typename LinearAlgebra::BlockVector,
+                                   dealii::LinearAlgebra::distributed::BlockVector<double>>)
+        {
+          system_rhs.reinit(partitioning.get_owned_dofs_per_block(),
+                            partitioning.get_relevant_dofs_per_block(),
+                            mpi_communicator);
+        }
+      else
+        {
+          system_rhs.reinit(partitioning.get_owned_dofs_per_block(), mpi_communicator);
+        }
     }
   }
 

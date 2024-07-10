@@ -283,23 +283,11 @@ namespace StokesMatrixFree
     }
 
     {
-      TimerOutput::Scope(getTimer(), "reinit_vectors");
-
-      locally_relevant_solution.block(0).reinit(partitioning_v.get_owned_dofs(),
-                                                partitioning_v.get_relevant_dofs(),
-                                                mpi_communicator);
-      locally_relevant_solution.block(1).reinit(partitioning_p.get_owned_dofs(),
-                                                partitioning_p.get_relevant_dofs(),
-                                                mpi_communicator);
-      locally_relevant_solution.collect_sizes();
-    }
-
-    {
       TimerOutput::Scope t(getTimer(), "make_constraints");
 
       {
         constraints_v.clear();
-        constraints_v.reinit(partitioning_v.get_relevant_dofs());
+        constraints_v.reinit(partitioning_v.get_owned_dofs(), partitioning_v.get_relevant_dofs());
 
         DoFTools::make_hanging_node_constraints(dof_handler_v, constraints_v);
 
@@ -329,17 +317,37 @@ namespace StokesMatrixFree
             Assert(false, ExcNotImplemented());
           }
 
+        constraints_v.make_consistent_in_parallel(partitioning_v.get_owned_dofs(),
+                                                  partitioning_v.get_active_dofs(),
+                                                  mpi_communicator);
         constraints_v.close();
+        partitioning_v.get_relevant_dofs() = constraints_v.get_local_lines();
       }
 
       {
         constraints_p.clear();
-        constraints_p.reinit(partitioning_p.get_relevant_dofs());
+        constraints_p.reinit(partitioning_p.get_owned_dofs(), partitioning_p.get_relevant_dofs());
 
         DoFTools::make_hanging_node_constraints(dof_handler_p, constraints_p);
 
+        constraints_p.make_consistent_in_parallel(partitioning_p.get_owned_dofs(),
+                                                  partitioning_p.get_active_dofs(),
+                                                  mpi_communicator);
         constraints_p.close();
+        partitioning_p.get_relevant_dofs() = constraints_p.get_local_lines();
       }
+    }
+
+    {
+      TimerOutput::Scope(getTimer(), "reinit_vectors");
+
+      locally_relevant_solution.block(0).reinit(partitioning_v.get_owned_dofs(),
+                                                partitioning_v.get_relevant_dofs(),
+                                                mpi_communicator);
+      locally_relevant_solution.block(1).reinit(partitioning_p.get_owned_dofs(),
+                                                partitioning_p.get_relevant_dofs(),
+                                                mpi_communicator);
+      locally_relevant_solution.collect_sizes();
     }
   }
 

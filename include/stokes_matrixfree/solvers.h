@@ -340,7 +340,7 @@ namespace StokesMatrixFree
         partitioning.reinit(dof_handler);
 
         // ... constraints (with homogenous Dirichlet BC)
-        constraint.reinit(partitioning.get_relevant_dofs());
+        constraint.reinit(partitioning.get_owned_dofs(), partitioning.get_relevant_dofs());
 
         DoFTools::make_hanging_node_constraints(dof_handler, constraint);
         // TODO: externalize this
@@ -350,7 +350,11 @@ namespace StokesMatrixFree
                                                  {{0, &zero}, {3, &zero}},
                                                  constraint);
 
+        constraint.make_consistent_in_parallel(partitioning.get_owned_dofs(),
+                                               partitioning.get_active_dofs(),
+                                               partitioning.get_communicator());
         constraint.close();
+        partitioning.get_relevant_dofs() = constraint.get_local_lines();
 
         // ... operator (just like on the finest level)
         operators[level] = a_block_operator.replicate();
