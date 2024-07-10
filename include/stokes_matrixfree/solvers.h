@@ -678,6 +678,44 @@ namespace StokesMatrixFree
                                                                   dof_handler.get_communicator());
           }
 
+        // ----------
+        // TODO: Debug
+        std::vector<double> l1_norms(max_level - min_level + 1);
+        std::vector<double> linfty_norms(max_level - min_level + 1);
+        std::vector<double> frobenius_norms(max_level - min_level + 1);
+        std::vector<bool>   constraints_consistent(max_level - min_level + 1);
+        std::vector<unsigned int> max_fe_degrees(max_level - min_level + 1);
+        for (unsigned int level = min_level; level <= max_level; level++)
+          {
+            if (true) // level == min_level)
+              {
+                l1_norms[level]        = operators[level]->get_system_matrix().l1_norm();
+                linfty_norms[level]    = operators[level]->get_system_matrix().linfty_norm();
+                frobenius_norms[level] = operators[level]->get_system_matrix().frobenius_norm();
+              }
+            else
+              {
+                l1_norms[level]        = 0.;
+                linfty_norms[level]    = 0.;
+                frobenius_norms[level] = 0.;
+              }
+
+            const std::vector<IndexSet> locally_owned_dofs_per_processor =
+              Utilities::MPI::all_gather(dof_handlers[level].get_communicator(),
+                                         dof_handlers[level].locally_owned_dofs());
+
+            IndexSet locally_active_dofs = DoFTools::extract_locally_active_dofs(dof_handlers[level]);
+
+            constraints_consistent[level] =
+              constraints[level].is_consistent_in_parallel(locally_owned_dofs_per_processor,
+                                                           locally_active_dofs,
+                                                           dof_handlers[level].get_communicator(),
+                                                           /*verbose=*/false);
+
+            max_fe_degrees[level] = get_max_active_fe_degree(dof_handlers[level]);
+          }
+        // ----------
+
         if (Utilities::MPI::this_mpi_process(dof_handler.get_communicator()) == 0)
           {
             dealii::ConvergenceTable table;
@@ -687,32 +725,40 @@ namespace StokesMatrixFree
                 table.add_value("active_cells",
                                 dof_handlers[level].get_triangulation().n_global_active_cells());
                 table.add_value("dofs", dof_handlers[level].n_dofs());
-                table.add_value("pre_smoother_step_min", min_max_avg[level][0].min);
-                table.add_value("pre_smoother_step_max", min_max_avg[level][0].max);
-                table.add_value("pre_smoother_step_avg", min_max_avg[level][0].avg);
-                table.add_value("residual_step_min", min_max_avg[level][1].min);
-                table.add_value("residual_step_max", min_max_avg[level][1].max);
-                table.add_value("residual_step_avg", min_max_avg[level][1].avg);
-                table.add_value("restriction_min", min_max_avg[level][2].min);
-                table.add_value("restriction_max", min_max_avg[level][2].max);
-                table.add_value("restriction_avg", min_max_avg[level][2].avg);
-                table.add_value("coarse_solve_min", min_max_avg[level][3].min);
-                table.add_value("coarse_solve_max", min_max_avg[level][3].max);
-                table.add_value("coarse_solve_avg", min_max_avg[level][3].avg);
-                table.add_value("prolongation_min", min_max_avg[level][4].min);
-                table.add_value("prolongation_max", min_max_avg[level][4].max);
-                table.add_value("prolongation_avg", min_max_avg[level][4].avg);
-                table.add_value("edge_prolongation_min", min_max_avg[level][5].min);
-                table.add_value("edge_prolongation_max", min_max_avg[level][5].max);
-                table.add_value("edge_prolongation_avg", min_max_avg[level][5].avg);
-                table.add_value("post_smoother_step_min", min_max_avg[level][6].min);
-                table.add_value("post_smoother_step_max", min_max_avg[level][6].max);
-                table.add_value("post_smoother_step_avg", min_max_avg[level][6].avg);
+                // table.add_value("pre_smoother_step_min", min_max_avg[level][0].min);
+                // table.add_value("pre_smoother_step_max", min_max_avg[level][0].max);
+                // table.add_value("pre_smoother_step_avg", min_max_avg[level][0].avg);
+                // table.add_value("residual_step_min", min_max_avg[level][1].min);
+                // table.add_value("residual_step_max", min_max_avg[level][1].max);
+                // table.add_value("residual_step_avg", min_max_avg[level][1].avg);
+                // table.add_value("restriction_min", min_max_avg[level][2].min);
+                // table.add_value("restriction_max", min_max_avg[level][2].max);
+                // table.add_value("restriction_avg", min_max_avg[level][2].avg);
+                // table.add_value("coarse_solve_min", min_max_avg[level][3].min);
+                // table.add_value("coarse_solve_max", min_max_avg[level][3].max);
+                // table.add_value("coarse_solve_avg", min_max_avg[level][3].avg);
+                // table.add_value("prolongation_min", min_max_avg[level][4].min);
+                // table.add_value("prolongation_max", min_max_avg[level][4].max);
+                // table.add_value("prolongation_avg", min_max_avg[level][4].avg);
+                // table.add_value("edge_prolongation_min", min_max_avg[level][5].min);
+                // table.add_value("edge_prolongation_max", min_max_avg[level][5].max);
+                // table.add_value("edge_prolongation_avg", min_max_avg[level][5].avg);
+                // table.add_value("post_smoother_step_min", min_max_avg[level][6].min);
+                // table.add_value("post_smoother_step_max", min_max_avg[level][6].max);
+                // table.add_value("post_smoother_step_avg", min_max_avg[level][6].avg);
                 if (mg_data.estimate_eigenvalues == true)
                   {
                     table.add_value("min_eigenvalue", min_eigenvalues[level]);
                     table.add_value("max_eigenvalue", max_eigenvalues[level]);
                   }
+                // ----------
+                // TODO: Debug
+                table.add_value("l1_norm", l1_norms[level]);
+                table.add_value("linfty_norm", linfty_norms[level]);
+                table.add_value("frobenius_norm", frobenius_norms[level]);
+                table.add_value("constraints_consistent", constraints_consistent[level]);
+                table.add_value("max_fe_degree", max_fe_degrees[level]);
+                // ----------
               }
 
             std::ofstream mg_level_stream(filename_mg_level);

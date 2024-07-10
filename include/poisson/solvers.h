@@ -380,7 +380,8 @@ namespace Poisson
              smoother_preconditioners,
              transfer,
              filename_mg_level,
-             dof_handlers);
+             dof_handlers,
+             constraints);
 
     t_mg_solve.stop();
   }
