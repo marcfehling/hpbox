@@ -99,6 +99,12 @@ namespace PoissonMatrixFree
       constraints_without_dbc.make_consistent_in_parallel(partitioning.get_owned_dofs(),
                                                           partitioning.get_active_dofs(),
                                                           partitioning.get_communicator());
+      AssertThrow(constraints_without_dbc.is_consistent_in_parallel(
+                    Utilities::MPI::all_gather(partitioning.get_communicator(),
+                                               partitioning.get_owned_dofs()),
+                    partitioning.get_active_dofs(),
+                    partitioning.get_communicator()),
+                  ExcInternalError());
       constraints_without_dbc.close();
 
       VectorType b, x;

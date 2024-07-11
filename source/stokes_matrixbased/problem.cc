@@ -240,6 +240,12 @@ namespace StokesMatrixBased
       constraints.make_consistent_in_parallel(partitioning.get_owned_dofs(),
                                               partitioning.get_active_dofs(),
                                               mpi_communicator);
+      AssertThrow(constraints.is_consistent_in_parallel(
+                    Utilities::MPI::all_gather(partitioning.get_communicator(),
+                                               partitioning.get_owned_dofs()),
+                    partitioning.get_active_dofs(),
+                    partitioning.get_communicator()),
+                  ExcInternalError());
       constraints.close();
       partitioning.get_relevant_dofs() = constraints.get_local_lines();
     }

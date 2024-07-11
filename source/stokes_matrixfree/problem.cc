@@ -320,6 +320,12 @@ namespace StokesMatrixFree
         constraints_v.make_consistent_in_parallel(partitioning_v.get_owned_dofs(),
                                                   partitioning_v.get_active_dofs(),
                                                   mpi_communicator);
+        AssertThrow(constraints_v.is_consistent_in_parallel(
+                      Utilities::MPI::all_gather(partitioning_v.get_communicator(),
+                                                 partitioning_v.get_owned_dofs()),
+                      partitioning_v.get_active_dofs(),
+                      partitioning_v.get_communicator()),
+                    ExcInternalError());
         constraints_v.close();
         partitioning_v.get_relevant_dofs() = constraints_v.get_local_lines();
       }
@@ -333,6 +339,12 @@ namespace StokesMatrixFree
         constraints_p.make_consistent_in_parallel(partitioning_p.get_owned_dofs(),
                                                   partitioning_p.get_active_dofs(),
                                                   mpi_communicator);
+        AssertThrow(constraints_p.is_consistent_in_parallel(
+                      Utilities::MPI::all_gather(partitioning_p.get_communicator(),
+                                                 partitioning_p.get_owned_dofs()),
+                      partitioning_p.get_active_dofs(),
+                      partitioning_p.get_communicator()),
+                    ExcInternalError());
         constraints_p.close();
         partitioning_p.get_relevant_dofs() = constraints_p.get_local_lines();
       }

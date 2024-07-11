@@ -69,8 +69,7 @@ mg_solve(
   const MGLevelObject<std::shared_ptr<SmootherPreconditionerType>> &mg_smoother_preconditioners,
   const MGTransferType                                             &mg_transfer,
   const std::string                                                &filename_mg_level,
-  const MGLevelObject<DoFHandler<dim, spacedim>>                   &mg_dof_handlers,
-  const MGLevelObject<AffineConstraints<typename VectorType::value_type>> &mg_constraints)
+  const MGLevelObject<DoFHandler<dim, spacedim>>                   &mg_dof_handlers)
 {
   AssertThrow(mg_data.smoother.type == "chebyshev", ExcNotImplemented());
 
@@ -280,7 +279,6 @@ mg_solve(
       std::vector<double> l1_norms(max_level - min_level + 1);
       std::vector<double> linfty_norms(max_level - min_level + 1);
       std::vector<double> frobenius_norms(max_level - min_level + 1);
-      std::vector<bool>   constraints_consistent(max_level - min_level + 1);
       std::vector<unsigned int> max_fe_degrees(max_level - min_level + 1);
       for (unsigned int level = min_level; level <= max_level; level++)
         {
@@ -296,18 +294,6 @@ mg_solve(
               linfty_norms[level]    = 0.;
               frobenius_norms[level] = 0.;
             }
-
-          const std::vector<IndexSet> locally_owned_dofs_per_processor =
-            Utilities::MPI::all_gather(mg_dof_handlers[level].get_communicator(),
-                                       mg_dof_handlers[level].locally_owned_dofs());
-
-          IndexSet locally_active_dofs = DoFTools::extract_locally_active_dofs(mg_dof_handlers[level]);
-
-          constraints_consistent[level] = mg_constraints[level].is_consistent_in_parallel(
-            locally_owned_dofs_per_processor,
-            locally_active_dofs,
-            mg_dof_handlers[level].get_communicator(),
-            /*verbose=*/false);
 
           max_fe_degrees[level] = get_max_active_fe_degree(mg_dof_handlers[level]);
         }
@@ -353,7 +339,6 @@ mg_solve(
               table.add_value("l1_norm", l1_norms[level]);
               table.add_value("linfty_norm", linfty_norms[level]);
               table.add_value("frobenius_norm", frobenius_norms[level]);
-              table.add_value("constraints_consistent", constraints_consistent[level]);
               table.add_value("max_fe_degree", max_fe_degrees[level]);
               // ----------
             }

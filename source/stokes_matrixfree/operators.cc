@@ -479,6 +479,12 @@ namespace StokesMatrixFree
       constraints_v_without_dbc.make_consistent_in_parallel(partitionings[0]->get_owned_dofs(),
                                                             partitionings[0]->get_active_dofs(),
                                                             partitionings[0]->get_communicator());
+      AssertThrow(constraints_v_without_dbc.is_consistent_in_parallel(
+                    Utilities::MPI::all_gather(partitionings[0]->get_communicator(),
+                                               partitionings[0]->get_owned_dofs()),
+                    partitionings[0]->get_active_dofs(),
+                    partitionings[0]->get_communicator()),
+                  ExcInternalError());
       constraints_v_without_dbc.close();
 
       AffineConstraints<value_type> constraints_p_without_dbc;
@@ -487,6 +493,12 @@ namespace StokesMatrixFree
       constraints_p_without_dbc.make_consistent_in_parallel(partitionings[1]->get_owned_dofs(),
                                                             partitionings[1]->get_active_dofs(),
                                                             partitionings[1]->get_communicator());
+      AssertThrow(constraints_p_without_dbc.is_consistent_in_parallel(
+                    Utilities::MPI::all_gather(partitionings[1]->get_communicator(),
+                                               partitionings[1]->get_owned_dofs()),
+                    partitionings[1]->get_active_dofs(),
+                    partitionings[1]->get_communicator()),
+                  ExcInternalError());
       constraints_p_without_dbc.close();
 
       const std::vector<const AffineConstraints<value_type> *> constraints_without_dbc = {

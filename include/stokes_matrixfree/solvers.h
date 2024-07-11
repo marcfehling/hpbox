@@ -353,6 +353,12 @@ namespace StokesMatrixFree
         constraint.make_consistent_in_parallel(partitioning.get_owned_dofs(),
                                                partitioning.get_active_dofs(),
                                                partitioning.get_communicator());
+        AssertThrow(constraint.is_consistent_in_parallel(
+                      Utilities::MPI::all_gather(partitioning.get_communicator(),
+                                                 partitioning.get_owned_dofs()),
+                      partitioning.get_active_dofs(),
+                      partitioning.get_communicator()),
+                    ExcInternalError());
         constraint.close();
         partitioning.get_relevant_dofs() = constraint.get_local_lines();
 
@@ -683,7 +689,6 @@ namespace StokesMatrixFree
         std::vector<double> l1_norms(max_level - min_level + 1);
         std::vector<double> linfty_norms(max_level - min_level + 1);
         std::vector<double> frobenius_norms(max_level - min_level + 1);
-        std::vector<bool>   constraints_consistent(max_level - min_level + 1);
         std::vector<unsigned int> max_fe_degrees(max_level - min_level + 1);
         for (unsigned int level = min_level; level <= max_level; level++)
           {
@@ -699,18 +704,6 @@ namespace StokesMatrixFree
                 linfty_norms[level]    = 0.;
                 frobenius_norms[level] = 0.;
               }
-
-            const std::vector<IndexSet> locally_owned_dofs_per_processor =
-              Utilities::MPI::all_gather(dof_handlers[level].get_communicator(),
-                                         dof_handlers[level].locally_owned_dofs());
-
-            IndexSet locally_active_dofs = DoFTools::extract_locally_active_dofs(dof_handlers[level]);
-
-            constraints_consistent[level] =
-              constraints[level].is_consistent_in_parallel(locally_owned_dofs_per_processor,
-                                                           locally_active_dofs,
-                                                           dof_handlers[level].get_communicator(),
-                                                           /*verbose=*/false);
 
             max_fe_degrees[level] = get_max_active_fe_degree(dof_handlers[level]);
           }
@@ -756,7 +749,6 @@ namespace StokesMatrixFree
                 table.add_value("l1_norm", l1_norms[level]);
                 table.add_value("linfty_norm", linfty_norms[level]);
                 table.add_value("frobenius_norm", frobenius_norms[level]);
-                table.add_value("constraints_consistent", constraints_consistent[level]);
                 table.add_value("max_fe_degree", max_fe_degrees[level]);
                 // ----------
               }
