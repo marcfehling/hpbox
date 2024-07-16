@@ -65,6 +65,11 @@ namespace StokesMatrixBased
     Assert(prm.prm_adaptation.min_p_degree > 1,
            ExcMessage("The minimal polynomial degree must be at least 2!"));
 
+    // Add dummy element (for compatibility with matrixfree checkpoints)
+    fe_collection.push_back(
+      FESystem<dim, spacedim>(FE_Q<dim, spacedim>(1), dim, FE_Q<dim, spacedim>(1), 1));
+    quadrature_collection.push_back(QGauss<dim>(2));
+    quadrature_collection_for_errors.push_back(QGauss<dim>(3));
     for (unsigned int degree = 2; degree <= prm.prm_adaptation.max_p_degree; ++degree)
       {
         fe_collection.push_back(FESystem<dim, spacedim>(
@@ -74,7 +79,7 @@ namespace StokesMatrixBased
       }
 
     // prepare hierarchy
-    const unsigned int min_fe_index = prm.prm_adaptation.min_p_degree - 2;
+    const unsigned int min_fe_index = prm.prm_adaptation.min_p_degree - 1;
     fe_collection.set_hierarchy(
       /*next_index=*/
       [](const typename hp::FECollection<dim> &fe_collection,
@@ -156,7 +161,7 @@ namespace StokesMatrixBased
       }
     else
       {
-        const unsigned int min_fe_index = prm.prm_adaptation.min_p_degree - 2;
+        const unsigned int min_fe_index = prm.prm_adaptation.min_p_degree - 1;
 
         // first, connect fe_collection for CellWeights before refining
         for (const auto &cell : dof_handler.active_cell_iterators())
