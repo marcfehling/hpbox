@@ -44,10 +44,12 @@ namespace StokesMatrixFree
   Problem<dim, LinearAlgebra, spacedim>::Problem(const Parameter &prm)
     : mpi_communicator(MPI_COMM_WORLD)
     , prm(prm)
-    , triangulation(mpi_communicator,
-                    typename Triangulation<dim>::MeshSmoothing(
-                      Triangulation<dim>::smoothing_on_refinement |
-                      Triangulation<dim>::smoothing_on_coarsening))
+    , triangulation(
+        mpi_communicator,
+        typename Triangulation<dim>::MeshSmoothing(Triangulation<dim>::smoothing_on_refinement |
+                                                   Triangulation<dim>::smoothing_on_coarsening),
+        typename parallel::distributed::Triangulation<dim>::Settings(
+          parallel::distributed::Triangulation<dim>::mesh_reconstruction_after_repartitioning))
     , dof_handler_v(triangulation)
     , dof_handler_p(triangulation)
     , dof_handlers({&dof_handler_v, &dof_handler_p})
