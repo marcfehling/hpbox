@@ -85,6 +85,10 @@ namespace StokesMatrixFree
                        dst.block(1),
                        src.block(1),
                        schur_complement_preconditioner);
+
+          getPCOut() << "     Schur complement solved in " << solver_control.last_step()
+                     << " iterations." << std::endl;
+          getTable().add_value("schur_iterations", solver_control.last_step());
         }
       else
         schur_complement_preconditioner.vmult(dst.block(1), src.block(1));
