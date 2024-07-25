@@ -99,6 +99,9 @@ namespace StokesMatrixBased
                        src.block(1),
                        schur_complement_preconditioner);
 
+          getPCOut() << "     Schur complement solved in " << solver_control.last_step()
+                     << " iterations." << std::endl;
+
           max_Schur_iterations = std::max(solver_control.last_step(), max_Schur_iterations);
           min_Schur_iterations = std::min(solver_control.last_step(), min_Schur_iterations);
           total_Schur_iterations += solver_control.last_step();
@@ -122,6 +125,9 @@ namespace StokesMatrixBased
           typename LinearAlgebra::SolverCG solver(solver_control);
 
           solver.solve(*a_block, dst.block(0), utmp, a_block_preconditioner);
+
+          getPCOut() << "     A block solved in " << solver_control.last_step() << " iterations."
+                     << std::endl;
 
           max_A_iterations = std::max(solver_control.last_step(), max_A_iterations);
           min_A_iterations = std::min(solver_control.last_step(), min_A_iterations);
