@@ -65,6 +65,11 @@ public:
   virtual void
   compute_inverse_diagonal(VectorType &diagonal) const;
 
+  // Compute the lumped inverse of the diagonal of the vector and store it into the
+  // provided vector.
+  virtual void
+  compute_lumped_inverse_diagonal(VectorType &diagonal) const;
+
   // Return the actual system matrix, which can be used in any matrix-based
   // solvers (like AMG).
   virtual const MatrixType &
@@ -133,6 +138,17 @@ MGSolverOperatorBase<dim, VectorType, MatrixType>::Tvmult(VectorType       &dst,
 template <int dim, typename VectorType, typename MatrixType>
 void
 MGSolverOperatorBase<dim, VectorType, MatrixType>::compute_inverse_diagonal(
+  VectorType &diagonal) const
+{
+  Assert(false, ExcNotImplemented());
+  (void)diagonal;
+}
+
+
+
+template <int dim, typename VectorType, typename MatrixType>
+void
+MGSolverOperatorBase<dim, VectorType, MatrixType>::compute_lumped_inverse_diagonal(
   VectorType &diagonal) const
 {
   Assert(false, ExcNotImplemented());

@@ -170,6 +170,16 @@ namespace PoissonMatrixFree
 
 
   template <int dim, typename LinearAlgebra, int spacedim>
+  void
+  PoissonOperator<dim, LinearAlgebra, spacedim>::compute_lumped_inverse_diagonal(
+    VectorType &) const
+  {
+    Assert(false, ExcNotImplemented());
+  }
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
   const typename LinearAlgebra::SparseMatrix &
   PoissonOperator<dim, LinearAlgebra, spacedim>::get_system_matrix() const
   {

@@ -68,6 +68,9 @@ namespace PoissonMatrixBased
     void
     compute_inverse_diagonal(VectorType &diagonal) const override;
 
+    void
+    compute_lumped_inverse_diagonal(VectorType &diagonal) const override;
+
     const typename LinearAlgebra::SparseMatrix &
     get_system_matrix() const override;
 

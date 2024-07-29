@@ -131,6 +131,16 @@ namespace StokesMatrixFree
 
 
   template <int dim, typename LinearAlgebra, int spacedim>
+  void
+  ABlockOperator<dim, LinearAlgebra, spacedim>::compute_lumped_inverse_diagonal(
+    VectorType &) const
+  {
+    Assert(false, ExcNotImplemented());
+  }
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
   const typename LinearAlgebra::SparseMatrix &
   ABlockOperator<dim, LinearAlgebra, spacedim>::get_system_matrix() const
   {
@@ -325,6 +335,34 @@ namespace StokesMatrixFree
     // invert diagonal
     for (auto &i : diagonal)
       i = (std::abs(i) > 1.0e-10) ? (1.0 / i) : 1.0;
+  }
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
+  void
+  SchurBlockOperator<dim, LinearAlgebra, spacedim>::compute_lumped_inverse_diagonal(
+    VectorType &diagonal) const
+  {
+    // temporary vector containing ones
+    VectorType ones;
+    matrix_free.initialize_dof_vector(ones);
+    ones = 1.0;
+
+    // apply add
+    matrix_free.initialize_dof_vector(diagonal);
+    matrix_free.cell_loop(&SchurBlockOperator::do_cell_integral_range, this, diagonal, ones, true);
+
+    // set constrained entries to 1
+    for (const auto constrained_dof : matrix_free.get_constrained_dofs())
+      diagonal.local_element(constrained_dof) = 1.0;
+
+    // for (unsigned int i = 0; i < edge_constrained_indices[j].size(); ++i)
+    //   dst.local_element(edge_constrained_indices[j][i]) = 1.;
+
+    // finally invert diagonal
+    for (auto &i : diagonal)
+      i = (i != 0.0) ? (1.0 / i) : 1.0;
   }
 
 
@@ -561,6 +599,16 @@ namespace StokesMatrixFree
   void
   StokesOperator<dim, LinearAlgebra, spacedim>::compute_inverse_diagonal(
     VectorType & /*diagonal*/) const
+  {
+    Assert(false, ExcNotImplemented());
+  }
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
+  void
+  StokesOperator<dim, LinearAlgebra, spacedim>::compute_lumped_inverse_diagonal(
+    VectorType &) const
   {
     Assert(false, ExcNotImplemented());
   }

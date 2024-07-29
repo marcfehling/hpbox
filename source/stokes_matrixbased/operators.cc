@@ -221,6 +221,16 @@ namespace StokesMatrixBased
 
 
   template <int dim, typename LinearAlgebra, int spacedim>
+  void
+  ABlockOperator<dim, LinearAlgebra, spacedim>::compute_lumped_inverse_diagonal(
+    VectorType &) const
+  {
+    Assert(false, ExcNotImplemented());
+  }
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
   const typename LinearAlgebra::SparseMatrix &
   ABlockOperator<dim, LinearAlgebra, spacedim>::get_system_matrix() const
   {
@@ -428,6 +438,16 @@ namespace StokesMatrixBased
 
     for (unsigned int n = 0; n < schur_block_matrix.block(1, 1).n(); ++n)
       diagonal[n] = 1.0 / schur_block_matrix.block(1, 1).diag_element(n);
+  }
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
+  void
+  SchurBlockOperator<dim, LinearAlgebra, spacedim>::compute_lumped_inverse_diagonal(
+    VectorType &) const
+  {
+    Assert(false, ExcNotImplemented());
   }
 
 
@@ -688,6 +708,16 @@ namespace StokesMatrixBased
 
     for (unsigned int n = 0; n < system_matrix.n(); ++n)
       diagonal[n] = 1.0 / system_matrix.diag_element(n);
+  }
+
+
+
+  template <int dim, typename LinearAlgebra, int spacedim>
+  void
+  StokesOperator<dim, LinearAlgebra, spacedim>::compute_lumped_inverse_diagonal(
+    VectorType &) const
+  {
+    Assert(false, ExcNotImplemented());
   }
 
 

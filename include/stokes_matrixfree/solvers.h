@@ -635,7 +635,7 @@ namespace StokesMatrixFree
     PreconditionerType a_block_preconditioner(dof_handler, mg_a_block, transfer);
 
     DiagonalMatrixTimer<VectorType> inv_diagonal("vmult_diagonal_SchurBlock");
-    schur_block_operator.compute_inverse_diagonal(inv_diagonal.get_vector());
+    schur_block_operator.compute_lumped_inverse_diagonal(inv_diagonal.get_vector());
 
     PreconditionJacobi<DiagonalMatrixTimer<VectorType>> schur_block_preconditioner;
     schur_block_preconditioner.initialize(inv_diagonal);
