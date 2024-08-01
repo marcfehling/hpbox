@@ -247,6 +247,9 @@ namespace StokesMatrixFree
             const dealii::hp::MappingCollection<dim, spacedim>           &mapping_collection,
             const dealii::hp::QCollection<dim>                           &q_collection_v,
             const std::vector<const dealii::DoFHandler<dim, spacedim> *> &stokes_dof_handlers,
+            const std::vector<const dealii::AffineConstraints<double> *> &stokes_constraints,
+            const std::vector<const Partitioning *>                      &stokes_partitionings,
+            const std::vector<dealii::hp::QCollection<dim>>              &stokes_quadratures,
             const std::string                                            &filename_mg_level)
   {
     // poisson has mappingcollection and dofhandler as additional parameters
@@ -678,18 +681,86 @@ namespace StokesMatrixFree
     // Convert it to a preconditioner.
     PreconditionerType a_block_preconditioner(dof_handler, mg_a_block, transfer);
 
-    DiagonalMatrixTimer<VectorType> inv_diagonal("vmult_diagonal_SchurBlock");
-    schur_block_operator.compute_inverse_diagonal(inv_diagonal.get_vector());
 
-    PreconditionJacobi<DiagonalMatrixTimer<VectorType>> schur_block_preconditioner;
-    schur_block_preconditioner.initialize(inv_diagonal);
+
+
+
+
+
+
+
+
+    // DiagonalMatrixTimer<VectorType> inv_diagonal("vmult_diagonal_SchurBlock");
+    // schur_block_operator.compute_inverse_diagonal(inv_diagonal.get_vector());
+
+    // PreconditionJacobi<DiagonalMatrixTimer<VectorType>> schur_block_preconditioner;
+    // schur_block_preconditioner.initialize(inv_diagonal);
+
+    const auto &dof_handler_p = *(stokes_dof_handlers[1]);
+    const auto &constraint_p = *(stokes_constraints[1]);
+    const auto &partitioning_p = *(stokes_partitionings[1]);
+    const auto &q_collection_p = stokes_quadratures[1];
+
+    const auto patch_indices = prepare_patch_indices(dof_handler_p, constraint_p);
+
+    AffineConstraints<double> constraints_reduced;
+    constraints_reduced.reinit(partitioning_p.get_owned_dofs(),
+                               partitioning_p.get_relevant_dofs());
+
+    const auto all_indices_relevant = extract_relevant(patch_indices, partitioning_p);
+
+    std::set<types::global_dof_index> all_indices_assemble;
+    reduce_constraints(constraint_p,
+                        partitioning_p.get_active_dofs(),
+                        all_indices_relevant,
+                        constraints_reduced,
+                        all_indices_assemble);
+
+    typename LinearAlgebra::SparsityPattern reduced_sparsity_pattern;
+    reduced_sparsity_pattern.reinit(partitioning_p.get_owned_dofs(),
+                                    partitioning_p.get_owned_dofs(),
+                                    partitioning_p.get_relevant_dofs(),
+                                    partitioning_p.get_communicator());
+    make_sparsity_pattern(dof_handler_p,
+                          all_indices_assemble,
+                          reduced_sparsity_pattern,
+                          constraints_reduced);
+    reduced_sparsity_pattern.compress();
+
+    typename LinearAlgebra::SparseMatrix reduced_sparse_matrix;
+    reduced_sparse_matrix.reinit(reduced_sparsity_pattern);
+    partially_assemble_schurblock(dof_handler_p,
+                                  constraints_reduced,
+                                  q_collection_p,
+                                  all_indices_assemble,
+                                  reduced_sparse_matrix);
+
+    VectorType inverse_diagonal;
+    schur_block_operator.compute_inverse_diagonal(inverse_diagonal);
+    // TODO: Maybe try lumped inverse diagonal here instead?
+
+    PreconditionExtendedDiagonal<VectorType> schur_block_preconditioner (std::move(patch_indices));
+    schur_block_preconditioner.initialize(reduced_sparse_matrix,
+                                          reduced_sparsity_pattern,
+                                          inverse_diagonal,
+                                          all_indices_relevant);
+
+
+
+
+
+
+
+
+
 
     const BlockSchurPreconditioner<LinearAlgebra,
                                    StokesMatrixFree::StokesOperator<dim, LinearAlgebra, spacedim>,
                                    OperatorType<dim, LinearAlgebra, spacedim>,
                                    OperatorType<dim, LinearAlgebra, spacedim>,
                                    PreconditionerType,
-                                   PreconditionJacobi<DiagonalMatrixTimer<VectorType>>>
+                                   // PreconditionJacobi<DiagonalMatrixTimer<VectorType>>>
+                                   PreconditionExtendedDiagonal<VectorType>>
       preconditioner(stokes_operator,
                      a_block_operator,
                      schur_block_operator,

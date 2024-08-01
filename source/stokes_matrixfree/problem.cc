@@ -358,6 +358,9 @@ namespace StokesMatrixFree
                                 mapping_collection,
                                 quadrature_collection_v,
                                 dof_handlers,
+                                constraints,
+                                partitionings,
+                                quadrature_collections,
                                 filename_mg_level);
           }
         else if (prm.prm_multigrid.smoother_preconditioner_type == "ASM")
@@ -375,6 +378,9 @@ namespace StokesMatrixFree
                                 mapping_collection,
                                 quadrature_collection_v,
                                 dof_handlers,
+                                constraints,
+                                partitionings,
+                                quadrature_collections,
                                 filename_mg_level);
           }
         else if (prm.prm_multigrid.smoother_preconditioner_type == "Diagonal")
@@ -392,6 +398,9 @@ namespace StokesMatrixFree
                                 mapping_collection,
                                 quadrature_collection_v,
                                 dof_handlers,
+                                constraints,
+                                partitionings,
+                                quadrature_collections,
                                 filename_mg_level);
           }
         else
