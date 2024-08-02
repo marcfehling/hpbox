@@ -50,7 +50,25 @@ namespace StokesMatrixBased
       , schur_complement_preconditioner(schur_complement_preconditioner)
       , do_solve_A(do_solve_A)
       , do_solve_Schur_complement(do_solve_Schur_complement)
+      , max_A_iterations(0)
+      , max_Schur_iterations(0)
     {}
+
+    ~BlockSchurPreconditioner()
+    {
+      if (max_A_iterations > 0)
+        {
+          getPCOut() << "   A solved in max. " << max_A_iterations << " iterations." << std::endl;
+          getTable().add_value("max_a_iterations", max_A_iterations);
+        }
+
+      if (max_Schur_iterations > 0)
+        {
+          getPCOut() << "   Schur complement solved in max. " << max_Schur_iterations
+                     << " iterations." << std::endl;
+          getTable().add_value("max_schur_iterations", max_Schur_iterations);
+        }
+    }
 
     void
     vmult(typename LinearAlgebra::BlockVector       &dst,
@@ -63,13 +81,15 @@ namespace StokesMatrixBased
 
       if (do_solve_Schur_complement)
         {
-          dealii::SolverControl            solver_control(5000, 1e-6 * src.block(1).l2_norm());
+          dealii::ReductionControl solver_control(5000, 1e-6 * src.block(1).l2_norm(), 1e-2);
           typename LinearAlgebra::SolverCG solver(solver_control);
 
           solver.solve(*schur_complement_block,
                        dst.block(1),
                        src.block(1),
                        schur_complement_preconditioner);
+
+          max_Schur_iterations = std::max(solver_control.last_step(), max_Schur_iterations);
         }
       else
         schur_complement_preconditioner.vmult(dst.block(1), src.block(1));
@@ -86,10 +106,12 @@ namespace StokesMatrixBased
 
       if (do_solve_A == true)
         {
-          dealii::SolverControl            solver_control(5000, 1e-2 * utmp.l2_norm());
+          dealii::ReductionControl         solver_control(5000, 1e-2 * utmp.l2_norm(), 1e-2);
           typename LinearAlgebra::SolverCG solver(solver_control);
 
           solver.solve(*a_block, dst.block(0), utmp, a_block_preconditioner);
+
+          max_A_iterations = std::max(solver_control.last_step(), max_A_iterations);
         }
       else
         a_block_preconditioner.vmult(dst.block(0), utmp);
@@ -105,6 +127,9 @@ namespace StokesMatrixBased
 
     const bool do_solve_A;
     const bool do_solve_Schur_complement;
+
+    mutable unsigned int max_A_iterations;
+    mutable unsigned int max_Schur_iterations;
   };
 
 
