@@ -40,7 +40,7 @@ main(int argc, char *argv[])
       if (prm.log_deallog && getPCOut().is_active())
         dealii::deallog.attach(getPCOut().get_stream());
 
-      getPCOut() << "Running with " << prm.linear_algebra << " on "
+      getPCOut() << "Running " << prm.file_stem << " with " << prm.linear_algebra << " on "
                  << dealii::Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD) << " MPI rank(s)..."
                  << std::endl;
 
