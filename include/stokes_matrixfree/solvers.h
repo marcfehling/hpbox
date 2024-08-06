@@ -104,6 +104,9 @@ namespace StokesMatrixFree
                        src.block(1),
                        schur_complement_preconditioner);
 
+          getPCOut() << "     Schur complement solved in " << solver_control.last_step()
+                     << " iterations." << std::endl;
+
           max_Schur_iterations = std::max(solver_control.last_step(), max_Schur_iterations);
         }
       else
