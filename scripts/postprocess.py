@@ -46,7 +46,8 @@ def build_dataframe(root, extension = "log"):
                if f.lower().endswith('.'+extension)]
     
   # read first dataframe entirely and use first row as header
-  df = [pd.read_table(f, delim_whitespace=True) for f in filenames]
+  # specify whitespace as delimiter
+  df = [pd.read_table(f, sep=r'\s+') for f in filenames]
   return pd.concat(df, ignore_index=True)
 
 
