@@ -240,21 +240,21 @@ namespace StokesMatrixFree
 
     // TODO: this is only temporary
     // only work on velocity dofhandlers for now
-    const DoFHandler<dim, spacedim> &dof_handler = *(stokes_dof_handlers[0]);
+    const DoFHandler<dim, spacedim> &a_dof_handler = *(stokes_dof_handlers[0]);
 
     // Create a DoFHandler and operator for each multigrid level defined
     // by p-coarsening, as well as, create transfer operators.
-    MGLevelObject<DoFHandler<dim, spacedim>>                                   dof_handlers;
-    MGLevelObject<std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>> operators;
+    MGLevelObject<DoFHandler<dim, spacedim>>                                   a_dof_handlers;
+    MGLevelObject<std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>> a_operators;
 
     std::vector<std::shared_ptr<const Triangulation<dim, spacedim>>> coarse_grid_triangulations;
     if (mg_data.transfer.perform_h_transfer)
       coarse_grid_triangulations =
         MGTransferGlobalCoarseningTools::create_geometric_coarsening_sequence(
-          dof_handler.get_triangulation());
+          a_dof_handler.get_triangulation());
     else
       coarse_grid_triangulations.emplace_back(
-        const_cast<Triangulation<dim, spacedim> *>(&(dof_handler.get_triangulation())), [](auto &) {
+        const_cast<Triangulation<dim, spacedim> *>(&(a_dof_handler.get_triangulation())), [](auto &) {
           // empty deleter, since fine_triangulation_in is an external field
           // and its destructor is called somewhere else
         });
@@ -262,25 +262,25 @@ namespace StokesMatrixFree
     const unsigned int n_h_levels = coarse_grid_triangulations.size() - 1;
 
     // Determine the number of levels.
-    const auto get_max_active_fe_degree = [&](const auto &dof_handler) {
+    const auto get_max_active_fe_degree = [&](const auto &a_dof_handler) {
       unsigned int max = 0;
 
-      for (auto &cell : dof_handler.active_cell_iterators())
+      for (auto &cell : a_dof_handler.active_cell_iterators())
         if (cell->is_locally_owned())
-          max = std::max(max, dof_handler.get_fe(cell->active_fe_index()).degree);
+          max = std::max(max, a_dof_handler.get_fe(cell->active_fe_index()).degree);
 
       return Utilities::MPI::max(max, MPI_COMM_WORLD);
     };
 
     const unsigned int n_p_levels =
       MGTransferGlobalCoarseningTools::create_polynomial_coarsening_sequence(
-        get_max_active_fe_degree(dof_handler), mg_data.transfer.p_sequence)
+        get_max_active_fe_degree(a_dof_handler), mg_data.transfer.p_sequence)
         .size();
 
     std::map<unsigned int, unsigned int> fe_index_for_degree;
-    for (unsigned int i = 0; i < dof_handler.get_fe_collection().size(); ++i)
+    for (unsigned int i = 0; i < a_dof_handler.get_fe_collection().size(); ++i)
       {
-        const unsigned int degree = dof_handler.get_fe(i).degree;
+        const unsigned int degree = a_dof_handler.get_fe(i).degree;
         Assert(fe_index_for_degree.find(degree) == fe_index_for_degree.end(),
                ExcMessage("FECollection does not contain unique degrees."));
         fe_index_for_degree[degree] = i;
@@ -291,27 +291,27 @@ namespace StokesMatrixFree
     unsigned int maxlevel   = n_h_levels + n_p_levels - 1;
 
     // Allocate memory for all levels.
-    dof_handlers.resize(minlevel, maxlevel);
-    operators.resize(minlevel, maxlevel);
+    a_dof_handlers.resize(minlevel, maxlevel);
+    a_operators.resize(minlevel, maxlevel);
 
     // Loop from max to min level and set up DoFHandler with coarser mesh...
     for (unsigned int l = 0; l < n_h_levels; ++l)
       {
-        dof_handlers[l].reinit(*coarse_grid_triangulations[l]);
-        dof_handlers[l].distribute_dofs(dof_handler.get_fe_collection());
+        a_dof_handlers[l].reinit(*coarse_grid_triangulations[l]);
+        a_dof_handlers[l].distribute_dofs(a_dof_handler.get_fe_collection());
       }
 
     // ... with lower polynomial degrees
     for (unsigned int i = 0, l = maxlevel; i < n_p_levels; ++i, --l)
       {
-        dof_handlers[l].reinit(dof_handler.get_triangulation());
+        a_dof_handlers[l].reinit(a_dof_handler.get_triangulation());
 
         if (l == maxlevel) // finest level
           {
-            auto &dof_handler_mg = dof_handlers[l];
+            auto &a_dof_handler_mg = a_dof_handlers[l];
 
-            auto cell_other = dof_handler.begin_active();
-            for (auto &cell : dof_handler_mg.active_cell_iterators())
+            auto cell_other = a_dof_handler.begin_active();
+            for (auto &cell : a_dof_handler_mg.active_cell_iterators())
               {
                 if (cell->is_locally_owned())
                   cell->set_active_fe_index(cell_other->active_fe_index());
@@ -320,11 +320,11 @@ namespace StokesMatrixFree
           }
         else // coarse level
           {
-            auto &dof_handler_fine   = dof_handlers[l + 1];
-            auto &dof_handler_coarse = dof_handlers[l + 0];
+            auto &a_dof_handler_fine   = a_dof_handlers[l + 1];
+            auto &a_dof_handler_coarse = a_dof_handlers[l + 0];
 
-            auto cell_other = dof_handler_fine.begin_active();
-            for (auto &cell : dof_handler_coarse.active_cell_iterators())
+            auto cell_other = a_dof_handler_fine.begin_active();
+            for (auto &cell : a_dof_handler_coarse.active_cell_iterators())
               {
                 if (cell->is_locally_owned())
                   {
@@ -341,14 +341,14 @@ namespace StokesMatrixFree
               }
           }
 
-        dof_handlers[l].distribute_dofs(dof_handler.get_fe_collection());
+        a_dof_handlers[l].distribute_dofs(a_dof_handler.get_fe_collection());
       }
 
     // Create data structures on each multigrid level.
-    MGLevelObject<AffineConstraints<typename VectorType::value_type>> constraints(minlevel,
+    MGLevelObject<AffineConstraints<typename VectorType::value_type>> a_constraints(minlevel,
                                                                                   maxlevel);
 
-    MGLevelObject<std::shared_ptr<SmootherPreconditionerType>> smoother_preconditioners(minlevel,
+    MGLevelObject<std::shared_ptr<SmootherPreconditionerType>> a_smoother_preconditioners(minlevel,
                                                                                         maxlevel);
 
     //
@@ -358,8 +358,8 @@ namespace StokesMatrixFree
     //
     for (unsigned int level = minlevel; level <= maxlevel; level++)
       {
-        const auto &dof_handler = dof_handlers[level];
-        auto       &constraint  = constraints[level];
+        const auto &dof_handler = a_dof_handlers[level];
+        auto       &constraint  = a_constraints[level];
 
         Partitioning partitioning;
         partitioning.reinit(dof_handler);
@@ -382,8 +382,8 @@ namespace StokesMatrixFree
         partitioning.get_relevant_dofs() = constraint.get_local_lines();
 
         // ... operator (just like on the finest level)
-        operators[level] = a_block_operator.replicate();
-        operators[level]->reinit(partitioning, dof_handler, constraint);
+        a_operators[level] = a_block_operator.replicate();
+        a_operators[level]->reinit(partitioning, dof_handler, constraint);
 
 
         // WIP: build smoother preconditioners here
@@ -391,10 +391,10 @@ namespace StokesMatrixFree
 
         if constexpr (std::is_same_v<SmootherPreconditionerType, DiagonalMatrixTimer<VectorType>>)
           {
-            smoother_preconditioners[level] =
+            a_smoother_preconditioners[level] =
               std::make_shared<SmootherPreconditionerType>("vmult_diagonal_ABlock");
-            operators[level]->compute_inverse_diagonal(
-              smoother_preconditioners[level]->get_vector());
+            a_operators[level]->compute_inverse_diagonal(
+              a_smoother_preconditioners[level]->get_vector());
           }
         else if constexpr (std::is_same_v<SmootherPreconditionerType, PreconditionASM<VectorType>>)
           {
@@ -418,9 +418,9 @@ namespace StokesMatrixFree
             DoFTools::make_sparsity_pattern(dof_handler, sparsity_pattern, constraint, false, myid);
             sparsity_pattern.compress();
 
-            smoother_preconditioners[level] =
+            a_smoother_preconditioners[level] =
               std::make_shared<SmootherPreconditionerType>(std::move(patch_indices));
-            smoother_preconditioners[level]->initialize(operators[level]->get_system_matrix(),
+            a_smoother_preconditioners[level]->initialize(a_operators[level]->get_system_matrix(),
                                                         sparsity_pattern,
                                                         partitioning);
           }
@@ -435,7 +435,7 @@ namespace StokesMatrixFree
             // full matrix
             // const unsigned int myid = dealii::Utilities::MPI::this_mpi_process(communicator);
             // DynamicSparsityPattern dsp(relevant_dofs);
-            // DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false, myid);
+            // DoFTools::make_sparsity_pattern(a_dof_handler, dsp, constraints, false, myid);
             // SparsityTools::distribute_sparsity_pattern(dsp, owned_dofs, communicator,
             // relevant_dofs);
 
@@ -474,15 +474,15 @@ namespace StokesMatrixFree
                                       reduced_sparse_matrix);
 
             VectorType inverse_diagonal;
-            operators[level]->compute_inverse_diagonal(inverse_diagonal);
+            a_operators[level]->compute_inverse_diagonal(inverse_diagonal);
 
-            smoother_preconditioners[level] =
+            a_smoother_preconditioners[level] =
               std::make_shared<SmootherPreconditionerType>(std::move(patch_indices));
-            // smoother_preconditioners[level]->initialize(mg_matrices[level]->get_system_matrix(),
+            // a_smoother_preconditioners[level]->initialize(mg_matrices[level]->get_system_matrix(),
             //                                             dsp,
             //                                             inverse_diagonal,
             //                                             all_indices_relevant);
-            smoother_preconditioners[level]->initialize(reduced_sparse_matrix,
+            a_smoother_preconditioners[level]->initialize(reduced_sparse_matrix,
                                                         reduced_sparsity_pattern,
                                                         inverse_diagonal,
                                                         all_indices_relevant);
@@ -499,26 +499,26 @@ namespace StokesMatrixFree
 
     TimerOutput::Scope t_mg_reinit_transfer(getTimer(), "mg_reinit_transfer");
 
-    MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> transfers;
-    transfers.resize(minlevel, maxlevel);
+    MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> a_transfers;
+    a_transfers.resize(minlevel, maxlevel);
 
     // Set up intergrid operators.
     for (unsigned int level = minlevel; level < minlevel_p; ++level)
-      transfers[level + 1].reinit_geometric_transfer(dof_handlers[level + 1],
-                                                     dof_handlers[level],
-                                                     constraints[level + 1],
-                                                     constraints[level]);
+      a_transfers[level + 1].reinit_geometric_transfer(a_dof_handlers[level + 1],
+                                                     a_dof_handlers[level],
+                                                     a_constraints[level + 1],
+                                                     a_constraints[level]);
 
     for (unsigned int level = minlevel_p; level < maxlevel; ++level)
-      transfers[level + 1].reinit_polynomial_transfer(dof_handlers[level + 1],
-                                                      dof_handlers[level],
-                                                      constraints[level + 1],
-                                                      constraints[level]);
+      a_transfers[level + 1].reinit_polynomial_transfer(a_dof_handlers[level + 1],
+                                                      a_dof_handlers[level],
+                                                      a_constraints[level + 1],
+                                                      a_constraints[level]);
 
     // Collect transfer operators within a single operator as needed by
     // the Multigrid solver class.
-    MGTransferGlobalCoarsening<dim, VectorType> transfer(transfers, [&](const auto l, auto &vec) {
-      operators[l]->initialize_dof_vector(vec);
+    MGTransferGlobalCoarsening<dim, VectorType> a_transfer(a_transfers, [&](const auto l, auto &vec) {
+      a_operators[l]->initialize_dof_vector(vec);
     });
 
     t_mg_reinit_transfer.stop();
@@ -539,86 +539,86 @@ namespace StokesMatrixFree
       PreconditionChebyshev<LevelMatrixType, VectorType, SmootherPreconditionerType>;
     using PreconditionerType = PreconditionMG<dim, VectorType, MGTransferType>;
 
-    const unsigned int min_level = operators.min_level();
-    const unsigned int max_level = operators.max_level();
+    const unsigned int min_level = a_operators.min_level();
+    const unsigned int max_level = a_operators.max_level();
 
     // Initialize level operators.
-    mg::Matrix<VectorType> mg_matrix(operators); // operators = mg_matrices in mg_solver.h
+    mg::Matrix<VectorType> a_mg_matrix(a_operators); // operators = mg_matrices in mg_solver.h
 
     // Initialize smoothers.
-    MGLevelObject<typename SmootherType::AdditionalData> smoother_data(min_level, max_level);
+    MGLevelObject<typename SmootherType::AdditionalData> a_smoother_data(min_level, max_level);
 
     for (unsigned int level = min_level; level <= max_level; level++)
       {
-        smoother_data[level].preconditioner      = smoother_preconditioners[level];
-        smoother_data[level].smoothing_range     = mg_data.smoother.smoothing_range;
-        smoother_data[level].degree              = mg_data.smoother.degree;
-        smoother_data[level].eig_cg_n_iterations = mg_data.smoother.eig_cg_n_iterations;
+        a_smoother_data[level].preconditioner      = a_smoother_preconditioners[level];
+        a_smoother_data[level].smoothing_range     = mg_data.smoother.smoothing_range;
+        a_smoother_data[level].degree              = mg_data.smoother.degree;
+        a_smoother_data[level].eig_cg_n_iterations = mg_data.smoother.eig_cg_n_iterations;
       }
 
     // ----------
     // Estimate eigenvalues on all levels, i.e., all operators
     // TODO: based on peter's code
     // https://github.com/peterrum/dealii-asm/blob/d998b9b344a19c9d2890e087f953c2f93e6546ae/include/precondition.templates.h#L292-L316
-    std::vector<double> min_eigenvalues(max_level + 1, numbers::signaling_nan<double>());
-    std::vector<double> max_eigenvalues(max_level + 1, numbers::signaling_nan<double>());
+    std::vector<double> a_min_eigenvalues(max_level + 1, numbers::signaling_nan<double>());
+    std::vector<double> a_max_eigenvalues(max_level + 1, numbers::signaling_nan<double>());
     if (mg_data.estimate_eigenvalues == true)
       {
         for (unsigned int level = min_level + 1; level <= max_level; level++)
           {
             SmootherType chebyshev;
-            chebyshev.initialize(*operators[level], smoother_data[level]);
+            chebyshev.initialize(*a_operators[level], a_smoother_data[level]);
 
             VectorType vec;
-            operators[level]->initialize_dof_vector(vec);
+            a_operators[level]->initialize_dof_vector(vec);
             const auto evs = chebyshev.estimate_eigenvalues(vec);
 
-            min_eigenvalues[level] = evs.min_eigenvalue_estimate;
-            max_eigenvalues[level] = evs.max_eigenvalue_estimate;
+            a_min_eigenvalues[level] = evs.min_eigenvalue_estimate;
+            a_max_eigenvalues[level] = evs.max_eigenvalue_estimate;
 
             // We already computed eigenvalues, reset the one in the actual smoother
-            smoother_data[level].eig_cg_n_iterations = 0;
-            smoother_data[level].max_eigenvalue      = evs.max_eigenvalue_estimate * 1.1;
+            a_smoother_data[level].eig_cg_n_iterations = 0;
+            a_smoother_data[level].max_eigenvalue      = evs.max_eigenvalue_estimate * 1.1;
           }
 
         // log maximum over all levels
-        const double max = *std::max_element(++(max_eigenvalues.begin()), max_eigenvalues.end());
-        getPCOut() << "   Max EV on all MG levels:      " << max << std::endl;
-        getTable().add_value("max_ev", max);
+        const double max = *std::max_element(++(a_max_eigenvalues.begin()), a_max_eigenvalues.end());
+        getPCOut() << "   Max EV on all A MG levels:    " << max << std::endl;
+        getTable().add_value("a_max_ev", max);
       }
     // ----------
 
-    MGSmootherRelaxation<LevelMatrixType, SmootherType, VectorType> mg_smoother;
-    mg_smoother.initialize(operators, smoother_data);
+    MGSmootherRelaxation<LevelMatrixType, SmootherType, VectorType> a_mg_smoother;
+    a_mg_smoother.initialize(a_operators, a_smoother_data);
 
     // Initialize coarse-grid solver.
-    ReductionControl     coarse_grid_solver_control(mg_data.coarse_solver.maxiter,
+    ReductionControl     a_coarse_grid_solver_control(mg_data.coarse_solver.maxiter,
                                                 mg_data.coarse_solver.abstol,
                                                 mg_data.coarse_solver.reltol,
                                                 /*log_history=*/true,
                                                 /*log_result=*/true);
-    SolverCG<VectorType> coarse_grid_solver(coarse_grid_solver_control);
+    SolverCG<VectorType> a_coarse_grid_solver(a_coarse_grid_solver_control);
 
-    std::unique_ptr<MGCoarseGridBase<VectorType>> mg_coarse;
+    std::unique_ptr<MGCoarseGridBase<VectorType>> a_mg_coarse;
 #ifdef DEAL_II_WITH_TRILINOS
-    TrilinosWrappers::PreconditionAMG                 precondition_amg;
-    TrilinosWrappers::PreconditionAMG::AdditionalData amg_data;
-    amg_data.smoother_sweeps = mg_data.coarse_solver.smoother_sweeps;
-    amg_data.n_cycles        = mg_data.coarse_solver.n_cycles;
-    amg_data.smoother_type   = mg_data.coarse_solver.smoother_type.c_str();
+    TrilinosWrappers::PreconditionAMG                 a_precondition_amg;
+    TrilinosWrappers::PreconditionAMG::AdditionalData a_amg_data;
+    a_amg_data.smoother_sweeps = mg_data.coarse_solver.smoother_sweeps;
+    a_amg_data.n_cycles        = mg_data.coarse_solver.n_cycles;
+    a_amg_data.smoother_type   = mg_data.coarse_solver.smoother_type.c_str();
 
     // CG with AMG as preconditioner
-    precondition_amg.initialize(operators[min_level]->get_system_matrix(), amg_data);
+    a_precondition_amg.initialize(a_operators[min_level]->get_system_matrix(), a_amg_data);
 
-    mg_coarse = std::make_unique<MGCoarseGridIterativeSolver<VectorType,
+    a_mg_coarse = std::make_unique<MGCoarseGridIterativeSolver<VectorType,
                                                              SolverCG<VectorType>,
                                                              LevelMatrixType,
-                                                             decltype(precondition_amg)>>(
-      coarse_grid_solver, *operators[min_level], precondition_amg);
+                                                             decltype(a_precondition_amg)>>(
+      a_coarse_grid_solver, *a_operators[min_level], a_precondition_amg);
 #endif
 
     // Create multigrid object.
-    Multigrid<VectorType> mg_a_block(mg_matrix, *mg_coarse, transfer, mg_smoother, mg_smoother);
+    Multigrid<VectorType> a_mg(a_mg_matrix, *a_mg_coarse, a_transfer, a_mg_smoother, a_mg_smoother);
 
     // ----------
     // TODO: timing based on peters dealii-multigrid
@@ -646,18 +646,18 @@ namespace StokesMatrixFree
           };
         };
 
-        mg_a_block.connect_pre_smoother_step(create_mg_timer_function(0, "pre_smoother_step"));
-        mg_a_block.connect_residual_step(create_mg_timer_function(1, "residual_step"));
-        mg_a_block.connect_restriction(create_mg_timer_function(2, "restriction"));
-        mg_a_block.connect_coarse_solve(create_mg_timer_function(3, "coarse_solve"));
-        mg_a_block.connect_prolongation(create_mg_timer_function(4, "prolongation"));
-        mg_a_block.connect_edge_prolongation(create_mg_timer_function(5, "edge_prolongation"));
-        mg_a_block.connect_post_smoother_step(create_mg_timer_function(6, "post_smoother_step"));
+        a_mg.connect_pre_smoother_step(create_mg_timer_function(0, "pre_smoother_step"));
+        a_mg.connect_residual_step(create_mg_timer_function(1, "residual_step"));
+        a_mg.connect_restriction(create_mg_timer_function(2, "restriction"));
+        a_mg.connect_coarse_solve(create_mg_timer_function(3, "coarse_solve"));
+        a_mg.connect_prolongation(create_mg_timer_function(4, "prolongation"));
+        a_mg.connect_edge_prolongation(create_mg_timer_function(5, "edge_prolongation"));
+        a_mg.connect_post_smoother_step(create_mg_timer_function(6, "post_smoother_step"));
       }
     // ----------
 
     // Convert it to a preconditioner.
-    PreconditionerType a_block_preconditioner(dof_handler, mg_a_block, transfer);
+    PreconditionerType a_block_preconditioner(a_dof_handler, a_mg, a_transfer);
 
     DiagonalMatrixTimer<VectorType> inv_diagonal("vmult_diagonal_SchurBlock");
     schur_block_operator.compute_inverse_diagonal(inv_diagonal.get_vector());
@@ -700,18 +700,18 @@ namespace StokesMatrixFree
             min_max_avg[level].resize(7);
             for (unsigned int i = 0; i < 7; ++i)
               min_max_avg[level][i] = Utilities::MPI::min_max_avg(all_mg_timers[level][i].first,
-                                                                  dof_handler.get_communicator());
+                                                                  a_dof_handler.get_communicator());
           }
 
-        if (Utilities::MPI::this_mpi_process(dof_handler.get_communicator()) == 0)
+        if (Utilities::MPI::this_mpi_process(a_dof_handler.get_communicator()) == 0)
           {
             dealii::ConvergenceTable table;
             for (unsigned int level = 0; level < all_mg_timers.size(); ++level)
               {
                 table.add_value("level", level);
                 table.add_value("active_cells",
-                                dof_handlers[level].get_triangulation().n_global_active_cells());
-                table.add_value("dofs", dof_handlers[level].n_dofs());
+                                a_dof_handlers[level].get_triangulation().n_global_active_cells());
+                table.add_value("dofs", a_dof_handlers[level].n_dofs());
                 table.add_value("pre_smoother_step_min", min_max_avg[level][0].min);
                 table.add_value("pre_smoother_step_max", min_max_avg[level][0].max);
                 table.add_value("pre_smoother_step_avg", min_max_avg[level][0].avg);
@@ -735,8 +735,8 @@ namespace StokesMatrixFree
                 table.add_value("post_smoother_step_avg", min_max_avg[level][6].avg);
                 if (mg_data.estimate_eigenvalues == true)
                   {
-                    table.add_value("min_eigenvalue", min_eigenvalues[level]);
-                    table.add_value("max_eigenvalue", max_eigenvalues[level]);
+                    table.add_value("a_min_eigenvalue", a_min_eigenvalues[level]);
+                    table.add_value("a_max_eigenvalue", a_max_eigenvalues[level]);
                   }
               }
 
