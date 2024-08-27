@@ -77,6 +77,8 @@ namespace Log
       first_n_processes < Utilities::MPI::n_mpi_processes(mpi_communicator);
 
     const auto pcout_first_n = [&pcout, first_n_processes, output_cropped](const auto &container) {
+      if (container.empty())
+        return;
       for (unsigned int i = 0; i < first_n_processes; ++i)
         pcout << ' ' << container[i];
       if (output_cropped)
