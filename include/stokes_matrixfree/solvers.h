@@ -272,27 +272,27 @@ namespace StokesMatrixFree
       return Utilities::MPI::max(max, MPI_COMM_WORLD);
     };
 
-    const unsigned int n_p_levels =
+    const unsigned int a_n_p_levels =
       MGTransferGlobalCoarseningTools::create_polynomial_coarsening_sequence(
         get_max_active_fe_degree(a_dof_handler), mg_data.transfer.p_sequence)
         .size();
 
-    std::map<unsigned int, unsigned int> fe_index_for_degree;
+    std::map<unsigned int, unsigned int> a_fe_index_for_degree;
     for (unsigned int i = 0; i < a_dof_handler.get_fe_collection().size(); ++i)
       {
         const unsigned int degree = a_dof_handler.get_fe(i).degree;
-        Assert(fe_index_for_degree.find(degree) == fe_index_for_degree.end(),
+        Assert(a_fe_index_for_degree.find(degree) == a_fe_index_for_degree.end(),
                ExcMessage("FECollection does not contain unique degrees."));
-        fe_index_for_degree[degree] = i;
+        a_fe_index_for_degree[degree] = i;
       }
 
-    unsigned int minlevel   = 0;
-    unsigned int minlevel_p = n_h_levels;
-    unsigned int maxlevel   = n_h_levels + n_p_levels - 1;
+    unsigned int a_minlevel   = 0;
+    unsigned int a_minlevel_p = n_h_levels;
+    unsigned int a_maxlevel   = n_h_levels + a_n_p_levels - 1;
 
     // Allocate memory for all levels.
-    a_dof_handlers.resize(minlevel, maxlevel);
-    a_operators.resize(minlevel, maxlevel);
+    a_dof_handlers.resize(a_minlevel, a_maxlevel);
+    a_operators.resize(a_minlevel, a_maxlevel);
 
     // Loop from max to min level and set up DoFHandler with coarser mesh...
     for (unsigned int l = 0; l < n_h_levels; ++l)
@@ -302,16 +302,16 @@ namespace StokesMatrixFree
       }
 
     // ... with lower polynomial degrees
-    for (unsigned int i = 0, l = maxlevel; i < n_p_levels; ++i, --l)
+    for (unsigned int i = 0, l = a_maxlevel; i < a_n_p_levels; ++i, --l)
       {
         a_dof_handlers[l].reinit(a_dof_handler.get_triangulation());
 
-        if (l == maxlevel) // finest level
+        if (l == a_maxlevel) // finest level
           {
-            auto &a_dof_handler_mg = a_dof_handlers[l];
+            auto &dof_handler_mg = a_dof_handlers[l];
 
             auto cell_other = a_dof_handler.begin_active();
-            for (auto &cell : a_dof_handler_mg.active_cell_iterators())
+            for (auto &cell : dof_handler_mg.active_cell_iterators())
               {
                 if (cell->is_locally_owned())
                   cell->set_active_fe_index(cell_other->active_fe_index());
@@ -320,22 +320,22 @@ namespace StokesMatrixFree
           }
         else // coarse level
           {
-            auto &a_dof_handler_fine   = a_dof_handlers[l + 1];
-            auto &a_dof_handler_coarse = a_dof_handlers[l + 0];
+            auto &dof_handler_fine   = a_dof_handlers[l + 1];
+            auto &dof_handler_coarse = a_dof_handlers[l + 0];
 
-            auto cell_other = a_dof_handler_fine.begin_active();
-            for (auto &cell : a_dof_handler_coarse.active_cell_iterators())
+            auto cell_other = dof_handler_fine.begin_active();
+            for (auto &cell : dof_handler_coarse.active_cell_iterators())
               {
                 if (cell->is_locally_owned())
                   {
                     const unsigned int next_degree =
                       MGTransferGlobalCoarseningTools::create_next_polynomial_coarsening_degree(
                         cell_other->get_fe().degree, mg_data.transfer.p_sequence);
-                    Assert(fe_index_for_degree.find(next_degree) != fe_index_for_degree.end(),
+                    Assert(a_fe_index_for_degree.find(next_degree) != a_fe_index_for_degree.end(),
                            ExcMessage("Next polynomial degree in sequence "
                                       "does not exist in FECollection."));
 
-                    cell->set_active_fe_index(fe_index_for_degree[next_degree]);
+                    cell->set_active_fe_index(a_fe_index_for_degree[next_degree]);
                   }
                 cell_other++;
               }
@@ -345,18 +345,18 @@ namespace StokesMatrixFree
       }
 
     // Create data structures on each multigrid level.
-    MGLevelObject<AffineConstraints<typename VectorType::value_type>> a_constraints(minlevel,
-                                                                                  maxlevel);
+    MGLevelObject<AffineConstraints<typename VectorType::value_type>> a_constraints(a_minlevel,
+                                                                                  a_maxlevel);
 
-    MGLevelObject<std::shared_ptr<SmootherPreconditionerType>> a_smoother_preconditioners(minlevel,
-                                                                                        maxlevel);
+    MGLevelObject<std::shared_ptr<SmootherPreconditionerType>> a_smoother_preconditioners(a_minlevel,
+                                                                                        a_maxlevel);
 
     //
     // TODO: Generalise, maybe for operator and blockoperatorbase?
     //       Pass this part as lambda function?
     //       Or just pass vector target?
     //
-    for (unsigned int level = minlevel; level <= maxlevel; level++)
+    for (unsigned int level = a_minlevel; level <= a_maxlevel; level++)
       {
         const auto &dof_handler = a_dof_handlers[level];
         auto       &constraint  = a_constraints[level];
@@ -400,7 +400,7 @@ namespace StokesMatrixFree
           {
             const auto patch_indices = prepare_patch_indices(dof_handler, constraint);
 
-            if (level == maxlevel)
+            if (level == a_maxlevel)
               Log::log_patch_dofs(patch_indices, dof_handler);
 
             // full matrix
@@ -429,7 +429,7 @@ namespace StokesMatrixFree
           {
             const auto patch_indices = prepare_patch_indices(dof_handler, constraint);
 
-            if (level == maxlevel)
+            if (level == a_maxlevel)
               Log::log_patch_dofs(patch_indices, dof_handler);
 
             // full matrix
@@ -500,16 +500,16 @@ namespace StokesMatrixFree
     TimerOutput::Scope t_mg_reinit_transfer(getTimer(), "mg_reinit_transfer");
 
     MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> a_transfers;
-    a_transfers.resize(minlevel, maxlevel);
+    a_transfers.resize(a_minlevel, a_maxlevel);
 
     // Set up intergrid operators.
-    for (unsigned int level = minlevel; level < minlevel_p; ++level)
+    for (unsigned int level = a_minlevel; level < a_minlevel_p; ++level)
       a_transfers[level + 1].reinit_geometric_transfer(a_dof_handlers[level + 1],
                                                      a_dof_handlers[level],
                                                      a_constraints[level + 1],
                                                      a_constraints[level]);
 
-    for (unsigned int level = minlevel_p; level < maxlevel; ++level)
+    for (unsigned int level = a_minlevel_p; level < a_maxlevel; ++level)
       a_transfers[level + 1].reinit_polynomial_transfer(a_dof_handlers[level + 1],
                                                       a_dof_handlers[level],
                                                       a_constraints[level + 1],
@@ -539,16 +539,16 @@ namespace StokesMatrixFree
       PreconditionChebyshev<LevelMatrixType, VectorType, SmootherPreconditionerType>;
     using PreconditionerType = PreconditionMG<dim, VectorType, MGTransferType>;
 
-    const unsigned int min_level = a_operators.min_level();
-    const unsigned int max_level = a_operators.max_level();
+    const unsigned int a_min_level = a_operators.min_level();
+    const unsigned int a_max_level = a_operators.max_level();
 
     // Initialize level operators.
     mg::Matrix<VectorType> a_mg_matrix(a_operators); // operators = mg_matrices in mg_solver.h
 
     // Initialize smoothers.
-    MGLevelObject<typename SmootherType::AdditionalData> a_smoother_data(min_level, max_level);
+    MGLevelObject<typename SmootherType::AdditionalData> a_smoother_data(a_min_level, a_max_level);
 
-    for (unsigned int level = min_level; level <= max_level; level++)
+    for (unsigned int level = a_min_level; level <= a_max_level; level++)
       {
         a_smoother_data[level].preconditioner      = a_smoother_preconditioners[level];
         a_smoother_data[level].smoothing_range     = mg_data.smoother.smoothing_range;
@@ -560,11 +560,11 @@ namespace StokesMatrixFree
     // Estimate eigenvalues on all levels, i.e., all operators
     // TODO: based on peter's code
     // https://github.com/peterrum/dealii-asm/blob/d998b9b344a19c9d2890e087f953c2f93e6546ae/include/precondition.templates.h#L292-L316
-    std::vector<double> a_min_eigenvalues(max_level + 1, numbers::signaling_nan<double>());
-    std::vector<double> a_max_eigenvalues(max_level + 1, numbers::signaling_nan<double>());
+    std::vector<double> a_min_eigenvalues(a_max_level + 1, numbers::signaling_nan<double>());
+    std::vector<double> a_max_eigenvalues(a_max_level + 1, numbers::signaling_nan<double>());
     if (mg_data.estimate_eigenvalues == true)
       {
-        for (unsigned int level = min_level + 1; level <= max_level; level++)
+        for (unsigned int level = a_min_level + 1; level <= a_max_level; level++)
           {
             SmootherType chebyshev;
             chebyshev.initialize(*a_operators[level], a_smoother_data[level]);
@@ -608,13 +608,13 @@ namespace StokesMatrixFree
     a_amg_data.smoother_type   = mg_data.coarse_solver.smoother_type.c_str();
 
     // CG with AMG as preconditioner
-    a_precondition_amg.initialize(a_operators[min_level]->get_system_matrix(), a_amg_data);
+    a_precondition_amg.initialize(a_operators[a_min_level]->get_system_matrix(), a_amg_data);
 
     a_mg_coarse = std::make_unique<MGCoarseGridIterativeSolver<VectorType,
                                                              SolverCG<VectorType>,
                                                              LevelMatrixType,
                                                              decltype(a_precondition_amg)>>(
-      a_coarse_grid_solver, *a_operators[min_level], a_precondition_amg);
+      a_coarse_grid_solver, *a_operators[a_min_level], a_precondition_amg);
 #endif
 
     // Create multigrid object.
@@ -624,7 +624,7 @@ namespace StokesMatrixFree
     // TODO: timing based on peters dealii-multigrid
     // https://github.com/peterrum/dealii-multigrid/blob/c50581883c0dbe35c83132699e6de40da9b1b255/multigrid_throughput.cc#L1183-L1192
     std::vector<std::vector<std::pair<double, std::chrono::time_point<std::chrono::system_clock>>>>
-      all_mg_timers(max_level - min_level + 1);
+      all_mg_timers(a_max_level - a_min_level + 1);
 
     for (unsigned int i = 0; i < all_mg_timers.size(); ++i)
       all_mg_timers[i].resize(7);
@@ -659,25 +659,328 @@ namespace StokesMatrixFree
     // Convert it to a preconditioner.
     PreconditionerType a_block_preconditioner(a_dof_handler, a_mg, a_transfer);
 
-    DiagonalMatrixTimer<VectorType> inv_diagonal("vmult_diagonal_SchurBlock");
-    schur_block_operator.compute_inverse_diagonal(inv_diagonal.get_vector());
 
-    PreconditionJacobi<DiagonalMatrixTimer<VectorType>> schur_block_preconditioner;
-    schur_block_preconditioner.initialize(inv_diagonal);
+
+
+
+
+
+
+
+
+    // build hp-MG for Schur block
+    const DoFHandler<dim, spacedim> &schur_dof_handler = *(stokes_dof_handlers[1]);
+
+    MGLevelObject<DoFHandler<dim, spacedim>>                                   schur_dof_handlers;
+    MGLevelObject<std::unique_ptr<OperatorType<dim, LinearAlgebra, spacedim>>> schur_operators;
+
+    const unsigned int schur_n_p_levels =
+      MGTransferGlobalCoarseningTools::create_polynomial_coarsening_sequence(
+        get_max_active_fe_degree(schur_dof_handler), mg_data.transfer.p_sequence)
+        .size();
+
+    std::map<unsigned int, unsigned int> schur_fe_index_for_degree;
+    // Skip the first "dummy element"
+    for (unsigned int i = 1; i < schur_dof_handler.get_fe_collection().size(); ++i)
+      {
+        const unsigned int degree = schur_dof_handler.get_fe(i).degree;
+        Assert(schur_fe_index_for_degree.find(degree) == schur_fe_index_for_degree.end(),
+               ExcMessage("FECollection does not contain unique degrees."));
+        schur_fe_index_for_degree[degree] = i;
+      }
+    
+    unsigned int schur_minlevel   = 0;
+    unsigned int schur_minlevel_p = n_h_levels;
+    unsigned int schur_maxlevel   = n_h_levels + schur_n_p_levels - 1;
+
+    schur_dof_handlers.resize(schur_minlevel, schur_maxlevel);
+    schur_operators.resize(schur_minlevel, schur_maxlevel);
+
+    for (unsigned int l = 0; l < n_h_levels; ++l)
+      {
+        schur_dof_handlers[l].reinit(*coarse_grid_triangulations[l]);
+        schur_dof_handlers[l].distribute_dofs(schur_dof_handler.get_fe_collection());
+      }
+    
+    for (unsigned int i = 0, l = schur_maxlevel; i < schur_n_p_levels; ++i, --l)
+      {
+        schur_dof_handlers[l].reinit(schur_dof_handler.get_triangulation());
+
+        if (l == schur_maxlevel) // finest level
+          {
+            auto &dof_handler_mg = schur_dof_handlers[l];
+
+            auto cell_other = schur_dof_handler.begin_active();
+            for (auto &cell : dof_handler_mg.active_cell_iterators())
+              {
+                if (cell->is_locally_owned())
+                  cell->set_active_fe_index(cell_other->active_fe_index());
+                cell_other++;
+              }
+          }
+        else // coarse level
+          {
+            auto &dof_handler_fine   = schur_dof_handlers[l + 1];
+            auto &dof_handler_coarse = schur_dof_handlers[l + 0];
+
+            auto cell_other = dof_handler_fine.begin_active();
+            for (auto &cell : dof_handler_coarse.active_cell_iterators())
+              {
+                if (cell->is_locally_owned())
+                  {
+                    const unsigned int next_degree =
+                      MGTransferGlobalCoarseningTools::create_next_polynomial_coarsening_degree(
+                        cell_other->get_fe().degree, mg_data.transfer.p_sequence);
+                    Assert(schur_fe_index_for_degree.find(next_degree) != schur_fe_index_for_degree.end(),
+                           ExcMessage("Next polynomial degree in sequence "
+                                      "does not exist in FECollection."));
+
+                    cell->set_active_fe_index(schur_fe_index_for_degree[next_degree]);
+                  }
+                cell_other++;
+              }
+          }
+
+        schur_dof_handlers[l].distribute_dofs(schur_dof_handler.get_fe_collection());
+      }
+
+    MGLevelObject<AffineConstraints<typename VectorType::value_type>> schur_constraints(schur_minlevel,
+                                                                                  schur_maxlevel);
+
+    MGLevelObject<std::shared_ptr<SmootherPreconditionerType>> schur_smoother_preconditioners(schur_minlevel,
+                                                                                        schur_maxlevel);
+
+    for (unsigned int level = schur_minlevel; level <= schur_maxlevel; level++)
+      {
+        const auto &dof_handler = schur_dof_handlers[level];
+        auto       &constraint  = schur_constraints[level];
+
+        Partitioning partitioning;
+        partitioning.reinit(dof_handler);
+
+        // ... constraints (with homogenous Dirichlet BC)
+        constraint.reinit(partitioning.get_owned_dofs(), partitioning.get_relevant_dofs());
+
+        DoFTools::make_hanging_node_constraints(dof_handler, constraint);
+        // no boundary conditions on pressure/Schur
+
+        constraint.make_consistent_in_parallel(partitioning.get_owned_dofs(),
+                                               partitioning.get_active_dofs(),
+                                               partitioning.get_communicator());
+        constraint.close();
+        partitioning.get_relevant_dofs() = constraint.get_local_lines();
+
+        // ... operator (just like on the finest level)
+        schur_operators[level] = schur_block_operator.replicate();
+        schur_operators[level]->reinit(partitioning, dof_handler, constraint);
+
+        // smoother preconditioners
+        if constexpr (std::is_same_v<SmootherPreconditionerType, DiagonalMatrixTimer<VectorType>>)
+          {
+            schur_smoother_preconditioners[level] =
+              std::make_shared<SmootherPreconditionerType>("vmult_diagonal_SchurBlock");
+            schur_operators[level]->compute_inverse_diagonal(
+              schur_smoother_preconditioners[level]->get_vector());
+          }
+        else if constexpr (std::is_same_v<SmootherPreconditionerType, PreconditionASM<VectorType>>)
+          {
+            const auto patch_indices = prepare_patch_indices(dof_handler, constraint);
+
+            // TODO: don't log schur for now
+            // if (level == schur_maxlevel)
+            //   Log::log_patch_dofs(patch_indices, dof_handler);
+
+            // full matrix
+            // TODO: this is a nasty way to get the sparsity pattern
+            // so far I only created temporary sparsity patterns in the LinearAlgebra namespace,
+            // but they are no longer available here
+            // so for the sake of trying ASM out, I'll just create another one here
+            const unsigned int myid =
+              dealii::Utilities::MPI::this_mpi_process(partitioning.get_communicator());
+            typename LinearAlgebra::SparsityPattern sparsity_pattern;
+            sparsity_pattern.reinit(partitioning.get_owned_dofs(),
+                                    partitioning.get_owned_dofs(),
+                                    partitioning.get_relevant_dofs(),
+                                    partitioning.get_communicator());
+            DoFTools::make_sparsity_pattern(dof_handler, sparsity_pattern, constraint, false, myid);
+            sparsity_pattern.compress();
+
+            schur_smoother_preconditioners[level] =
+              std::make_shared<SmootherPreconditionerType>(std::move(patch_indices));
+            schur_smoother_preconditioners[level]->initialize(schur_operators[level]->get_system_matrix(),
+                                                        sparsity_pattern,
+                                                        partitioning);
+          }
+        else if constexpr (std::is_same_v<SmootherPreconditionerType,
+                                          PreconditionExtendedDiagonal<VectorType>>)
+        {
+          const auto patch_indices = prepare_patch_indices(dof_handler, constraint);
+
+          // TODO: don't log schur for now
+          // if (level == schur_maxlevel)
+          //   Log::log_patch_dofs(patch_indices, dof_handler);
+
+          // reduced matrix
+          AffineConstraints<double> constraints_reduced;
+          constraints_reduced.reinit(partitioning.get_owned_dofs(),
+                                      partitioning.get_relevant_dofs());
+
+          const auto all_indices_relevant = extract_relevant(patch_indices, partitioning);
+
+          std::set<types::global_dof_index> all_indices_assemble;
+          reduce_constraints(constraint,
+                              partitioning.get_active_dofs(),
+                              all_indices_relevant,
+                              constraints_reduced,
+                              all_indices_assemble);
+
+          // TODO: only works for Trilinos so far
+          typename LinearAlgebra::SparsityPattern reduced_sparsity_pattern;
+          reduced_sparsity_pattern.reinit(partitioning.get_owned_dofs(),
+                                          partitioning.get_owned_dofs(),
+                                          partitioning.get_relevant_dofs(),
+                                          partitioning.get_communicator());
+          make_sparsity_pattern(dof_handler,
+                                all_indices_assemble,
+                                reduced_sparsity_pattern,
+                                constraints_reduced);
+          reduced_sparsity_pattern.compress();
+
+          typename LinearAlgebra::SparseMatrix reduced_sparse_matrix;
+          reduced_sparse_matrix.reinit(reduced_sparsity_pattern);
+          partially_assemble_schurblock(dof_handler,
+                                    constraints_reduced,
+                                    q_collection_v, // TODO: no need
+                                    all_indices_assemble,
+                                    reduced_sparse_matrix);
+
+          VectorType inverse_diagonal;
+          schur_operators[level]->compute_inverse_diagonal(inverse_diagonal);
+
+          // TODO: change to template 
+          schur_smoother_preconditioners[level] =
+            std::make_shared<SmootherPreconditionerType>(std::move(patch_indices));
+          schur_smoother_preconditioners[level]->initialize(reduced_sparse_matrix,
+                                                      reduced_sparsity_pattern,
+                                                      inverse_diagonal,
+                                                      all_indices_relevant);
+        }
+      }
+    
+    MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> schur_transfers;
+    schur_transfers.resize(schur_minlevel, schur_maxlevel);
+
+    // Set up intergrid operators.
+    for (unsigned int level = schur_minlevel; level < schur_minlevel_p; ++level)
+      schur_transfers[level + 1].reinit_geometric_transfer(schur_dof_handlers[level + 1],
+                                                     schur_dof_handlers[level],
+                                                     schur_constraints[level + 1],
+                                                     schur_constraints[level]);
+
+    for (unsigned int level = schur_minlevel_p; level < schur_maxlevel; ++level)
+      schur_transfers[level + 1].reinit_polynomial_transfer(schur_dof_handlers[level + 1],
+                                                      schur_dof_handlers[level],
+                                                      schur_constraints[level + 1],
+                                                      schur_constraints[level]);
+
+    MGTransferGlobalCoarsening<dim, VectorType> schur_transfer(schur_transfers, [&](const auto l, auto &vec) {
+      schur_operators[l]->initialize_dof_vector(vec);
+    });
+
+    // setup coarse solver
+    const unsigned int schur_min_level = schur_operators.min_level();
+    const unsigned int schur_max_level = schur_operators.max_level();
+
+    mg::Matrix<VectorType> schur_mg_matrix(schur_operators);
+
+    MGLevelObject<typename SmootherType::AdditionalData> schur_smoother_data(schur_min_level, schur_max_level);
+
+    for (unsigned int level = schur_min_level; level <= schur_max_level; level++)
+      {
+        schur_smoother_data[level].preconditioner      = schur_smoother_preconditioners[level];
+        schur_smoother_data[level].smoothing_range     = mg_data.smoother.smoothing_range;
+        schur_smoother_data[level].degree              = mg_data.smoother.degree;
+        schur_smoother_data[level].eig_cg_n_iterations = mg_data.smoother.eig_cg_n_iterations;
+      }
+    
+    std::vector<double> schur_min_eigenvalues(schur_max_level + 1, numbers::signaling_nan<double>());
+    std::vector<double> schur_max_eigenvalues(schur_max_level + 1, numbers::signaling_nan<double>());
+    if (mg_data.estimate_eigenvalues == true)
+      {
+        for (unsigned int level = schur_min_level + 1; level <= schur_max_level; level++)
+          {
+            SmootherType chebyshev;
+            chebyshev.initialize(*schur_operators[level], schur_smoother_data[level]);
+
+            VectorType vec;
+            schur_operators[level]->initialize_dof_vector(vec);
+            const auto evs = chebyshev.estimate_eigenvalues(vec);
+
+            schur_min_eigenvalues[level] = evs.min_eigenvalue_estimate;
+            schur_max_eigenvalues[level] = evs.max_eigenvalue_estimate;
+
+            schur_smoother_data[level].eig_cg_n_iterations = 0;
+            schur_smoother_data[level].max_eigenvalue      = evs.max_eigenvalue_estimate * 1.1;
+          }
+
+        const double max = *std::max_element(++(schur_max_eigenvalues.begin()), schur_max_eigenvalues.end());
+        getPCOut() << "   Max EV on all Schur MG levels:    " << max << std::endl;
+        getTable().add_value("schur_max_ev", max);
+      }
+    
+    MGSmootherRelaxation<LevelMatrixType, SmootherType, VectorType> schur_mg_smoother;
+    schur_mg_smoother.initialize(schur_operators, schur_smoother_data);
+
+    ReductionControl     schur_coarse_grid_solver_control(mg_data.coarse_solver.maxiter,
+                                                mg_data.coarse_solver.abstol,
+                                                mg_data.coarse_solver.reltol,
+                                                /*log_history=*/true,
+                                                /*log_result=*/true);
+    SolverCG<VectorType> schur_coarse_grid_solver(schur_coarse_grid_solver_control);
+
+    std::unique_ptr<MGCoarseGridBase<VectorType>> schur_mg_coarse;
+#ifdef DEAL_II_WITH_TRILINOS
+    TrilinosWrappers::PreconditionAMG                 schur_precondition_amg;
+    TrilinosWrappers::PreconditionAMG::AdditionalData schur_amg_data;
+    schur_amg_data.smoother_sweeps = mg_data.coarse_solver.smoother_sweeps;
+    schur_amg_data.n_cycles        = mg_data.coarse_solver.n_cycles;
+    schur_amg_data.smoother_type   = mg_data.coarse_solver.smoother_type.c_str();
+
+    schur_precondition_amg.initialize(schur_operators[schur_min_level]->get_system_matrix(), schur_amg_data);
+
+    schur_mg_coarse = std::make_unique<MGCoarseGridIterativeSolver<VectorType,
+                                                             SolverCG<VectorType>,
+                                                             LevelMatrixType,
+                                                             decltype(schur_precondition_amg)>>(
+      schur_coarse_grid_solver, *schur_operators[schur_min_level], schur_precondition_amg);
+#endif
+
+    Multigrid<VectorType> schur_mg(schur_mg_matrix, *schur_mg_coarse, schur_transfer, schur_mg_smoother, schur_mg_smoother);
+
+    PreconditionerType schur_block_preconditioner(schur_dof_handler, schur_mg, schur_transfer);
+    
+
+
+
+
+
+
+
+
 
     const BlockSchurPreconditioner<LinearAlgebra,
                                    StokesMatrixFree::StokesOperator<dim, LinearAlgebra, spacedim>,
                                    OperatorType<dim, LinearAlgebra, spacedim>,
                                    OperatorType<dim, LinearAlgebra, spacedim>,
                                    PreconditionerType,
-                                   PreconditionJacobi<DiagonalMatrixTimer<VectorType>>>
+                                   PreconditionerType>
       preconditioner(stokes_operator,
                      a_block_operator,
                      schur_block_operator,
                      a_block_preconditioner,
                      schur_block_preconditioner,
                      /*do_solve_A=*/false,
-                     /*do_solve_Schur_complement=*/true);
+                     /*do_solve_Schur_complement=*/false);
 
     // set up solver
     dealii::PrimitiveVectorMemory<typename LinearAlgebra::BlockVector> mem;
