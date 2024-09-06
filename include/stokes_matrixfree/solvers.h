@@ -985,11 +985,11 @@ namespace StokesMatrixFree
     // set up solver
     dealii::PrimitiveVectorMemory<typename LinearAlgebra::BlockVector> mem;
 
-    typename dealii::SolverFGMRES<typename LinearAlgebra::BlockVector>::AdditionalData fgmres_data(
+    typename dealii::SolverGMRES<typename LinearAlgebra::BlockVector>::AdditionalData gmres_data(
       50);
-    dealii::SolverFGMRES<typename LinearAlgebra::BlockVector> solver(solver_control_refined,
+    dealii::SolverGMRES<typename LinearAlgebra::BlockVector> solver(solver_control_refined,
                                                                      mem,
-                                                                     fgmres_data);
+                                                                     gmres_data);
 
     solver.solve(stokes_operator, dst, src, preconditioner);
 
