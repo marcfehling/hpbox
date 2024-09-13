@@ -215,7 +215,7 @@ public:
         // for (unsigned int i = 0; i < dofs_per_cell; ++i)
         //   vector_src[i] = src.local_element(patch_indices[p][i]);
         for (unsigned int i = 0; i < dofs_per_cell; ++i)
-          vector_src[i] = src[patch_indices[p][i]];
+          vector_src[i] += src[patch_indices[p][i]];
 
         // ... 2b) apply preconditioner
         patch_matrices[p].vmult(vector_dst, vector_src);
