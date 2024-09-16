@@ -164,7 +164,7 @@ namespace PoissonMatrixFree
 
     // invert diagonal
     for (auto &i : diagonal)
-      i = (std::abs(i) > 1.0e-10) ? (1.0 / i) : 1.0;
+      i = (i != 0) ? (1.0 / i) : 1.0;
   }
 
 
