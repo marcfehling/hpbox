@@ -35,8 +35,11 @@ public:
 
   template <int dim, int spacedim>
   void
-  reinit(const dealii::DoFHandler<dim, spacedim> &dof_handler,
-         const std::vector<unsigned int>         &target_block = {});
+  reinit(const dealii::DoFHandler<dim, spacedim> &dof_handler);
+  template <int dim, int spacedim>
+  void
+  reinit_blocks(const dealii::DoFHandler<dim, spacedim> &dof_handler,
+                const std::vector<unsigned int>         &target_block);
 
   MPI_Comm
   get_communicator() const;
@@ -67,40 +70,47 @@ private:
   std::vector<dealii::IndexSet> relevant_dofs_per_block;
 };
 
+
 template <int dim, int spacedim>
 void
-Partitioning::reinit(const dealii::DoFHandler<dim, spacedim> &dof_handler,
-                     const std::vector<unsigned int>         &target_block)
+Partitioning::reinit(const dealii::DoFHandler<dim, spacedim> &dof_handler)
 {
   communicator  = dof_handler.get_communicator();
   owned_dofs    = dof_handler.locally_owned_dofs();
   active_dofs   = dealii::DoFTools::extract_locally_active_dofs(dof_handler);
   relevant_dofs = dealii::DoFTools::extract_locally_relevant_dofs(dof_handler);
+}
 
-  if (target_block.size() > 0)
+template <int dim, int spacedim>
+void
+Partitioning::reinit_blocks(const dealii::DoFHandler<dim, spacedim> &dof_handler,
+                            const std::vector<unsigned int>         &target_block)
+{
+  const std::vector<dealii::types::global_dof_index> dofs_per_block =
+    dealii::DoFTools::count_dofs_per_fe_block(dof_handler, target_block);
+
+  n_blocks = dofs_per_block.size();
+
+  std::vector<dealii::types::global_dof_index> cumulated_dofs_per_block(n_blocks + 1, 0);
+  std::partial_sum(dofs_per_block.begin(),
+                   dofs_per_block.end(),
+                   std::next(cumulated_dofs_per_block.begin()));
+
+  Assert((!owned_dofs.is_empty()) && (!relevant_dofs.is_empty()),
+         dealii::ExcMessage("Call reinit() first!"));
+
+  owned_dofs_per_block.resize(n_blocks);
+  relevant_dofs_per_block.resize(n_blocks);
+  for (unsigned int b = 0; b < n_blocks; ++b)
     {
-      const std::vector<dealii::types::global_dof_index> dofs_per_block =
-        dealii::DoFTools::count_dofs_per_fe_block(dof_handler, target_block);
+      const auto &block_start = cumulated_dofs_per_block[b];
+      const auto &block_end   = cumulated_dofs_per_block[b + 1];
 
-      n_blocks = dofs_per_block.size();
-
-      std::vector<dealii::types::global_dof_index> cumulated_dofs_per_block(n_blocks + 1, 0);
-      std::partial_sum(dofs_per_block.begin(),
-                       dofs_per_block.end(),
-                       std::next(cumulated_dofs_per_block.begin()));
-
-      owned_dofs_per_block.resize(n_blocks);
-      relevant_dofs_per_block.resize(n_blocks);
-      for (unsigned int b = 0; b < n_blocks; ++b)
-        {
-          const auto &block_start = cumulated_dofs_per_block[b];
-          const auto &block_end   = cumulated_dofs_per_block[b + 1];
-
-          owned_dofs_per_block[b]    = this->owned_dofs.get_view(block_start, block_end);
-          relevant_dofs_per_block[b] = this->relevant_dofs.get_view(block_start, block_end);
-        }
+      owned_dofs_per_block[b]    = this->owned_dofs.get_view(block_start, block_end);
+      relevant_dofs_per_block[b] = this->relevant_dofs.get_view(block_start, block_end);
     }
 }
+
 
 inline MPI_Comm
 Partitioning::get_communicator() const

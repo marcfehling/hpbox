@@ -197,7 +197,7 @@ namespace StokesMatrixBased
 
       dof_handler.distribute_dofs(fe_collection);
       DoFRenumbering::component_wise(dof_handler, stokes_sub_blocks);
-      partitioning.reinit(dof_handler, stokes_sub_blocks);
+      partitioning.reinit(dof_handler);
     }
 
     {
@@ -242,6 +242,7 @@ namespace StokesMatrixBased
                                               mpi_communicator);
       constraints.close();
       partitioning.get_relevant_dofs() = constraints.get_local_lines();
+      partitioning.reinit_blocks(dof_handler, stokes_sub_blocks);
     }
 
     {
