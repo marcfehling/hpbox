@@ -47,12 +47,16 @@ private:
 
 public:
   PreconditionExtendedDiagonal(
-    const std::vector<std::vector<types::global_dof_index>> &patch_indices)
-    : patch_indices(patch_indices)
+    const std::vector<std::vector<types::global_dof_index>> &patch_indices,
+    const std::string                                        timer_section_name = "extdiag")
+    : timer_section_name(timer_section_name)
+    , patch_indices(patch_indices)
   {}
 
-  PreconditionExtendedDiagonal(std::vector<std::vector<types::global_dof_index>> &&patch_indices)
-    : patch_indices(std::move(patch_indices))
+  PreconditionExtendedDiagonal(std::vector<std::vector<types::global_dof_index>> &&patch_indices,
+                               const std::string timer_section_name = "extdiag")
+    : timer_section_name(timer_section_name)
+    , patch_indices(std::move(patch_indices))
   {}
 
   template <typename GlobalSparseMatrixType, typename GlobalSparsityPattern>
@@ -62,7 +66,7 @@ public:
              const VectorType                        &inverse_diagonal,
              const std::set<types::global_dof_index> &all_indices_relevant)
   {
-    TimerOutput::Scope t(getTimer(), "initialize_extended_diagonal");
+    TimerOutput::Scope t(getTimer(), "initialize_" + timer_section_name);
 
     const auto large_partitioner = inverse_diagonal.get_partitioner();
 
@@ -190,7 +194,7 @@ public:
   void
   vmult(VectorType &dst, const VectorType &src) const
   {
-    TimerOutput::Scope t(getTimer(), "vmult_extdiag");
+    TimerOutput::Scope t(getTimer(), "vmult_" + timer_section_name);
 
     // apply inverse diagonal
     internal::DiagonalMatrix::assign_and_scale(dst, src, reduced_inverse_diagonal);
@@ -233,6 +237,8 @@ public:
   }
 
 private:
+  const std::string timer_section_name;
+
   // ASM
   const std::vector<std::vector<types::global_dof_index>> patch_indices;
   std::vector<FullMatrix<Number>>                         patch_matrices;

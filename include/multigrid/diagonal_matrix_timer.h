@@ -26,7 +26,7 @@ template <typename VectorType>
 class DiagonalMatrixTimer : public dealii::Subscriptor
 {
 public:
-  DiagonalMatrixTimer(const std::string timer_section_name = "vmult_diagonal")
+  DiagonalMatrixTimer(const std::string timer_section_name = "diag")
     : timer_section_name(timer_section_name) {};
 
   VectorType &
@@ -38,7 +38,7 @@ public:
   void
   vmult(VectorType &dst, const VectorType &src) const
   {
-    dealii::TimerOutput::Scope t(getTimer(), timer_section_name);
+    dealii::TimerOutput::Scope t(getTimer(), "vmult_" + timer_section_name);
 
     inverse_diagonal.vmult(dst, src);
   }
