@@ -64,22 +64,32 @@ namespace StokesMatrixFree
       , do_solve_A(do_solve_A)
       , do_solve_Schur_complement(do_solve_Schur_complement)
       , max_A_iterations(0)
+      , min_A_iterations(std::numeric_limits<unsigned int>::max())
+      , total_A_iterations(0)
       , max_Schur_iterations(0)
+      , min_Schur_iterations(std::numeric_limits<unsigned int>::max())
+      , total_Schur_iterations(0)
     {}
 
     ~BlockSchurPreconditioner()
     {
-      if (max_A_iterations > 0)
+      if (total_A_iterations > 0)
         {
-          getPCOut() << "   A solved in max. " << max_A_iterations << " iterations." << std::endl;
+          getPCOut() << "   A block iterations:           " << "max:" << max_A_iterations
+                     << " min:" << min_A_iterations << " total:" << total_A_iterations << std::endl;
           getTable().add_value("max_a_iterations", max_A_iterations);
+          getTable().add_value("min_a_iterations", min_A_iterations);
+          getTable().add_value("total_a_iterations", total_A_iterations);
         }
 
-      if (max_Schur_iterations > 0)
+      if (total_Schur_iterations > 0)
         {
-          getPCOut() << "   Schur complement solved in max. " << max_Schur_iterations
-                     << " iterations." << std::endl;
+          getPCOut() << "   Schur complement iterations:  " << "max:" << max_Schur_iterations
+                     << " min:" << min_Schur_iterations << " total:" << total_Schur_iterations
+                     << std::endl;
           getTable().add_value("max_schur_iterations", max_Schur_iterations);
+          getTable().add_value("min_schur_iterations", min_Schur_iterations);
+          getTable().add_value("total_schur_iterations", total_Schur_iterations);
         }
     }
 
@@ -105,6 +115,8 @@ namespace StokesMatrixFree
                        schur_complement_preconditioner);
 
           max_Schur_iterations = std::max(solver_control.last_step(), max_Schur_iterations);
+          min_Schur_iterations = std::min(solver_control.last_step(), min_Schur_iterations);
+          total_Schur_iterations += solver_control.last_step();
         }
       else
         schur_complement_preconditioner.vmult(dst.block(1), src.block(1));
@@ -128,6 +140,8 @@ namespace StokesMatrixFree
           solver.solve(*a_block, dst.block(0), utmp.block(0), a_block_preconditioner);
 
           max_A_iterations = std::max(solver_control.last_step(), max_A_iterations);
+          min_A_iterations = std::min(solver_control.last_step(), min_A_iterations);
+          total_A_iterations += solver_control.last_step();
         }
       else
         a_block_preconditioner.vmult(dst.block(0), utmp.block(0));
@@ -145,7 +159,12 @@ namespace StokesMatrixFree
     const bool do_solve_Schur_complement;
 
     mutable unsigned int max_A_iterations;
+    mutable unsigned int min_A_iterations;
+    mutable unsigned int total_A_iterations;
+
     mutable unsigned int max_Schur_iterations;
+    mutable unsigned int min_Schur_iterations;
+    mutable unsigned int total_Schur_iterations;
   };
 
 
