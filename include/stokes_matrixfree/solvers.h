@@ -414,7 +414,7 @@ namespace StokesMatrixFree
         if constexpr (std::is_same_v<SmootherPreconditionerType, DiagonalMatrixTimer<VectorType>>)
           {
             smoother_preconditioners[level] =
-              std::make_shared<SmootherPreconditionerType>("vmult_diagonal_ABlock");
+              std::make_shared<SmootherPreconditionerType>("diagonal_ABlock");
             operators[level]->compute_inverse_diagonal(
               smoother_preconditioners[level]->get_vector());
           }
@@ -499,7 +499,8 @@ namespace StokesMatrixFree
             operators[level]->compute_inverse_diagonal(inverse_diagonal);
 
             smoother_preconditioners[level] =
-              std::make_shared<SmootherPreconditionerType>(std::move(patch_indices));
+              std::make_shared<SmootherPreconditionerType>(std::move(patch_indices),
+                                                           "extdiag_ABlock");
             // smoother_preconditioners[level]->initialize(mg_matrices[level]->get_system_matrix(),
             //                                             dsp,
             //                                             inverse_diagonal,
@@ -690,7 +691,7 @@ namespace StokesMatrixFree
 
 
 
-    // DiagonalMatrixTimer<VectorType> inv_diagonal("vmult_diagonal_SchurBlock");
+    // DiagonalMatrixTimer<VectorType> inv_diagonal("diagonal_SchurBlock");
     // schur_block_operator.compute_inverse_diagonal(inv_diagonal.get_vector());
 
     // PreconditionJacobi<DiagonalMatrixTimer<VectorType>> schur_block_preconditioner;
@@ -739,7 +740,8 @@ namespace StokesMatrixFree
     schur_block_operator.compute_inverse_diagonal(inverse_diagonal);
     // TODO: Maybe try lumped inverse diagonal here instead?
 
-    PreconditionExtendedDiagonal<VectorType> schur_block_preconditioner (std::move(patch_indices));
+    PreconditionExtendedDiagonal<VectorType> schur_block_preconditioner(std::move(patch_indices),
+                                                                        "extdiag_Schur");
     schur_block_preconditioner.initialize(reduced_sparse_matrix,
                                           reduced_sparsity_pattern,
                                           inverse_diagonal,
