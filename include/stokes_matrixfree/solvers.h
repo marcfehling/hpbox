@@ -184,6 +184,8 @@ namespace StokesMatrixFree
             typename LinearAlgebra::BlockVector              &dst,
             const typename LinearAlgebra::BlockVector        &src)
   {
+    dealii::TimerOutput::Scope t_setup_ablock(getTimer(), "solve_setup_ABlock");
+
     typename LinearAlgebra::PreconditionAMG::AdditionalData Amg_data;
     if constexpr (std::is_same<LinearAlgebra, PETSc>::value)
       {
@@ -204,11 +206,23 @@ namespace StokesMatrixFree
         Assert(false, dealii::ExcNotImplemented());
       }
 
-    typename LinearAlgebra::PreconditionJacobi Mp_preconditioner;
-    typename LinearAlgebra::PreconditionAMG    Amg_preconditioner;
-
-    Mp_preconditioner.initialize(schur_block_operator.get_system_matrix());
+    typename LinearAlgebra::PreconditionAMG Amg_preconditioner;
     Amg_preconditioner.initialize(a_block_operator.get_system_matrix(), Amg_data);
+
+    t_setup_ablock.stop();
+
+
+
+    dealii::TimerOutput::Scope t_setup_schur(getTimer(), "solve_setup_Schur");
+
+    typename LinearAlgebra::PreconditionJacobi Mp_preconditioner;
+    Mp_preconditioner.initialize(schur_block_operator.get_system_matrix());
+
+    t_setup_schur.stop();
+
+
+
+    dealii::TimerOutput::Scope t_fgmres(getTimer(), "solve_fgmres");
 
     //
     // TODO: System Matrix or operator? See below
@@ -237,6 +251,8 @@ namespace StokesMatrixFree
                                                                      fgmres_data);
 
     solver.solve(stokes_operator, dst, src, preconditioner);
+
+    t_fgmres.stop();
   }
 
 
@@ -264,7 +280,13 @@ namespace StokesMatrixFree
 
     using VectorType = typename LinearAlgebra::Vector;
 
-    TimerOutput::Scope t_mg_setup_levels(getTimer(), "mg_setup_levels");
+    //
+    // Set up A Block Multigrid Preconditioner
+    //
+
+    TimerOutput::Scope t_setup_ablock(getTimer(), "solve_setup_ABlock");
+
+    // set up mg levels
 
     // TODO: this is only temporary
     // only work on velocity dofhandlers for now
@@ -522,11 +544,9 @@ namespace StokesMatrixFree
           }
       }
 
-    t_mg_setup_levels.stop();
 
 
-
-    TimerOutput::Scope t_mg_reinit_transfer(getTimer(), "mg_reinit_transfer");
+    // set up transfer
 
     MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> transfers;
     transfers.resize(minlevel, maxlevel);
@@ -550,15 +570,9 @@ namespace StokesMatrixFree
       operators[l]->initialize_dof_vector(vec);
     });
 
-    t_mg_reinit_transfer.stop();
 
 
-
-    TimerOutput::Scope t_mg_solve(getTimer(), "mg_solve");
-
-    //
-    // setup coarse solver
-    //
+    // set up coarse solver
 
     // using LevelMatrixType = StokesMatrixFree::ABlockOperator<dim, LinearAlgebra, spacedim>;
     using LevelMatrixType = OperatorType<dim, LinearAlgebra, spacedim>;
@@ -688,20 +702,15 @@ namespace StokesMatrixFree
     // Convert it to a preconditioner.
     PreconditionerType a_block_preconditioner(dof_handler, mg_a_block, transfer);
 
+    t_setup_ablock.stop();
 
 
 
+    //
+    // Set up Schur Complement Preconditioner
+    //
 
-
-
-
-
-
-    // DiagonalMatrixTimer<VectorType> inv_diagonal("diagonal_SchurBlock");
-    // schur_block_operator.compute_inverse_diagonal(inv_diagonal.get_vector());
-
-    // PreconditionJacobi<DiagonalMatrixTimer<VectorType>> schur_block_preconditioner;
-    // schur_block_preconditioner.initialize(inv_diagonal);
+    TimerOutput::Scope t_setup_schur(getTimer(), "solve_setup_Schur");
 
     const auto &dof_handler_p = *(stokes_dof_handlers[1]);
     const auto &constraint_p = *(stokes_constraints[1]);
@@ -744,7 +753,6 @@ namespace StokesMatrixFree
 
     VectorType inverse_diagonal;
     schur_block_operator.compute_inverse_diagonal(inverse_diagonal);
-    // TODO: Maybe try lumped inverse diagonal here instead?
 
     PreconditionExtendedDiagonal<VectorType> schur_block_preconditioner(std::move(patch_indices),
                                                                         "extdiag_Schur");
@@ -753,14 +761,15 @@ namespace StokesMatrixFree
                                           inverse_diagonal,
                                           all_indices_relevant);
 
+    t_setup_schur.stop();
 
 
 
+    //
+    // set up solver
+    //
 
-
-
-
-
+    TimerOutput::Scope t_fgmres(getTimer(), "solve_fgmres");
 
     const BlockSchurPreconditioner<LinearAlgebra,
                                    StokesMatrixFree::StokesOperator<dim, LinearAlgebra, spacedim>,
@@ -777,7 +786,6 @@ namespace StokesMatrixFree
                      /*do_solve_A=*/false,
                      /*do_solve_Schur_complement=*/true);
 
-    // set up solver
     dealii::PrimitiveVectorMemory<typename LinearAlgebra::BlockVector> mem;
 
     typename dealii::SolverFGMRES<typename LinearAlgebra::BlockVector>::AdditionalData fgmres_data(
@@ -843,8 +851,7 @@ namespace StokesMatrixFree
           }
       }
     // ----------
-
-    t_mg_solve.stop();
+    t_fgmres.stop();
   }
 } // namespace StokesMatrixFree
 

@@ -37,6 +37,8 @@ namespace Poisson
             typename LinearAlgebra::Vector                   &dst,
             const typename LinearAlgebra::Vector             &src)
   {
+    dealii::TimerOutput::Scope t_setup(getTimer(), "solve_setup");
+
     typename LinearAlgebra::PreconditionAMG::AdditionalData data;
     if constexpr (std::is_same_v<LinearAlgebra, PETSc>)
       {
@@ -56,6 +58,12 @@ namespace Poisson
     typename LinearAlgebra::PreconditionAMG preconditioner;
     preconditioner.initialize(poisson_operator.get_system_matrix(), data);
 
+    t_setup.stop();
+
+
+
+    dealii::TimerOutput::Scope t_cg(getTimer(), "solve_cg");
+
     typename LinearAlgebra::SolverCG cg(solver_control);
 
     if constexpr (std::is_same_v<LinearAlgebra, dealiiTrilinos>)
@@ -66,6 +74,8 @@ namespace Poisson
       {
         cg.solve(poisson_operator.get_system_matrix(), dst, src, preconditioner);
       }
+
+    t_cg.stop();
   }
 
 
