@@ -27,7 +27,7 @@ class DiagonalMatrixTimer : public dealii::Subscriptor
 {
 public:
   DiagonalMatrixTimer(const std::string timer_section_name = "vmult_diagonal")
-    : timer_section_name(timer_section_name){};
+    : timer_section_name(timer_section_name) {};
 
   VectorType &
   get_vector()
