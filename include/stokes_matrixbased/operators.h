@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2022 - 2023 by the deal.II authors
+// Copyright (C) 2022 - 2026 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -77,8 +77,8 @@ namespace StokesMatrixBased
   private:
     // const Parameters &prm;
 
-    dealii::SmartPointer<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
-    dealii::SmartPointer<const dealii::hp::QCollection<dim>>                 quadrature_collection;
+    dealii::ObserverPointer<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
+    dealii::ObserverPointer<const dealii::hp::QCollection<dim>> quadrature_collection;
 
     // TODO: Add RHS function to constructor
     //       Grab and set as RHS in reinit
@@ -147,8 +147,8 @@ namespace StokesMatrixBased
   private:
     // const Parameters &prm;
 
-    dealii::SmartPointer<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
-    dealii::SmartPointer<const dealii::hp::QCollection<dim>>                 quadrature_collection;
+    dealii::ObserverPointer<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
+    dealii::ObserverPointer<const dealii::hp::QCollection<dim>> quadrature_collection;
 
     // TODO: Add RHS function to constructor
     //       Grab and set as RHS in reinit
@@ -217,8 +217,8 @@ namespace StokesMatrixBased
   private:
     // const Parameters &prm;
 
-    dealii::SmartPointer<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
-    dealii::SmartPointer<const dealii::hp::QCollection<dim>>                 quadrature_collection;
+    dealii::ObserverPointer<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
+    dealii::ObserverPointer<const dealii::hp::QCollection<dim>> quadrature_collection;
 
     // TODO: Add RHS function to constructor
     //       Grab and set as RHS in reinit

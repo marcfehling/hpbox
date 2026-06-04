@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2021 - 2024 by the deal.II authors
+// Copyright (C) 2021 - 2026 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -131,10 +131,10 @@ mg_solve(
 
   // Initialize coarse-grid solver.
   ReductionControl     coarse_grid_solver_control(mg_data.coarse_solver.maxiter,
-                                              mg_data.coarse_solver.abstol,
-                                              mg_data.coarse_solver.reltol,
-                                              /*log_history=*/true,
-                                              /*log_result=*/true);
+                                                  mg_data.coarse_solver.abstol,
+                                                  mg_data.coarse_solver.reltol,
+                                                  /*log_history=*/true,
+                                                  /*log_result=*/true);
   SolverCG<VectorType> coarse_grid_solver(coarse_grid_solver_control);
 
   PreconditionIdentity precondition_identity;
@@ -260,11 +260,11 @@ mg_solve(
         {
           min_max_avg[level].resize(7);
           for (unsigned int i = 0; i < 7; ++i)
-            min_max_avg[level][i] =
-              Utilities::MPI::min_max_avg(all_mg_timers[level][i].first, dof.get_communicator());
+            min_max_avg[level][i] = Utilities::MPI::min_max_avg(all_mg_timers[level][i].first,
+                                                                dof.get_mpi_communicator());
         }
 
-      if (Utilities::MPI::this_mpi_process(dof.get_communicator()) == 0)
+      if (Utilities::MPI::this_mpi_process(dof.get_mpi_communicator()) == 0)
         {
           dealii::ConvergenceTable table;
           for (unsigned int level = 0; level < all_mg_timers.size(); ++level)

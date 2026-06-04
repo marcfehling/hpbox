@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2022 - 2023 by the deal.II authors
+// Copyright (C) 2022 - 2026 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -73,9 +73,9 @@ namespace StokesMatrixFree
   private:
     // const Parameters &prm;
 
-    dealii::SmartPointer<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
-    dealii::SmartPointer<const dealii::hp::QCollection<dim>>                 quadrature_collection;
-    dealii::SmartPointer<const dealii::AffineConstraints<value_type>>        constraints;
+    dealii::ObserverPointer<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
+    dealii::ObserverPointer<const dealii::hp::QCollection<dim>>          quadrature_collection;
+    dealii::ObserverPointer<const dealii::AffineConstraints<value_type>> constraints;
 
     // TODO: Add RHS function to constructor
     //       Grab and set as RHS in reinit
@@ -151,9 +151,9 @@ namespace StokesMatrixFree
   private:
     // const Parameters &prm;
 
-    dealii::SmartPointer<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
-    dealii::SmartPointer<const dealii::hp::QCollection<dim>>                 quadrature_collection;
-    dealii::SmartPointer<const dealii::AffineConstraints<value_type>>        constraints;
+    dealii::ObserverPointer<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
+    dealii::ObserverPointer<const dealii::hp::QCollection<dim>>          quadrature_collection;
+    dealii::ObserverPointer<const dealii::AffineConstraints<value_type>> constraints;
 
     void
     do_cell_integral_local(FECellIntegrator &integrator) const;
@@ -224,10 +224,10 @@ namespace StokesMatrixFree
   private:
     // const Parameters &prm;
 
-    dealii::SmartPointer<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
-    const std::vector<dealii::hp::QCollection<dim>>                         *quadrature_collections;
-    const std::vector<const dealii::AffineConstraints<value_type> *>        *constraints;
-    const std::vector<const dealii::Function<spacedim> *>                   *rhs_functions;
+    dealii::ObserverPointer<const dealii::hp::MappingCollection<dim, spacedim>> mapping_collection;
+    const std::vector<dealii::hp::QCollection<dim>>                  *quadrature_collections;
+    const std::vector<const dealii::AffineConstraints<value_type> *> *constraints;
+    const std::vector<const dealii::Function<spacedim> *>            *rhs_functions;
 
     void
     do_cell_integral_range(const dealii::MatrixFree<dim, value_type>   &matrix_free,

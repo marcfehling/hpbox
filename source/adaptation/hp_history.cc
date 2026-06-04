@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2020 - 2023 by the deal.II authors
+// Copyright (C) 2020 - 2026 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -149,7 +149,7 @@ namespace Adaptation
 
         const float global_minimum =
           Utilities::MPI::min(*std::min_element(hp_indicators.begin(), hp_indicators.end()),
-                              triangulation->get_communicator());
+                              triangulation->get_mpi_communicator());
         if (global_minimum <= 0)
           {
             // (- 1.) ensures that the smallest indicator will be > 0

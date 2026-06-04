@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2022 - 2023 by the deal.II authors
+// Copyright (C) 2022 - 2026 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -188,17 +188,17 @@ namespace StokesMatrixFree
           unsigned int fe_index = numbers::invalid_unsigned_int;
           switch (status)
             {
-              case Triangulation<dim, spacedim>::CELL_PERSIST:
-              case Triangulation<dim, spacedim>::CELL_REFINE:
-              case Triangulation<dim, spacedim>::CELL_INVALID:
+              case CellStatus::cell_will_persist:
+              case CellStatus::cell_will_be_refined:
+              case CellStatus::cell_invalid:
                 fe_index = cell->future_fe_index();
                 break;
 
-              case Triangulation<dim, spacedim>::CELL_COARSEN:
+              case CellStatus::children_will_be_coarsened:
 #ifdef DEBUG
                 for (const auto &child : cell->child_iterators())
                   Assert(child->is_active() && child->coarsen_flag_set(),
-                         typename dealii::Triangulation<dim>::ExcInconsistentCoarseningFlags());
+                         StandardExceptions::ExcInconsistentCoarseningFlags());
 #endif
 
                 fe_index = dealii::internal::hp::DoFHandlerImplementation::

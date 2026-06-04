@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2022 - 2023 by the deal.II authors
+// Copyright (C) 2022 - 2026 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -75,7 +75,7 @@ template <int dim, int spacedim>
 void
 Partitioning::reinit(const dealii::DoFHandler<dim, spacedim> &dof_handler)
 {
-  communicator  = dof_handler.get_communicator();
+  communicator  = dof_handler.get_mpi_communicator();
   owned_dofs    = dof_handler.locally_owned_dofs();
   active_dofs   = dealii::DoFTools::extract_locally_active_dofs(dof_handler);
   relevant_dofs = dealii::DoFTools::extract_locally_relevant_dofs(dof_handler);

@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2022 - 2023 by the deal.II authors
+// Copyright (C) 2022 - 2026 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -148,9 +148,9 @@ namespace StokesMatrixFree
     }
 
   private:
-    const dealii::SmartPointer<const StokesMatrixType>          stokes_matrix;
-    const dealii::SmartPointer<const ABlockMatrixType>          a_block;
-    const dealii::SmartPointer<const SchurComplementMatrixType> schur_complement_block;
+    const dealii::ObserverPointer<const StokesMatrixType>          stokes_matrix;
+    const dealii::ObserverPointer<const ABlockMatrixType>          a_block;
+    const dealii::ObserverPointer<const SchurComplementMatrixType> schur_complement_block;
 
     const ABlockPreconditionerType          &a_block_preconditioner;
     const SchurComplementPreconditionerType &schur_complement_preconditioner;
@@ -612,10 +612,10 @@ namespace StokesMatrixFree
 
     // Initialize coarse-grid solver.
     ReductionControl     coarse_grid_solver_control(mg_data.coarse_solver.maxiter,
-                                                mg_data.coarse_solver.abstol,
-                                                mg_data.coarse_solver.reltol,
-                                                /*log_history=*/true,
-                                                /*log_result=*/true);
+                                                    mg_data.coarse_solver.abstol,
+                                                    mg_data.coarse_solver.reltol,
+                                                    /*log_history=*/true,
+                                                    /*log_result=*/true);
     SolverCG<VectorType> coarse_grid_solver(coarse_grid_solver_control);
 
     std::unique_ptr<MGCoarseGridBase<VectorType>> mg_coarse;
@@ -718,11 +718,12 @@ namespace StokesMatrixFree
           {
             min_max_avg[level].resize(7);
             for (unsigned int i = 0; i < 7; ++i)
-              min_max_avg[level][i] = Utilities::MPI::min_max_avg(all_mg_timers[level][i].first,
-                                                                  dof_handler.get_communicator());
+              min_max_avg[level][i] =
+                Utilities::MPI::min_max_avg(all_mg_timers[level][i].first,
+                                            dof_handler.get_mpi_communicator());
           }
 
-        if (Utilities::MPI::this_mpi_process(dof_handler.get_communicator()) == 0)
+        if (Utilities::MPI::this_mpi_process(dof_handler.get_mpi_communicator()) == 0)
           {
             dealii::ConvergenceTable table;
             for (unsigned int level = 0; level < all_mg_timers.size(); ++level)

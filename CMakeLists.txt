@@ -1,6 +1,6 @@
 ## ---------------------------------------------------------------------
 ##
-## Copyright (C) 2020 - 2023 by the deal.II authors
+## Copyright (C) 2020 - 2026 by the deal.II authors
 ##
 ## This file is part of the deal.II library.
 ##
@@ -24,7 +24,7 @@ CMAKE_MINIMUM_REQUIRED( VERSION 3.13.4 )
 #
 # Find deal.II
 #
-FIND_PACKAGE( deal.II 9.6.0 QUIET
+FIND_PACKAGE( deal.II 9.8.0 QUIET
   HINTS ${deal.II_DIR} ${DEAL_II_DIR} $ENV{DEAL_II_DIR}
   )
 IF( NOT ${deal.II_FOUND} )

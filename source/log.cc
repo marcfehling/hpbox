@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2021 - 2023 by the deal.II authors
+// Copyright (C) 2021 - 2026 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -69,7 +69,7 @@ namespace Log
     ConditionalOStream &pcout = getPCOut();
     TableHandler       &table = getTable();
 
-    const MPI_Comm &mpi_communicator = triangulation.get_communicator();
+    const MPI_Comm &mpi_communicator = triangulation.get_mpi_communicator();
 
     const unsigned int first_n_processes =
       std::min<unsigned int>(8, Utilities::MPI::n_mpi_processes(mpi_communicator));
@@ -253,7 +253,7 @@ namespace Log
 
     const auto n_global_patch_dofs =
       Utilities::MPI::sum<types::global_dof_index>(all_indices.size(),
-                                                   dof_handler.get_communicator());
+                                                   dof_handler.get_mpi_communicator());
 
     getPCOut() << "   Number of patch DoFs:         " << n_global_patch_dofs << std::endl;
     getTable().add_value("patch_dofs", n_global_patch_dofs);

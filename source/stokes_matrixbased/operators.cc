@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2022 - 2023 by the deal.II authors
+// Copyright (C) 2022 - 2026 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -82,13 +82,13 @@ namespace StokesMatrixBased
       TimerOutput::Scope t(getTimer(), "setup_system");
 
       // setup partitioners for initialize_dof_vector
-      this->communicator = dof_handler.get_communicator();
+      this->communicator = dof_handler.get_mpi_communicator();
       this->partitioning = partitioning;
 
       this->dealii_partitioner = std::make_shared<const Utilities::MPI::Partitioner>(
         partitioning.get_owned_dofs_per_block()[0],
         partitioning.get_relevant_dofs_per_block()[0],
-        dof_handler.get_communicator());
+        dof_handler.get_mpi_communicator());
 
       {
         TimerOutput::Scope t(getTimer(), "reinit_matrices");
@@ -291,13 +291,13 @@ namespace StokesMatrixBased
       TimerOutput::Scope t(getTimer(), "setup_system");
 
       // setup partitioners for initialize_dof_vector
-      this->communicator = dof_handler.get_communicator();
+      this->communicator = dof_handler.get_mpi_communicator();
       this->partitioning = partitioning;
 
       this->dealii_partitioner = std::make_shared<const Utilities::MPI::Partitioner>(
         partitioning.get_owned_dofs_per_block()[1],
         partitioning.get_relevant_dofs_per_block()[1],
-        dof_handler.get_communicator());
+        dof_handler.get_mpi_communicator());
 
       {
         TimerOutput::Scope t(getTimer(), "reinit_matrices");
@@ -517,7 +517,7 @@ namespace StokesMatrixBased
       TimerOutput::Scope t(getTimer(), "setup_system");
 
       // setup partitioners for initialize_dof_vector
-      this->communicator = dof_handler.get_communicator();
+      this->communicator = dof_handler.get_mpi_communicator();
       this->partitioning = partitioning;
 
       dealii_partitioners.clear();

@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2022 - 2023 by the deal.II authors
+// Copyright (C) 2022 - 2026 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -132,9 +132,9 @@ namespace StokesMatrixBased
     }
 
   private:
-    const dealii::SmartPointer<const StokesMatrixType>          stokes_matrix;
-    const dealii::SmartPointer<const ABlockMatrixType>          a_block;
-    const dealii::SmartPointer<const SchurComplementMatrixType> schur_complement_block;
+    const dealii::ObserverPointer<const StokesMatrixType>          stokes_matrix;
+    const dealii::ObserverPointer<const ABlockMatrixType>          a_block;
+    const dealii::ObserverPointer<const SchurComplementMatrixType> schur_complement_block;
 
     const typename LinearAlgebra::PreconditionAMG    &a_block_preconditioner;
     const typename LinearAlgebra::PreconditionJacobi &schur_complement_preconditioner;
@@ -173,11 +173,10 @@ namespace StokesMatrixBased
     else if constexpr (std::is_same<LinearAlgebra, Trilinos>::value ||
                        std::is_same<LinearAlgebra, dealiiTrilinos>::value)
       {
-        std::vector<std::vector<bool>> constant_modes;
-
         const dealii::FEValuesExtractors::Vector velocities(0);
-        dealii::DoFTools::extract_constant_modes(
-          dof_handler, dof_handler.get_fe_collection().component_mask(velocities), constant_modes);
+        const std::vector<std::vector<bool>>     constant_modes =
+          dealii::DoFTools::extract_constant_modes(
+            dof_handler, dof_handler.get_fe_collection().component_mask(velocities));
 
         Amg_data.constant_modes        = constant_modes;
         Amg_data.elliptic              = true;

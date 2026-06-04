@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2020 - 2023 by the deal.II authors
+// Copyright (C) 2020 - 2026 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -17,7 +17,7 @@
 #define adaptation_p_h
 
 
-#include <deal.II/base/smartpointer.h>
+#include <deal.II/base/observer_pointer.h>
 
 #include <deal.II/distributed/tria.h>
 
@@ -68,9 +68,9 @@ namespace Adaptation
   private:
     const Parameter &prm;
 
-    const dealii::SmartPointer<const VectorType>                  locally_relevant_solution;
-    const dealii::SmartPointer<dealii::DoFHandler<dim, spacedim>> dof_handler;
-    const dealii::SmartPointer<dealii::parallel::distributed::Triangulation<dim, spacedim>>
+    const dealii::ObserverPointer<const VectorType>                  locally_relevant_solution;
+    const dealii::ObserverPointer<dealii::DoFHandler<dim, spacedim>> dof_handler;
+    const dealii::ObserverPointer<dealii::parallel::distributed::Triangulation<dim, spacedim>>
       triangulation;
 
     const dealii::ComponentMask component_mask;

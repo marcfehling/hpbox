@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2022 - 2023 by the deal.II authors
+// Copyright (C) 2022 - 2026 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -474,7 +474,8 @@ namespace StokesMatrixFree
     // TODO: that is just the -Au0 part. add the rhs function part (check step-37/step-67)
     {
       AffineConstraints<value_type> constraints_v_without_dbc;
-      constraints_v_without_dbc.reinit(partitionings[0]->get_relevant_dofs());
+      constraints_v_without_dbc.reinit(partitionings[0]->get_owned_dofs(),
+                                       partitionings[0]->get_relevant_dofs());
       DoFTools::make_hanging_node_constraints(*dof_handlers[0], constraints_v_without_dbc);
       constraints_v_without_dbc.make_consistent_in_parallel(partitionings[0]->get_owned_dofs(),
                                                             partitionings[0]->get_active_dofs(),
@@ -482,7 +483,8 @@ namespace StokesMatrixFree
       constraints_v_without_dbc.close();
 
       AffineConstraints<value_type> constraints_p_without_dbc;
-      constraints_p_without_dbc.reinit(partitionings[1]->get_relevant_dofs());
+      constraints_p_without_dbc.reinit(partitionings[1]->get_owned_dofs(),
+                                       partitionings[1]->get_relevant_dofs());
       DoFTools::make_hanging_node_constraints(*dof_handlers[1], constraints_p_without_dbc);
       constraints_p_without_dbc.make_consistent_in_parallel(partitionings[1]->get_owned_dofs(),
                                                             partitionings[1]->get_active_dofs(),

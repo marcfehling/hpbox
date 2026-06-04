@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2020 - 2023 by the deal.II authors
+// Copyright (C) 2020 - 2026 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -82,7 +82,7 @@ namespace PoissonMatrixBased
       this->dealii_partitioner =
         std::make_shared<const Utilities::MPI::Partitioner>(partitioning.get_owned_dofs(),
                                                             partitioning.get_relevant_dofs(),
-                                                            dof_handler.get_communicator());
+                                                            dof_handler.get_mpi_communicator());
 
       {
         TimerOutput::Scope t(getTimer(), "reinit_matrix");
@@ -143,7 +143,7 @@ namespace PoissonMatrixBased
       this->dealii_partitioner =
         std::make_shared<const Utilities::MPI::Partitioner>(partitioning.get_owned_dofs(),
                                                             partitioning.get_relevant_dofs(),
-                                                            dof_handler.get_communicator());
+                                                            dof_handler.get_mpi_communicator());
 
       {
         TimerOutput::Scope t(getTimer(), "reinit_matrix");

@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2023 by the deal.II authors
+// Copyright (C) 2023 - 2026 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -22,7 +22,7 @@
 
 #include <deal.II/lac/sparse_matrix_tools.h>
 
-#include <deal.II/multigrid/mg_transfer_global_coarsening.templates.h>
+#include <deal.II/multigrid/mg_transfer_matrix_free.templates.h>
 
 #include <global.h>
 
