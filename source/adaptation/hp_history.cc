@@ -73,6 +73,7 @@ namespace Adaptation
                                                    prm.max_p_level_difference,
                                                    /*contains=*/min_fe_index);
 
+          error_estimates.grow_or_shrink(triangulation.n_active_cells());
           error_predictions.grow_or_shrink(triangulation.n_active_cells());
           hp::Refinement::predict_error(dof_handler,
                                         error_estimates,
@@ -88,6 +89,7 @@ namespace Adaptation
           const parallel::distributed::TemporarilyMatchRefineFlags<dim, spacedim> refine_modifier(
             triangulation);
 
+          error_estimates.grow_or_shrink(triangulation.n_active_cells());
           error_predictions.grow_or_shrink(triangulation.n_active_cells());
           hp::Refinement::predict_error(dof_handler,
                                         error_estimates,
