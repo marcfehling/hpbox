@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2020 - 2023 by the deal.II authors
+// Copyright (C) 2020 - 2026 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -56,22 +56,19 @@ namespace Adaptation
              ExcMessage("For vector problems, you need to specify "
                         "only one component."));
 
-    if (fe_collection[0].n_components() > 1)
-      Assert(component_mask.n_selected_components() == 1,
-             ExcMessage("For vector problems, you need to specify "
-                        "only one component."));
-
     // like SmoothnessEstimator::default_fe_series(), but with component_mask
     {
       std::vector<unsigned int> n_coefficients_per_direction;
       for (unsigned int i = 0; i < fe_collection.size(); ++i)
         n_coefficients_per_direction.push_back(fe_collection[i].degree + 2);
 
+      const QGauss<1>      base_quadrature(5);
       hp::QCollection<dim> q_collection;
       for (unsigned int i = 0; i < fe_collection.size(); ++i)
         {
-          const QGauss<dim>  quadrature(n_coefficients_per_direction[i]);
-          const QSorted<dim> quadrature_sorted(quadrature);
+          const QIterated<dim> quadrature(base_quadrature,
+                                          n_coefficients_per_direction[i] - 1);
+          const QSorted<dim>   quadrature_sorted(quadrature);
           q_collection.push_back(quadrature_sorted);
         }
 
