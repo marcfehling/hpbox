@@ -556,7 +556,6 @@ namespace StokesMatrixBased
           }
 
         getTimer().reset();
-        getTable().start_new_row();
       }
   }
 

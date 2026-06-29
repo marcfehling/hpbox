@@ -714,7 +714,6 @@ namespace StokesMatrixFree
           }
 
         getTimer().reset();
-        getTable().start_new_row();
       }
   }
 

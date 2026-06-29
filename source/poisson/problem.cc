@@ -495,7 +495,6 @@ namespace Poisson
           }
 
         getTimer().reset();
-        getTable().start_new_row();
       }
   }
 
