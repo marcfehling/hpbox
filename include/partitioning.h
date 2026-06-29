@@ -96,9 +96,6 @@ Partitioning::reinit_blocks(const dealii::DoFHandler<dim, spacedim> &dof_handler
                    dofs_per_block.end(),
                    std::next(cumulated_dofs_per_block.begin()));
 
-  Assert((!owned_dofs.is_empty()) && (!relevant_dofs.is_empty()),
-         dealii::ExcMessage("Call reinit() first!"));
-
   owned_dofs_per_block.resize(n_blocks);
   relevant_dofs_per_block.resize(n_blocks);
   for (unsigned int b = 0; b < n_blocks; ++b)
