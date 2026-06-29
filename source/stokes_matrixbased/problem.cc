@@ -138,10 +138,11 @@ namespace StokesMatrixBased
     // cell weighting
     if (prm.adaptation_type != "h")
       {
-        cell_weights.reinit(dof_handler,
-                            parallel::CellWeights<dim, spacedim>::ndofs_weighting(
-                              {prm.prm_adaptation.weighting_factor,
-                               prm.prm_adaptation.weighting_exponent}));
+        const auto weighting_function = parallel::CellWeights<dim>::ndofs_weighting(
+          {prm.prm_adaptation.weighting_factor, prm.prm_adaptation.weighting_exponent});
+        const auto precomputed_weights =
+          parallel::CellWeights<dim>::precompute_weights(fe_collection, weighting_function);
+        cell_weights.reinit(dof_handler, precomputed_weights);
       }
   }
 
