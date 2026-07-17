@@ -156,64 +156,27 @@ namespace StokesMatrixFree
     // cell weighting
     if (prm.adaptation_type != "h")
       {
+        // matrixfree requires that cells on both dofhandlers have the same active fe indices.
         // precompute weights per finite element
-        std::vector<unsigned int> weights(fe_collection_v.size());
-        for (unsigned int i = 0; i < weights.size(); ++i)
+        std::vector<unsigned int> precomputed_weights(fe_collection_p.size());
+        for (unsigned int i = 0; i < precomputed_weights.size(); ++i)
           {
             // dofs per cell for all fes with index i
-            // unsigned int n_dofs_per_cell = 0;
-            // for(const auto &fe_collection : fe_collections)
-            //   n_dofs_per_cell += fe_collection[i].n_dofs_per_cell();
             const unsigned int n_dofs_per_cell =
               fe_collection_v[i].n_dofs_per_cell() + fe_collection_p[i].n_dofs_per_cell();
 
-            const float result = prm.prm_adaptation.weighting_factor *
-                                 std::pow(n_dofs_per_cell, prm.prm_adaptation.weighting_exponent);
+            const float result =
+              std::trunc(prm.prm_adaptation.weighting_factor *
+                         std::pow(n_dofs_per_cell, prm.prm_adaptation.weighting_exponent));
 
             AssertThrow(result >= 0. &&
                           result <= static_cast<float>(std::numeric_limits<unsigned int>::max()),
                         ExcMessage("Cannot cast determined weight for this cell to unsigned int!"));
 
-            weights[i] = static_cast<unsigned int>(result);
+            precomputed_weights[i] = static_cast<unsigned int>(result);
           }
-
-        const auto weighting_function =
-          [dof_handler = dof_handlers[0],
-           weights](const typename parallel::distributed::Triangulation<dim>::cell_iterator &cell_,
-                    const typename parallel::distributed::Triangulation<dim>::CellStatus     status)
-          -> unsigned int {
-          // get dofs from future fe, and assume all dofhandlers use the same fe index
-          const typename DoFHandler<dim, spacedim>::cell_iterator cell(*cell_, dof_handler);
-
-          unsigned int fe_index = numbers::invalid_unsigned_int;
-          switch (status)
-            {
-              case CellStatus::cell_will_persist:
-              case CellStatus::cell_will_be_refined:
-              case CellStatus::cell_invalid:
-                fe_index = cell->future_fe_index();
-                break;
-
-              case CellStatus::children_will_be_coarsened:
-#ifdef DEBUG
-                for (const auto &child : cell->child_iterators())
-                  Assert(child->is_active() && child->coarsen_flag_set(),
-                         StandardExceptions::ExcInconsistentCoarseningFlags());
-#endif
-
-                fe_index = dealii::internal::hp::DoFHandlerImplementation::
-                  dominated_future_fe_on_children<dim, spacedim>(cell);
-                break;
-
-              default:
-                Assert(false, ExcInternalError());
-                break;
-            }
-
-          return weights[fe_index];
-        };
-
-        weight_connection = triangulation.signals.weight.connect(weighting_function);
+        // choose the dofhandler that stores future fe indices. here, it is the pressure dofhandler
+        cell_weights_p.reinit(dof_handler_p, precomputed_weights);
       }
   }
 

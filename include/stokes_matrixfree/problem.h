@@ -93,6 +93,7 @@ namespace StokesMatrixFree
 
     std::unique_ptr<dealii::hp::FEValues<dim, spacedim>> fe_values_collection;
     std::unique_ptr<Adaptation::Base>                    adaptation_strategy_p;
+    dealii::parallel::CellWeights<dim, spacedim>         cell_weights_p;
 
     boost::signals2::connection weight_connection;
 
